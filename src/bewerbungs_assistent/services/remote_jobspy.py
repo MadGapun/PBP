@@ -22,12 +22,71 @@ gar nichts sagt — und dann `hybrid`, nicht `remote`. `False` heisst
 
 Dieselbe Regel gilt fuer Treffer aus Google Jobs, die Claude im Browser uebernimmt
 (`stelle_manuell_anlegen`, #1184): siehe `google_angaben`.
+
+Seit #1298/#1299 steht hier auch die EINE Normalisierung einer Remote-Angabe von aussen
+(`normalisieren`): die Browser-Uebernahme, die LinkedIn-Uebernahme und die Handkorrektur
+(`stelle_aendern`) fragen hier, statt je eine eigene Fassung zu haben. Ein `remote: true` aus
+dem Browserlauf wurde vorher per `str()` zu "True" und still gespeichert; der Rahmen prueft auf
+genau "remote", und voll remote ausgeschriebene Stellen fielen unter die 40-km-Grenze.
+`ungueltige_bereinigen` bildet solche Altwerte beim Start auf das Vokabular ab.
 """
 from __future__ import annotations
 
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+#: Das Vokabular von `jobs.remote_level` — dieselben vier Stufen wie `set_job_remote_level`.
+STUFEN = ("remote", "hybrid", "vor_ort", "unbekannt")
+
+#: Ja/Nein-Angaben ("ist die Stelle remote?"), wie sie aus einem Browserlauf kommen.
+_JA = frozenset({"true", "ja", "yes", "y", "1", "wahr"})
+_NEIN = frozenset({"false", "nein", "no", "n", "0", "falsch"})
+#: Ausdruecklich vor Ort.
+_VOR_ORT = frozenset({"vor ort", "vor-ort", "vorort", "vor_ort", "onsite", "on-site", "on site",
+                      "praesenz", "präsenz", "im buero", "im büro", "buero", "büro", "office"})
+#: "nicht remote", "kein Homeoffice" — eine verneinte Angabe ist kein Remote-Signal.
+_VERNEINT = re.compile(r"\b(?:nicht|kein(?:e|en)?|no|not)\s+(?:remote|homeoffice|home[- ]office)\b")
+_LEER = re.compile(r"[\s   ]+")
+
+
+def normalisieren(wert) -> tuple[str, str | None]:
+    """Eine Remote-Angabe von aussen auf das Vokabular abbilden (#1298).
+
+    Rueckgabe `(stufe, hinweis)`. `hinweis` ist None, wenn die Angabe verstanden wurde; sonst steht
+    `stufe` auf `unbekannt` und der Hinweis sagt, was nicht verstanden wurde — er gehoert in die
+    Antwort an Claude. Unbekanntes wird NIE still gespeichert (Lehre L7: unbekannt ist ein eigener
+    Zustand, kein Ersatzwert).
+
+    * `True`, "true", "ja", "100 % remote", "voll remote", "fully remote" -> `remote`
+    * `False`, "false", "nein", "vor Ort", "nicht remote"                 -> `vor_ort`
+    * "hybrid", "teilweise remote", "2 Tage Homeoffice"                    -> `hybrid`
+    * None, "" -> `unbekannt` ohne Hinweis (keine Angabe ist keine falsche Angabe)
+    """
+    if wert is None:
+        return "unbekannt", None
+    if isinstance(wert, bool):
+        return ("remote" if wert else "vor_ort"), None
+    if isinstance(wert, (int, float)) and wert in (0, 1):
+        return ("remote" if wert else "vor_ort"), None
+    text = _LEER.sub(" ", str(wert)).strip().lower()
+    if not text:
+        return "unbekannt", None
+    if text in STUFEN:
+        return text, None
+    if text in _JA:
+        return "remote", None
+    if text in _NEIN or text in _VOR_ORT or _VERNEINT.search(text):
+        return "vor_ort", None
+    from ..job_scraper import detect_remote_level
+    stufe = detect_remote_level(text)
+    if stufe != "unbekannt":
+        return stufe, None
+    return "unbekannt", (
+        f"Die Remote-Angabe „{str(wert)[:60]}“ ist nicht verständlich und wurde als „unbekannt“ "
+        "gespeichert. Gültig sind: remote, hybrid, vor_ort, unbekannt (auch true/false).")
+
 
 #: Quellen, deren `remote_level` aus `is_remote` stammen konnte.
 QUELLEN = ("jobspy_indeed", "jobspy_linkedin", "jobspy_google",
@@ -73,7 +132,8 @@ def bestand_nachziehen(db) -> dict:
     platz = ",".join("?" * len(QUELLEN))
     zeilen = conn.execute(
         "SELECT hash, title, location, description, remote_level FROM jobs "
-        f"WHERE source IN ({platz}) AND remote_level IN ('remote', 'vor_ort')",
+        f"WHERE source IN ({platz}) AND remote_level IN ('remote', 'vor_ort') "
+        "AND COALESCE(remote_quelle, '') != 'mensch'",
         QUELLEN).fetchall()
     geaendert: dict = {}
     for r in zeilen:
@@ -94,3 +154,46 @@ def bestand_nachziehen(db) -> dict:
                     "nachgezogen: %s", sum(geaendert.values()), geaendert)
     return {"status": "nachgezogen", "geprueft": len(zeilen),
             "geaendert": geaendert}
+
+
+def ungueltige_bereinigen(db) -> dict:
+    """Altbestand: `remote_level` ausserhalb des Vokabulars auf eine Stufe abbilden (#1298 AK 5).
+
+    Die Browser-Uebernahme speicherte bis #1298 `str(remote)`, aus `remote: true` wurde "True". Der
+    Rahmen prueft auf genau "remote" — die Stelle lief gegen die 40-km-Grenze. Beim Start gerufen
+    (`Database.initialize`), idempotent ueber die Bedingung selbst: nach dem ersten Lauf findet die
+    Abfrage nichts mehr, ein Merker ist nicht noetig, und ein spaeter auftauchender Altwert (Sicherung
+    zurueckgespielt) wird beim naechsten Start ebenso gefangen.
+
+    Reihenfolge: zuerst die Angabe selbst (`normalisieren`: "True" -> remote, "False" -> vor_ort), und
+    nur wenn sie nichts sagt, der Text der Anzeige (`bestimmen`). Danach Punkte und Rahmenzahl der
+    geaenderten Stellen neu (`stelle_aendern.neu_bewerten`).
+    """
+    conn = db.connect()
+    platz = ",".join("?" * len(STUFEN))
+    zeilen = conn.execute(
+        "SELECT hash, title, location, description, remote_level FROM jobs "
+        f"WHERE remote_level IS NOT NULL AND remote_level NOT IN ({platz})",
+        STUFEN).fetchall()
+    if not zeilen:
+        return {"status": "nichts_zu_tun", "geaendert": {}}
+    geaendert: dict = {}
+    hashes = []
+    for r in zeilen:
+        stufe, hinweis = normalisieren(r["remote_level"])
+        if hinweis:
+            stufe = bestimmen(r["title"], r["location"], r["description"])
+        conn.execute("UPDATE jobs SET remote_level=? WHERE hash=?", (stufe, r["hash"]))
+        schluessel = f"{r['remote_level']}->{stufe}"
+        geaendert[schluessel] = geaendert.get(schluessel, 0) + 1
+        hashes.append(r["hash"])
+    conn.commit()
+    neu_bewertet = 0
+    try:
+        from .stelle_aendern import neu_bewerten
+        neu_bewertet = neu_bewerten(db, hashes)
+    except Exception as exc:  # noqa: BLE001 - die Bereinigung steht, die Punkte zieht scores_neu_berechnen nach
+        logger.warning("Remote-Bereinigung (#1298): Punkte nicht neu berechnet: %s", exc)
+    logger.info("Remote-Grad von %d Stellen auf das Vokabular gebracht (#1298): %s",
+                len(hashes), geaendert)
+    return {"status": "bereinigt", "geaendert": geaendert, "neu_bewertet": neu_bewertet}
