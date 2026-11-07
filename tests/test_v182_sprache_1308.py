@@ -64,8 +64,13 @@ def test_fehlender_oder_kurzer_text_ist_unbekannt(text):
 
 
 def test_der_titel_allein_entscheidet_nie():
-    job = {"title": "We are looking for you and your team for the role of the engineer in our company", "description": ""}
+    # ein Titel, der fuer sich allein lang genug waere, um als englisch zu gelten (Gegenprobe 07.11.2026: mit einem
+    # kurzen Titel blieb der Test gruen, auch als der Schutz ausgebaut war)
+    langer_titel = EN
+    assert sprache.erkennen(langer_titel) == "en"
+    job = {"title": langer_titel, "description": ""}
     assert sprache.erkennen_stelle(job) == "unbekannt"
+    assert sprache.erkennen_stelle({"title": langer_titel, "description": "   "}) == "unbekannt"
     assert sprache.erkennen_stelle({"title": "Ingenieur", "description": DE}) == "de"
 
 
