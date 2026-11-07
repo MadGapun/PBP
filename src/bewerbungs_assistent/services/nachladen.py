@@ -547,6 +547,7 @@ def neu_auswerten(db, job_hash: str) -> dict:
         spalten: dict = {}
         umfang_alt = (job.get("arbeitsumfang") or "").strip().lower()
         if (umfang_alt in ("", stellenart.UNBEKANNT)
+                and job.get("umfang_quelle") != "mensch"   # #1299: Handkorrektur bleibt
                 and m["umfang"] and m["umfang"] != stellenart.UNBEKANNT):
             spalten["arbeitsumfang"] = m["umfang"]
         if m["befristet"] and not job.get("befristet"):

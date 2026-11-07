@@ -4328,10 +4328,15 @@ def detect_remote_level(text: str) -> str:
     die Firmengroesse, keinen Arbeitsplatz — gemessen stand "bundesweit
     rund 4.000 Mitarbeitende" in einer Laboranzeige.
     """
-    text_lower = text.lower()
+    # #1299: geschuetzte und schmale Leerzeichen ("100 % remote" aus einer
+    # Webseite) zaehlen wie ein Leerzeichen — sonst traf die Liste nur
+    # zufaellig ueber das blosse Wort "remote" weiter unten, und ein "hybrid"
+    # im selben Text schlug sie.
+    text_lower = re.sub(r"[\s   ]+", " ", text.lower())
     if any(kw in text_lower for kw in [
             "100% remote", "100 % remote", "vollstaendig remote",
             "vollständig remote", "full remote", "fully remote",
+            "voll remote", "komplett remote", "100%-remote",
             "rein remote", "100% homeoffice", "100 % homeoffice",
             "komplett im homeoffice", "ausschliesslich im homeoffice",
             "ausschließlich im homeoffice", "remote-first", "remote first"]):
