@@ -1596,13 +1596,17 @@ def register(mcp, db, logger):
             nur_aktiv: True = nur aktive Gruende. False (Default) zeigt alle
                 inkl. deaktivierte.
         """
+        from ..services.ablehnungsgruende import NICHT_ABSCHALTBAR, ist_standardgrund
         rows = db.get_dismiss_reasons() or []
         items = []
         for r in rows:
             entry = {
                 "id": r.get("id"),
                 "label": r.get("label"),
-                "is_custom": bool(r.get("is_custom")),
+                # #1297: ein Standardgrund ist kein eigener, auch wenn ihn ein
+                # alter Bestand als eigene Zeile angelegt hat.
+                "is_custom": bool(r.get("is_custom")) and not ist_standardgrund(r.get("label")),
+                "abschaltbar": str(r.get("label") or "").strip().lower() not in NICHT_ABSCHALTBAR,
                 "usage_count": r.get("usage_count", 0),
                 "is_active": bool(r.get("is_active", 1)),
                 "created_at": r.get("created_at"),
@@ -1741,12 +1745,21 @@ def register(mcp, db, logger):
             bestaetigung: True löscht. Ohne kommt eine Vorschau mit der
                 Zahl der betroffenen Stellen (H27, #1087 G7).
         """
+        from ..services.ablehnungsgruende import ist_standardgrund
         if not bestaetigung:
             con = db.connect()
             row = con.execute("SELECT label FROM dismiss_reasons WHERE id=?",
                               (grund_id,)).fetchone()
             if not row:
                 return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
+            if ist_standardgrund(row["label"]):
+                # #1297: ein Standardgrund wird abgeschaltet statt geloescht und
+                # bleibt aus - auch nach einem Neustart. Der Bestand bleibt.
+                return {"status": "vorschau", "id": grund_id, "label": row["label"],
+                        **db.dismiss_reason_bestand(row["label"]),
+                        "hinweis": ("Standardgrund: wird abgeschaltet, nicht gelöscht, und "
+                                    "bleibt aus. Bisherige Aussortierungen bleiben. Zum "
+                                    "Abschalten erneut mit bestaetigung=True.")}
             n = con.execute("SELECT COUNT(*) FROM jobs WHERE dismiss_reason=?",
                             (row["label"],)).fetchone()[0]
             vorschau = {"status": "vorschau", "id": grund_id,
@@ -1765,6 +1778,10 @@ def register(mcp, db, logger):
             return {"fehler": str(exc)}
         if res.get("status") == "nicht_gefunden":
             return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
+        if res.get("status") == "abgeschaltet":
+            return {"status": "abgeschaltet", "id": grund_id, "label": res.get("label"),
+                    "hinweis": ("Standardgrund abgeschaltet; er steht in keiner Liste "
+                                "mehr und entsteht nicht neu.")}
         return {
             "status": "geloescht",
             "id": grund_id,
@@ -1777,23 +1794,37 @@ def register(mcp, db, logger):
     def ablehnungsgrund_aktivieren_setzen(grund_id: int, aktiv: bool) -> dict:
         """Aktiviert/Deaktiviert einen Ablehnungsgrund (#663 C20).
 
-        Deaktivierte Gruende werden nicht mehr in stelle_einordnen akzeptiert
-        (Treffer fallen auf 'sonstiges' zurück), bleiben aber in
-        ablehnungsgruende_anzeigen() sichtbar mit `is_active=False` und in
-        den Statistiken erhalten.
+        Gilt auch für Standardgründe (#1297). Ein abgeschalteter Grund
+        wird beim Aussortieren abgewiesen und steht in keiner Liste mehr;
+        bisherige Aussortierungen und Statistik bleiben.
 
         Args:
             grund_id: ID des Grunds
             aktiv: True = aktivieren, False = deaktivieren
         """
-        changed = db.set_dismiss_reason_active(grund_id, bool(aktiv))
+        try:
+            changed = db.set_dismiss_reason_active(grund_id, bool(aktiv))
+        except ValueError as exc:
+            return {"fehler": str(exc)}
         if not changed:
             return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
-        return {
+        antwort = {
             "status": "aktualisiert",
             "id": grund_id,
             "is_active": bool(aktiv),
         }
+        if not aktiv:
+            # #1297 Punkt 7: was den Grund traegt, bleibt - der Mensch sieht es.
+            row = db.connect().execute("SELECT label FROM dismiss_reasons WHERE id=?",
+                                       (grund_id,)).fetchone()
+            bestand = db.dismiss_reason_bestand(row["label"]) if row else {}
+            antwort["bestand"] = bestand
+            if bestand.get("davon_automatisch"):
+                antwort["hinweis"] = (
+                    f"{bestand['davon_automatisch']} Stelle(n) hat die Automatik mit diesem "
+                    "Grund aussortiert. Zurückholen: aussortier_protokoll(zeitfenster='alle', "
+                    "herkunft='automatik') zeigt sie, stelle_reaktivieren holt eine zurück.")
+        return antwort
 
     @mcp.tool()
     def stellen_filter_verwalten(

@@ -1097,7 +1097,14 @@ class Database:
                     conn.execute(f"ALTER TABLE jobs ADD COLUMN {_sp} REAL")
                     conn.commit()
                     logger.info("Safety-Net: jobs.%s nachgezogen (#942)", _sp)
-            for _label in ("falsches_system", "falsche_branche"):
+            # #1297: ALLE Standardgruende, nicht nur die zwei aus #913 - ohne
+            # Zeile kann der Mensch einen Grund nicht abschalten (alte
+            # Bestaende hatten keine fuer `kein_hochschulabschluss`,
+            # `bereits_beworben`, `duplikat`). Eine vorhandene Zeile bleibt,
+            # wie sie ist: ein abgeschalteter Grund wird nie neu angelegt
+            # und nie wieder eingeschaltet.
+            from .services.ablehnungsgruende import STANDARD_GRUENDE as _STD
+            for _label in _STD:
                 conn.execute(
                     "INSERT INTO dismiss_reasons (label, is_custom, "
                     "profile_id, created_at) "
@@ -1133,10 +1140,13 @@ class Database:
             if _j_cols:
                 from .services.ablehnungsgruende import (
                     ist_konform, normalisiere_dismiss_wert)
+                # #1297: geprueft wird gegen ALLE Gruende der Tabelle, auch
+                # abgeschaltete - eine bestehende Aussortierung bleibt, wie
+                # sie ist. Vorher wurde ein abgeschalteter eigener Grund bei
+                # jedem Start im Bestand zu 'sonstiges'.
                 try:
-                    _custom = {r["label"].lower() for r in
-                               (self.get_dismiss_reasons() or [])
-                               if r.get("is_custom") and r.get("is_active", 1)}
+                    _custom = {str(r["label"]).lower() for r in
+                               (self.get_dismiss_reasons() or [])}
                 except Exception:
                     _custom = set()
                 _rows = conn.execute(
@@ -6670,11 +6680,15 @@ class Database:
         # dismiss_note (Belegt: 101 Freitext-Gruende in 182 Datensaetzen,
         # die drei haeufigsten Nutzer-Signale ohne jeden Lerneffekt).
         try:
-            from .services.ablehnungsgruende import normalisiere_dismiss_wert
-            custom = {r["label"].lower() for r in
-                      (self.get_dismiss_reasons() or [])
+            from .services.ablehnungsgruende import (
+                abgeschaltete_gruende, normalisiere_dismiss_wert)
+            _zeilen = self.get_dismiss_reasons() or []
+            custom = {r["label"].lower() for r in _zeilen
                       if r.get("is_custom") and r.get("is_active", 1)}
-            reason, freitexte = normalisiere_dismiss_wert(reason, custom)
+            # #1297: ein abgeschalteter Grund entsteht hier nicht (auch nicht
+            # aus Freitext); die Werkzeuge weisen ihn vorher ab.
+            reason, freitexte = normalisiere_dismiss_wert(
+                reason, custom, abgeschaltete_gruende(self, _zeilen))
         except Exception as exc:
             logger.warning("dismiss_reason-Normalisierung (#913): %s", exc)
             freitexte = []
@@ -8152,7 +8166,11 @@ class Database:
           NACH dem Filter, sonst blieben bei einem Lauf der Automatik
           keine Beispiele uebrig.
         """
-        from .services.ablehnungsgruende import gruende_aus_wert, urteilsgruende_des_menschen
+        from .services.ablehnungsgruende import (
+            abgeschaltete_gruende, gruende_aus_wert, urteilsgruende_des_menschen)
+        # #1297: ein abgeschalteter Grund ist fuer den Menschen kein
+        # Ausschluss mehr - die KI soll ihn nicht als sein Muster lernen.
+        _aus = abgeschaltete_gruende(self)
         conn = self.connect()
         pid = self.get_active_profile_id()
         cur = conn.execute(
@@ -8170,6 +8188,7 @@ class Database:
                 if len(beispiele) >= int(limit):
                     break
                 gruende = urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])
+                gruende = [g for g in gruende if g.lower() not in _aus]
                 if gruende:
                     # Der gespeicherte Wert bleibt, wie er ist -- ausser eine Zeile mit mehreren Gruenden traegt auch
                     # einen, der nicht zaehlt (["zu_junior", "duplikat"]): die KI sieht nur die, die zaehlen.
@@ -8195,26 +8214,18 @@ class Database:
     def increment_dismiss_reason_usage(self, labels: list):
         """Increment usage_count for the given reason labels.
 
-        If a label doesn't exist yet (custom reason from free-text input),
-        auto-create it so it appears as a selectable option next time (#126).
+        #1297: legt KEINEN Grund mehr an. Bis 1.8.2 entstand hier jeder
+        unbekannte Wert als eigener Grund - so kam `kein_hochschulabschluss`
+        nach dem Loeschen beim naechsten Gebrauch still zurueck. Einen eigenen
+        Grund legt nur der Mensch an (`add_dismiss_reason`; das Dashboard tut
+        es fuer einen getippten Grund ausdruecklich vor dem Aussortieren).
         """
         conn = self.connect()
-        pid = self.get_active_profile_id() or ""
         for label in labels:
-            cur = conn.execute(
+            conn.execute(
                 "UPDATE dismiss_reasons SET usage_count = usage_count + 1 WHERE label=?",
                 (label,)
             )
-            if cur.rowcount == 0:
-                # New custom reason — insert so it's available next time
-                try:
-                    conn.execute(
-                        "INSERT INTO dismiss_reasons (label, is_custom, profile_id, usage_count, created_at) "
-                        "VALUES (?, 1, ?, 1, ?)",
-                        (label, pid, _now())
-                    )
-                except Exception:
-                    pass  # Duplicate or constraint violation — ignore
         conn.commit()
 
     # === Background Jobs ===
@@ -10391,13 +10402,51 @@ class Database:
         return cur.rowcount > 0
 
     def set_dismiss_reason_active(self, reason_id: int, is_active: bool) -> bool:
+        """Schaltet einen Grund ein oder aus - auch einen Standardgrund (#1297).
+
+        Gilt fuer alle Zeilen desselben Namens im sichtbaren Bereich (eine
+        alte eigene Zeile neben der Standardzeile). `sonstiges` und die
+        Systemgruende lassen sich nicht abschalten (ValueError).
+        """
+        from .services.ablehnungsgruende import NICHT_ABSCHALTBAR
         conn = self.connect()
+        row = conn.execute("SELECT label FROM dismiss_reasons WHERE id=?",
+                           (reason_id,)).fetchone()
+        if not row:
+            return False
+        label = str(row["label"] or "").strip()
+        if not is_active and label.lower() in NICHT_ABSCHALTBAR:
+            raise ValueError(
+                f"'{label}' lässt sich nicht abschalten (Rückfall bzw. Systemgrund).")
+        pid = self.get_active_profile_id() or ""
         cur = conn.execute(
-            "UPDATE dismiss_reasons SET is_active=? WHERE id=?",
-            (1 if is_active else 0, reason_id),
+            "UPDATE dismiss_reasons SET is_active=? WHERE id=? OR "
+            "(LOWER(TRIM(label))=? AND (profile_id='' OR profile_id=? "
+            "OR profile_id IS NULL))",
+            (1 if is_active else 0, reason_id, label.lower(), pid),
         )
         conn.commit()
         return cur.rowcount > 0
+
+    def dismiss_reason_bestand(self, label: str) -> dict:
+        """Wie viele Stellen tragen diesen Grund, wie viele davon von der Automatik (#1297)?
+
+        Ein abgeschalteter Grund aendert den Bestand nicht; der Mensch soll
+        aber sehen, was ihn traegt.
+        """
+        from .services.ablehnungsgruende import gruende_aus_wert
+        klein = str(label or "").strip().lower()
+        pid = self.get_active_profile_id()
+        stellen = automatik = 0
+        for r in self.connect().execute(
+                "SELECT dismiss_reason, dismissed_by FROM jobs WHERE is_active=0 "
+                "AND (profile_id=? OR profile_id IS NULL) "
+                "AND LOWER(COALESCE(dismiss_reason,'')) LIKE ?",
+                (pid, f"%{klein}%")).fetchall():
+            if klein in {g.lower() for g in gruende_aus_wert(r["dismiss_reason"])}:
+                stellen += 1
+                automatik += (r["dismissed_by"] == "automatik")
+        return {"stellen": stellen, "davon_automatisch": automatik}
 
     def _dismiss_reason_umschreiben(self, conn, alt: str, neu: str) -> int:
         """Ersetzt einen Ablehnungsgrund in `jobs.dismiss_reason` (#663 C65).
@@ -10627,7 +10676,13 @@ class Database:
         werden dann auf diesen umgehaengt, damit keine Stelle ohne gueltigen
         Grund zurueckbleibt (Statistik-/Lerneffekt-Treue). Ohne Verwendung
         wird einfach geloescht.
+
+        #1297: ein STANDARDGRUND wird nicht geloescht, sondern abgeschaltet -
+        die Zeile bleibt, damit er beim naechsten Start nicht neu entsteht;
+        der Bestand bleibt, wie er ist. `sonstiges` und Systemgruende
+        bleiben (ValueError).
         """
+        from .services.ablehnungsgruende import NICHT_ABSCHALTBAR, ist_standardgrund
         conn = self.connect()
         row = conn.execute(
             "SELECT label, usage_count FROM dismiss_reasons WHERE id=?",
@@ -10635,6 +10690,13 @@ class Database:
         ).fetchone()
         if not row:
             return {"status": "nicht_gefunden"}
+        if str(row["label"] or "").strip().lower() in NICHT_ABSCHALTBAR:
+            raise ValueError(
+                f"'{row['label']}' lässt sich nicht löschen (Rückfall bzw. Systemgrund).")
+        if ist_standardgrund(row["label"]):
+            self.set_dismiss_reason_active(reason_id, False)
+            return {"status": "abgeschaltet", "label": row["label"],
+                    "reassigned_jobs": 0, "reassigned_to": None}
         old_label = row["label"]
         old_usage = row["usage_count"] or 0
         used = conn.execute(
