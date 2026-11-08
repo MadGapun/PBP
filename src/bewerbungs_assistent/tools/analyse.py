@@ -2637,13 +2637,18 @@ def register(mcp, db, logger):
             })
 
         # Keywords die in keiner Stelle vorkommen (tote Keywords)
-        from ..job_scraper import _fuzzy_keyword_match
+        from ..job_scraper import _fuzzy_keyword_match, _muss_tor_match
         tote_keywords = []
         all_text = " ".join(
             f"{j.get('title', '')} {(j.get('description') or '')[:500]}"
             for j in all_jobs
         ).lower()
-        for kw in muss + plus:
+        # #1287: ein MUSS-Begriff lebt nur, wenn er das Tor oeffnet —
+        # verstreute Einzelwoerter zaehlen nicht (dieselbe Frage wie im Score).
+        for kw in muss:
+            if not _muss_tor_match(kw, all_text):
+                tote_keywords.append(kw)
+        for kw in plus:
             if not _fuzzy_keyword_match(kw, all_text):
                 tote_keywords.append(kw)
 
