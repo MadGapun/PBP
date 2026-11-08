@@ -3445,32 +3445,26 @@ def calculate_score(job: dict, criteria: dict) -> int:
     if not isinstance(idf, dict):
         idf = {}
 
-    # MUSS keywords — #183: Fuzzy-Matching statt exakter Substring
     muss = criteria.get("keywords_muss", [])
-    # v1.7.22 (#940): Zwei getrennte Fragen, zwei getrennte Matcher.
-    # Das TOR entscheidet praezise, ob die Stelle ueberhaupt in Frage
-    # kommt. Die PUNKTE bleiben bewusst auf dem bisherigen (weiteren)
-    # Matching — sonst verschieben sich alle Scores und die Wirkung des
-    # Tors waere nicht mehr isoliert messbar. Die Neubewertung der
-    # Punktevergabe ist #942.
-    _muss_syn = criteria.get("_muss_synonyme") or {}
-    # v1.7.28 (#969): ein Keyword zaehlt auch dann als Treffer, wenn eine
-    # amtliche Alternativbezeichnung im Text steht. Ohne das oeffnet das
-    # Tor zwar (muss_tor_kws), es gibt aber KEINE Punkte — die Stelle
-    # haette Score 0 und faellt trotzdem raus. Beim Messen aufgefallen:
-    # fit_analyse lieferte 6,0 und calculate_score 0 fuer dieselbe
-    # Anzeige. Genau die Divergenz aus #963, diesmal vor dem Ausliefern
-    # bemerkt.
-    muss_hits_kws = [
-        kw for kw in muss
-        if _fuzzy_keyword_match(kw, text)
-        or any(_strict_keyword_match(alt_kw, text)
-               for alt_kw in (_muss_syn.get(kw) or []))
-    ]
     # #1310: die Tor-Frage steht in `muss_tor.pflicht_treffer` — dieselbe
     # Funktion fragt die Wiedergaenger-Automatik vor "falsches Fachgebiet".
     muss_tor_kws = _tor.pflicht_treffer(criteria, text)
     muss_found = len(muss_tor_kws)
+    # #1287: die PUNKTE zaehlen dieselben Treffer wie das Tor. Seit #940
+    # liefen hier zwei Matcher (Tor praezise, Punkte unscharf mit
+    # Mehrwort-Split): "Business Architect" bekam Punkte, sobald irgendein
+    # anderer Begriff das Tor oeffnete, obwohl nur "Business Process" und
+    # "Process Architect" im Text standen. Eine Frage, eine Funktion.
+    muss_hits_kws = muss_tor_kws
+    # Ob ein Pflichttreffer ausserhalb des Firmenabsatzes steht (#827),
+    # fragt ebenfalls das Tor — nicht der unscharfe Matcher.
+    _muss_im_kern = (set(_tor.pflicht_treffer(criteria, kern_text))
+                     if _grenze > 0 else None)
+
+    def _muss_faktor(kw: str) -> float:
+        if _muss_im_kern is None or kw in _muss_im_kern:
+            return 1.0
+        return w["firmenabsatz_faktor"]
     # v1.7.68 (#968): Betriebsart des Tors. `hart` verwirft (bisheriges
     # Verhalten und weiterhin Vorgabe), `gewichtet` laesst die Stelle
     # weiterrechnen und deckelt sie am Ende. Die Entscheidung steht in
@@ -3532,7 +3526,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
         zaehlbare_punkte(
             muss_hits_kws,
             lambda kw: (_punkte_pro_treffer(kw, w["muss"], overrides, idf)
-                        * _treffer_faktor(kw))),
+                        * _muss_faktor(kw))),
         reverse=True,
     )
     # AK 4: sagen, WAS zusammengefasst wurde. Eine stille
@@ -3565,7 +3559,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # nur in der Firmen-Selbstdarstellung sitzen — der Score ist dann
     # niedrig, und der Grund soll erklaerbar sein.
     if _grenze > 0 and muss_hits_kws and all(
-            not _fuzzy_keyword_match(kw, kern_text) for kw in muss_hits_kws):
+            kw not in _muss_im_kern for kw in muss_hits_kws):
         job["_treffer_nur_firmenabsatz"] = True
 
     # PLUS keywords — #183: Fuzzy-Matching
@@ -3883,6 +3877,16 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             return 1.0
         return w["firmenabsatz_faktor"]
 
+    # #1287: Pflichtbegriffe fragt das Tor, auch im Kern — wie in
+    # calculate_score (`_muss_faktor`). Der unscharfe Matcher bleibt PLUS.
+    _muss_im_kern = (set(_tor.pflicht_treffer(criteria, _kern))
+                     if _fa_grenze > 0 else None)
+
+    def _fa_faktor_muss(kw: str) -> float:
+        if _muss_im_kern is None or kw in _muss_im_kern:
+            return 1.0
+        return w["firmenabsatz_faktor"]
+
     # #183: Fuzzy-Matching auch in der Fit-Analyse
     # v1.7.12 (#827): PLUS zaehlt Begriffe nicht nochmal, die schon in
     # MUSS stehen — vorher wurden sie doppelt gewertet.
@@ -3893,14 +3897,15 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # sonst oeffnet das Tor und die Punkte bleiben aus. Gemessen: calc
     # 10,5 gegen fit 6,0 fuer dieselbe Anzeige. Der Guard-Test aus #963
     # haelt beide Wege zusammen.
-    _muss_syn_fit = criteria.get("_muss_synonyme") or {}
-    muss_hits = [
-        kw for kw in muss
-        if _fuzzy_keyword_match(kw, text)
-        or any(_strict_keyword_match(a, text)
-               for a in (_muss_syn_fit.get(kw) or []))
-    ]
-    missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
+    # #1287: `muss_hits` sind GENAU die Treffer des Tors
+    # (`muss_tor.pflicht_treffer`). Vorher stand hier der unscharfe
+    # Matcher mit Mehrwort-Split: "Data Office" galt als Treffer, sobald
+    # "data" und "office" irgendwo im Text standen — die Liste meldete
+    # zwei Pflichttreffer, der Score null. Und `missing_muss` fragte noch
+    # einmal anders (ohne Alternativbezeichnungen), sodass ein Begriff in
+    # beiden Listen stehen konnte.
+    muss_hits = _tor.pflicht_treffer(criteria, text)
+    missing_muss = [kw for kw in muss if kw not in muss_hits]
     plus_hits = [kw for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)]
     # #755 (C25): MINUS strikt (Wortgrenzen + Phrase) statt fuzzy —
     # PLUS belohnt (Recall ok), MINUS bestraft (Praezision Pflicht).
@@ -3920,8 +3925,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     _nur_firmenabsatz = (
         _fa_grenze > 0
         and (muss_hits or plus_hits)
-        and all(not _fuzzy_keyword_match(kw, _kern)
-                for kw in muss_hits + plus_hits)
+        and all(kw not in _muss_im_kern for kw in muss_hits)
+        and all(not _fuzzy_keyword_match(kw, _kern) for kw in plus_hits)
     )
 
     if muss_hits:
@@ -3934,7 +3939,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             zaehlbare_punkte(
                 muss_hits,
                 lambda kw: (_punkte_pro_treffer(kw, w["muss"], _overrides, _idf)
-                            * _fa_faktor(kw))),
+                            * _fa_faktor_muss(kw))),
             reverse=True,
         )
         if _idf:
@@ -3942,7 +3947,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             _muss_pts = _muss_pts[:MUSS_TOP_N]
         pts = round(sum(_muss_pts), 1)
         _label = f"MUSS-Keywords ({len(muss_hits)} Treffer)"
-        if _fa_grenze > 0 and any(_fa_faktor(kw) < 1.0 for kw in muss_hits):
+        if _fa_grenze > 0 and any(_fa_faktor_muss(kw) < 1.0 for kw in muss_hits):
             _label += " — teils nur im Firmenabsatz, abgewertet"
         factors[_label] = pts
         total += pts
@@ -4151,7 +4156,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # behalten (beschreibung_vorhanden, beschreibung_unvollstaendig,
     # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
-    _kein_muss_tor = bool(muss) and not _tor.pflicht_treffer(criteria, text)
+    _kein_muss_tor = bool(muss) and not muss_hits  # #1287: dieselbe Liste
     # v1.7.68 (#968): AK 5 — beide Rechenwege tragen die Betriebsart
     # gemeinsam. Stuende sie nur in `calculate_score`, haette dieselbe
     # Stelle je nach Werkzeug einen anderen Wert; das ist #963 und

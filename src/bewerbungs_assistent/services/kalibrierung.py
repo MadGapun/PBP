@@ -83,9 +83,15 @@ def berechne_idf_faktoren(db: Any, criteria: dict) -> dict:
     faktor(kw) = IDF_MIN + (1-IDF_MIN) * log(N/df) / log(N), geklemmt auf
     [IDF_MIN, 1.0]. Ein Begriff, der in jeder zweiten Anzeige steht, zaehlt
     damit deutlich weniger als ein Nischenbegriff. MUSS/PLUS werden mit dem
-    fuzzy-Matcher gezaehlt (derselbe, der auch scored), MINUS strikt.
+    Matcher gezaehlt, der auch scored: MUSS mit dem Tor (#1287,
+    `_muss_tor_match`), PLUS unscharf, MINUS strikt.
     """
-    from ..job_scraper import _fuzzy_keyword_match, _strict_keyword_match
+    from ..job_scraper import (_fuzzy_keyword_match, _muss_tor_match,
+                               _strict_keyword_match)
+    _syn = criteria.get("_muss_synonyme") or {}
+
+    def _muss_matcher(kw, t):
+        return _muss_tor_match(kw, t, _syn.get(kw))
 
     conn = db.connect()
     pid = db.get_active_profile_id()
@@ -106,7 +112,7 @@ def berechne_idf_faktoren(db: Any, criteria: dict) -> dict:
     faktoren: dict[str, float] = {}
     log_n = math.log(n)
     kandidaten = [
-        (kw, _fuzzy_keyword_match)
+        (kw, _muss_matcher)
         for kw in (criteria.get("keywords_muss") or [])
     ] + [
         (kw, _fuzzy_keyword_match)
