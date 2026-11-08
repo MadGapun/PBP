@@ -57,8 +57,11 @@ AUTOSTART_SCHLUESSEL = "llm_local_autostart"
 # und dort sieht niemand das Dashboard.
 VORGABE = False
 
-# Windows: DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-_WIN_LOSGELOEST = 0x00000008 | 0x00000200
+# Windows: CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP (#1317).
+# Ollama bekommt eine VERSTECKTE Konsole, die seine Hilfsprozesse (Grafikkarten-Erkennung, Modell-Runner) erben.
+# Mit DETACHED_PROCESS hatte Ollama gar keine Konsole, und Windows gab jedem Hilfsprozess ein neues, sichtbares
+# Fenster. Die eigene Prozessgruppe und die eigene Konsole halten Ollama am Leben, wenn das PBP-Fenster schliesst.
+_WIN_LOSGELOEST = 0x08000000 | 0x00000200
 
 _autostart_thread: threading.Thread | None = None
 
