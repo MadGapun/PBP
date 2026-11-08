@@ -61,6 +61,7 @@ import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS,
 import { zuBewerbung } from "@/lib/wege";
 import WegLeiste from "@/components/WegLeiste";
 import ListenUebersicht from "@/components/ListenUebersicht";
+import StellenNotizen from "@/components/StellenNotizen";
 import { stelleLeiste } from "@/lib/wegleiste";
 import {
   ANSTELLUNGSFORM_TEXT, REMOTE_STUFE_TEXT, UMFANG_AUSWAHL_TEXT, UMFANG_TEXT, anstellungsformMarke, entfernungText, firmaText,
@@ -3073,6 +3074,15 @@ export default function JobsPage() {
                   <p className="text-sm text-muted whitespace-pre-wrap">{detailDialog.job.description}</p>
                 </div>
               ) : null}
+              {/* #1316: eigene Notizen, getrennt vom Anzeigentext */}
+              <StellenNotizen
+                jobHash={detailDialog.job.hash}
+                onBeschreibungGeaendert={async () => {
+                  const frisch = await api(`/api/jobs/${detailDialog.job.hash}`);
+                  if (frisch) setDetailDialog((d) => ({ ...d, job: frisch }));
+                  loadPage({ silent: true });
+                }}
+              />
               {/* #1032 AK 3: dieselbe Zeile wie auf der Karte — Fund- und,
                   wo es eins gibt, Veroeffentlichungsdatum. */}
               {stellenDaten(detailDialog.job).text ? (

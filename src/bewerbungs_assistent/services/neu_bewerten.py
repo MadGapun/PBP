@@ -67,7 +67,8 @@ def neu_bewerten(db, jobs: list, criteria: dict) -> dict:
                               f"'{j['_ko_ausschluss']}' im Text — "
                               "harter K.o. Steht der Begriff in einer "
                               "redaktionellen Notiz, gehört sie "
-                              "hinter eine '---'-Trennzeile (#603)."),
+                              "in die Notizen der Stelle (stelle_bearbeiten "
+                              "mit notiz), nicht in den Text (#1316)."),
                 })
             elif new_score - old_score <= -20:
                 auffaellig.append({

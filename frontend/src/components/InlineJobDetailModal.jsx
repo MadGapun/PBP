@@ -24,6 +24,7 @@ import { grundText, quelleText } from "@/lib/anzeige";
 import { anstellungsformMarke } from "@/lib/stellenAngaben";
 
 import FirmaLink from "@/components/FirmaLink";
+import StellenNotizen from "@/components/StellenNotizen";
 import WegLeiste from "@/components/WegLeiste";
 import { stelleLeiste } from "@/lib/wegleiste";
 
@@ -142,10 +143,13 @@ export default function InlineJobDetailModal({ jobHash, bewerbungId = "", onClos
             </details>
           )}
 
+          {/* #1316: eigene Notizen zur Stelle (Mensch und Claude) */}
+          <StellenNotizen jobHash={job.hash} onBeschreibungGeaendert={() => api(`/api/jobs/${jobHash}`).then(setJob).catch(() => {})} />
+
           {job.research_notes && (
             <details>
               <summary className="cursor-pointer text-xs uppercase tracking-wider text-muted">
-                Notizen
+                Recherche
               </summary>
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted">
                 {job.research_notes}

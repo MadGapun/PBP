@@ -753,6 +753,8 @@ def register(mcp, db, logger):
         }
         if auto_followup_id:
             result["auto_follow_up"] = {"id": auto_followup_id, "tage": default_days}
+        if erg.get("stellen_notizen_uebernommen"):  # #1316
+            result["stellen_notizen_uebernommen"] = erg["stellen_notizen_uebernommen"]
         # #931: der Nennwert fuers Gespraech steht VOR dem Termin fest,
         # statt im Gespraech gebildet zu werden. Nur ein Vorschlag —
         # was tatsaechlich genannt wird, entscheidet der Mensch je
