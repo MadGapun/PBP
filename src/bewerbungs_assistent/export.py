@@ -11,6 +11,7 @@ from typing import Optional
 
 from .services import dokument_regeln as dr
 from .services import uhr
+from .services.profile_service import stufe_heute
 
 logger = logging.getLogger("bewerbungs_assistent.export")
 
@@ -480,7 +481,8 @@ def generate_tailored_cv_docx(
 
         for cat, items in sorted(by_cat.items(), key=cat_relevance):
             label = cat_labels.get(cat, cat.capitalize())
-            sorted_items = sorted(items, key=lambda s: (skill_relevance(s), -(s.get("level", 0) or 0)))
+            # #1264: nach dem heutigen Stand, nicht nach der Spitze (ein ruhender Skill rueckt nicht nach vorn)
+            sorted_items = sorted(items, key=lambda s: (skill_relevance(s), -stufe_heute(s)))
             names = ", ".join(s["name"] for s in sorted_items)
             # Bullet format: "Kategorie: Wert1, Wert2, ..."
             p = doc.add_paragraph(style="List Bullet")
@@ -1037,7 +1039,8 @@ def _score_recruiter(profile, skills, positions, job_text, job_words):
     empfehlungen = []
 
     # Technical skills depth (high-level skills)
-    expert_skills = [s for s in skills if (s.get("level") or 0) >= 4]
+    # #1264: Experte heisst HEUTE auf Stufe 4 oder 5; ein ruhender Skill mit hoher Spitze zaehlt nicht
+    expert_skills = [s for s in skills if stufe_heute(s) >= 4]
     if len(expert_skills) >= 5:
         score += 20
         names = ", ".join(s["name"] for s in expert_skills[:6])

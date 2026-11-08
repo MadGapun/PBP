@@ -95,6 +95,13 @@ def skill_stand(skill: dict | None) -> dict:
     }
 
 
+def stufe_heute(skill: dict | None) -> int:
+    """Das heutige Niveau als Zahl zum Vergleichen und Sortieren (#1264): `level_aktuell` aus `skill_stand`, 0 wenn
+    nichts feststeht (ruht, heutiges Niveau nicht eingetragen). Wer „Experte“ zaehlt oder nach Koennen sortiert, nimmt
+    diese Zahl, nie `level` — das ist die Spitze."""
+    return skill_stand(skill)["level_aktuell"] or 0
+
+
 def summarize_profile(profile: dict | None) -> dict:
     """Erzeugt eine kleine gemeinsame Profil-Zusammenfassung."""
     if not profile:
