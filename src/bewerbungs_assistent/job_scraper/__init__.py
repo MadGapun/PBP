@@ -3843,8 +3843,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                     f"AUSSCHLUSS-Keyword '{_ko_kw}' kommt im Anzeigentext "
                     "vor — harter K.o. wie in der Stellenliste. Falls der "
                     "Treffer aus einer redaktionellen Notiz stammt: Notizen "
-                    "gehören hinter eine '---'-Trennzeile (#603), dann "
-                    "zählen sie nicht."
+                    "gehören in die Notizen der Stelle (stelle_bearbeiten mit "
+                    "notiz), dann zählen sie nicht (#1316)."
                 ],
                 "ko_ausschluss": _ko_kw,
                 "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,

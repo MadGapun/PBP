@@ -1761,6 +1761,13 @@ def register(mcp, db, logger):
         # richtet sich weiter nach dem Wert samt Rahmen (#1082).
         from ..services import punkte as _punkte
         _punkte.anreichern(db, page_jobs)
+        # #1316: Notizen als Zaehler - EINE Abfrage fuer die ganze Seite.
+        try:
+            from ..services import stellen_notizen as _sn
+            _notizen_zahl = _sn.anzahl_je_stelle(db)
+        except Exception as exc:  # noqa: BLE001 - nie eine Liste stoppen
+            logger.debug("Notizen-Zaehler (#1316): %s", exc)
+            _notizen_zahl = {}
         for j in page_jobs:
             entry = {
                 "id": _kurz(j["hash"]),  # #171: Kurz-ID fuer schnelle Referenz
@@ -1871,6 +1878,8 @@ def register(mcp, db, logger):
                 logger.debug("Standorte (#1082): %s", _e)
             if j.get("dismiss_reason"):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
+            if _notizen_zahl.get(j["hash"]):
+                entry["notizen"] = _notizen_zahl[j["hash"]]
             if j["hash"] in applied_hashes_all:
                 entry["bereits_beworben"] = True
             # v1.7.39 (#989): Datenguete an JEDER Zeile — was ist belegt,
@@ -2562,8 +2571,8 @@ def register(mcp, db, logger):
             "durch eine '---'-Zeile vom Anzeigentext getrennt sind. "
             "Solche Notizen zählen dann ins Scoring — ein Ausschluss-"
             "Keyword darin setzt den Score hart auf 0 (#603/#917). "
-            "Konvention: erst der Original-Anzeigentext, dann eine Zeile "
-            "mit '---', dann die Notizen."
+            "Eigene Notizen gehören nicht in die Beschreibung, sondern in "
+            "stelle_bearbeiten(job_hash, notiz='...') (#1316)."
         )
 
     # v1.7.42 (#919): `stelle_manuell_anlegen` ist der EINZIGE Schreibweg
@@ -2766,13 +2775,7 @@ def register(mcp, db, logger):
             firma: Firmenname
             url: Link zur Stellenanzeige
             ort: Arbeitsort (z.B. 'Hamburg', 'Remote')
-            beschreibung: Stellenbeschreibung (so ausfuehrlich wie moeglich).
-                NOTIZEN-KONVENTION (#603/#917): eigene Anmerkungen,
-                Recherche-Ergebnisse oder Bewerberstatistiken gehoeren
-                HINTER eine Zeile mit '---' (erst Original-Anzeigentext,
-                dann '---', dann Notizen). Alles vor der Trennzeile
-                zaehlt ins Scoring — ein Ausschluss-Keyword in einer
-                Notiz setzt den Score sonst hart auf 0.
+            beschreibung: Stellenbeschreibung, nur der Anzeigentext (so ausfuehrlich wie moeglich). Eigene Notizen danach mit stelle_bearbeiten(notiz=...).
             quelle: Herkunft der Stelle (z.B. 'linkedin', 'xing', 'firmenwebsite', 'manuell')
             remote: Remote-Level ('remote', 'hybrid', 'vor_ort', 'unbekannt')
             stellenart: Art der Stelle ('festanstellung', 'freelance', 'praktikum', 'werkstudent')
@@ -5287,6 +5290,19 @@ def register(mcp, db, logger):
                 result["beschreibung_unvollstaendig"] = True
                 result["beschreibung_hinweis"] = _kappung
         result["url"] = job_dict.get("url", "")
+        # #1316: eigene Notizen in einem EIGENEN Feld - nie Teil von `stellenbeschreibung`, nie in den Punkten.
+        try:
+            from ..services import stellen_notizen as _sn
+            _notizen = _sn.liste(db, job_hash)
+            if _notizen:
+                result["notizen"] = _sn.fuer_claude(_notizen)
+                result["notizen_hinweis"] = "Eigene Notizen zur Stelle (Mensch und Claude), nicht Teil der Anzeige."
+            if _sn.notizteil_erkennen(job_dict.get("description")):
+                result["notizteil_in_beschreibung"] = (
+                    "In der Beschreibung steht hinter '---' ein alter Notizteil. Auf Wunsch des Menschen: "
+                    "stelle_bearbeiten(job_hash, notiz_aus_beschreibung=True) verschiebt ihn in die Notizen.")
+        except Exception as exc:  # noqa: BLE001 - eine Zugabe kippt nie die Analyse
+            logger.debug("Stellennotizen nicht lesbar (#1316): %s", exc)
         # #1080: von der Stelle zur Firma mit einem Aufruf (Historie ueber alle Schreibweisen und Rollen).
         try:
             from ..services import firmen_bezuege as _fb_oeffnen
@@ -5425,6 +5441,8 @@ def register(mcp, db, logger):
         anstellungsart: str = "",
         umfang: str = "",
         remote: str = "",
+        notiz: str = "",
+        notiz_aus_beschreibung: bool = False,
     ) -> dict:
         """Aktualisiert Felder einer bestehenden Stelle (#446, #645).
 
@@ -5445,15 +5463,7 @@ def register(mcp, db, logger):
             titel: Neuer Stellentitel
             firma: Neuer Firmenname
             ort: Neuer Arbeitsort
-            beschreibung: Neue Stellenbeschreibung.
-                NOTIZEN-KONVENTION (#603/#917): eigene Anmerkungen,
-                Recherche-Ergebnisse oder Bewerberstatistiken gehören
-                HINTER eine Zeile mit '---' (erst Original-Anzeigentext,
-                dann '---', dann Notizen). Alles vor der Trennzeile
-                zählt ins Scoring — ein Ausschluss-Keyword in einer
-                Notiz setzt den Score sonst hart auf 0 (belegter Fall:
-                eine LinkedIn-Bewerberstatistik mit '20 % Berufseinsteiger'
-                nullte eine passende Stelle).
+            beschreibung: Neuer Anzeigentext. Eigene Gedanken in `notiz`.
             url: Neue Stellen-URL. Wird auch genutzt um nach #645 leere
                 URL-Felder bei XING/Stepstone/Email-Stellen nachzupflegen.
             entfernung_km: Entfernung von Hand setzen (#1077), auch 0 für
@@ -5465,6 +5475,8 @@ def register(mcp, db, logger):
             anstellungsart: festanstellung | freelance | zeitarbeit | praktikum | werkstudent | ausbildung. Von Hand gesetzt gilt dauerhaft; bestimmt Entfernungsgrenze und Gehaltsvergleich.
             umfang: vollzeit | teilzeit | beides | unbekannt. Von Hand gesetzt gilt dauerhaft; unbekannt gibt ihn an die Automatik zurück.
             remote: remote | hybrid | vor_ort | unbekannt. Von Hand gesetzt gilt dauerhaft; remote hebt die Entfernungsgrenze auf, unbekannt gibt ihn an die Automatik zurück.
+            notiz: Eigene Notiz anhängen, getrennt vom Anzeigentext, nie in den Punkten. Ohne Beschreibung möglich.
+            notiz_aus_beschreibung: True = Notizteil hinter '---' aus der Beschreibung in die Notizen verschieben. Nur auf Wunsch.
         """
         # v1.7.0-beta.46 (#618): Kurze IDs (8 Zeichen) wurden vorher
         # nicht akzeptiert — andere Tools (fit_analyse, scoring_vorschau)
@@ -5492,17 +5504,38 @@ def register(mcp, db, logger):
         # services/stelle_aendern — derselbe Weg wie der Bearbeiten-Dialog
         # im Dashboard. Ein neuer Ort rechnet die Entfernung neu.
         from ..services import stelle_aendern as _aendern
-        erg = _aendern.aendern(
-            db, job_hash, {"title": titel, "company": firma, "location": ort,
-                           "description": beschreibung, "url": url,
-                           # #1299: geprueft gegen das Vokabular, Ungueltiges abgelehnt
-                           "employment_type": anstellungsart, "arbeitsumfang": umfang,
-                           "remote_level": remote},
-            entfernung_km=entfernung_km,
-            entfernung_zuruecksetzen=entfernung_zuruecksetzen)
+        from ..services import stellen_notizen as _notizen
+        _felder = {"title": titel, "company": firma, "location": ort,
+                   "description": beschreibung, "url": url,
+                   # #1299: geprueft gegen das Vokabular, Ungueltiges abgelehnt
+                   "employment_type": anstellungsart, "arbeitsumfang": umfang,
+                   "remote_level": remote}
+        # #1316: eine Notiz allein aendert die Stelle nicht - kein Neuberechnen, kein "nichts zu aendern".
+        nur_notiz = ((notiz.strip() or notiz_aus_beschreibung) and entfernung_km is None
+                     and not entfernung_zuruecksetzen and not any(str(v or "").strip() for v in _felder.values()))
+        if nur_notiz:
+            erg = {"ok": True, "updates": {}}
+        else:
+            erg = _aendern.aendern(
+                db, job_hash, _felder,
+                entfernung_km=entfernung_km,
+                entfernung_zuruecksetzen=entfernung_zuruecksetzen)
         if not erg["ok"]:
             return {"fehler": erg["fehler"]}
         updates = erg["updates"]
+        notiz_ergebnis = {}
+        if notiz_aus_beschreibung:
+            _ueb = _notizen.aus_beschreibung_uebernehmen(db, job_hash)
+            if not _ueb["ok"]:
+                return {"fehler": _ueb["fehler"], "geaendert": sorted(updates)}
+            notiz_ergebnis["notiz_aus_beschreibung"] = _notizen.fuer_claude([_ueb["notiz"]])[0]
+        if notiz.strip():
+            _neu = _notizen.anlegen(db, job_hash, notiz, herkunft="ki")
+            if not _neu["ok"]:
+                return {"fehler": _neu["fehler"], "geaendert": sorted(updates)}
+            notiz_ergebnis["notiz"] = _notizen.fuer_claude([_neu["notiz"]])[0]
+        if notiz_ergebnis:
+            notiz_ergebnis["notizen_anzahl"] = len(_notizen.liste(db, job_hash))
         entfernung_geaendert = entfernung_km is not None or entfernung_zuruecksetzen
 
         result = {
@@ -5514,6 +5547,10 @@ def register(mcp, db, logger):
                 f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
             ),
         }
+        result.update(notiz_ergebnis)
+        if nur_notiz:
+            result["nachricht"] = (f"Notiz an „{job.get('title', '')}“ bei {job.get('company', '')} gespeichert; "
+                                   "die Anzeige ist unverändert.")
         if kontakt_aus_text:
             result["kontakt_nicht_uebernommen"] = (
                 f"Im Text standen {kontakt_aus_text} Mailadresse(n) oder Rufnummer(n); sie wurden entfernt, denn bei "

@@ -3088,6 +3088,8 @@ async def api_add_application(request: Request):
         antwort["nachfass_in_tagen"] = erg["nachfass_tage"]
     if erg.get("stelle_aussortiert"):
         antwort["stelle_aussortiert"] = True
+    if erg.get("stellen_notizen_uebernommen"):  # #1316
+        antwort["stellen_notizen_uebernommen"] = erg["stellen_notizen_uebernommen"]
     return antwort
 
 
@@ -8709,6 +8711,57 @@ async def api_get_job_detail(job_hash: str):
     from .services import bewerbungs_hinweis as _bh
     _bh.anreichern(_db, [job])
     return job
+
+
+# === Notizen an Stellen (#1316) ===
+# Analog zu den Notizen der Bewerbung (/api/applications/{id}/notes), aber in
+# einer eigenen Tabelle: nie Teil des Anzeigentexts, nie in den Punkten.
+# Schreibende Aufrufe faengt der Schema-Schutz von selbst ab (/api/..., POST/PUT/DELETE).
+
+def _notiz_fehler(erg: dict):
+    code = 404 if erg.get("grund") == "nicht_gefunden" else 400
+    return JSONResponse({"error": erg.get("fehler") or "Fehler"}, status_code=code)
+
+
+@app.get("/api/jobs/{job_hash}/notizen")
+async def api_job_notizen(job_hash: str):
+    from .services import stellen_notizen as _sn
+    job = _db.get_job(job_hash)
+    if not job:
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    return {"notizen": _sn.liste(_db, job_hash),
+            "notizteil_in_beschreibung": _sn.notizteil_erkennen(job.get("description"))}
+
+
+@app.post("/api/jobs/{job_hash}/notizen")
+async def api_job_notiz_anlegen(job_hash: str, request: Request):
+    from .services import stellen_notizen as _sn
+    data = await request.json()
+    erg = _sn.anlegen(_db, job_hash, (data or {}).get("text"), herkunft="mensch")
+    return {"status": "ok", "notiz": erg["notiz"]} if erg["ok"] else _notiz_fehler(erg)
+
+
+@app.post("/api/jobs/{job_hash}/notizen/aus-beschreibung")
+async def api_job_notiz_aus_beschreibung(job_hash: str):
+    """Verschiebt den Notizteil hinter '---' in eine Notiz - nur auf Klick, je Stelle."""
+    from .services import stellen_notizen as _sn
+    erg = _sn.aus_beschreibung_uebernehmen(_db, job_hash)
+    return {"status": "ok", "notiz": erg["notiz"]} if erg["ok"] else _notiz_fehler(erg)
+
+
+@app.put("/api/jobs/{job_hash}/notizen/{notiz_id}")
+async def api_job_notiz_aendern(job_hash: str, notiz_id: int, request: Request):
+    from .services import stellen_notizen as _sn
+    data = await request.json()
+    erg = _sn.aendern(_db, job_hash, notiz_id, (data or {}).get("text"))
+    return {"status": "ok", "notiz": erg["notiz"]} if erg["ok"] else _notiz_fehler(erg)
+
+
+@app.delete("/api/jobs/{job_hash}/notizen/{notiz_id}")
+async def api_job_notiz_loeschen(job_hash: str, notiz_id: int):
+    from .services import stellen_notizen as _sn
+    erg = _sn.loeschen(_db, job_hash, notiz_id)
+    return {"status": "ok"} if erg["ok"] else _notiz_fehler(erg)
 
 
 # === Kontakte API (v1.7.0 #563) ===

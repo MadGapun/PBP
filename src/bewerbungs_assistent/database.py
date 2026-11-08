@@ -771,6 +771,12 @@ class Database:
             from .services import gespeicherte_filter as _gespeicherte_filter
             _gespeicherte_filter.tabelle_anlegen(conn)
 
+            # #1316: eigene Notizen an Stellen, getrennt vom Anzeigentext.
+            # Additive Tabelle, Safety-Net statt Schema-Bump; Loeschbereich
+            # "stellen" (services/loeschbereiche.py, Guard #1025).
+            from .services import stellen_notizen as _stellen_notizen
+            _stellen_notizen.tabelle_anlegen(conn)
+
             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
             # System — geprueft und gespeichert, damit nicht jeder Suchlauf
             # neu raet. Additive Tabelle, Safety-Net statt Schema-Bump.

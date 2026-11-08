@@ -95,6 +95,8 @@ BEREICHE: dict[str, tuple] = {
         "jobs", "job_sources",
         # v1.7.127 (#1084): Grabsteine zusammengefuehrter Stellen.
         "job_tombstones",
+        # #1316: eigene Notizen an Stellen (Mensch und KI).
+        "job_notes",
         # v1.8.0 (#1184 d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind.
         "stellen_hinweise",
     ),
