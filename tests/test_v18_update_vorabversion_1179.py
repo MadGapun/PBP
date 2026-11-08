@@ -108,6 +108,7 @@ def _info(neueste=None, laufend=BETA, name=""):
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -204,8 +205,8 @@ def test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe(bro
         notiz.click()
         tab = page.locator("[data-updates-tab]")
         tab.wait_for(timeout=45000)
-        assert tab.get_by_text(f"Neue Vorabversion: v{NEUERE_BETA}", exact=True).count() == 1
-        assert tab.get_by_text("Aktuell", exact=True).count() == 0, "„Aktuell“ widerspricht der Meldung der Seitenleiste"
+        expect(tab.get_by_text(f"Neue Vorabversion: v{NEUERE_BETA}", exact=True)).to_have_count(1)
+        expect(tab.get_by_text("Aktuell", exact=True), "„Aktuell“ widerspricht der Meldung der Seitenleiste").to_have_count(0)
         karte = page.locator("[data-updates-vorab]")
         karte.wait_for(timeout=5000)
         text = karte.inner_text()
@@ -214,9 +215,9 @@ def test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe(bro
         assert "Vorabversionen automatisch" in text and "einschaltest" in text, "sie sagt, warum es keinen Installieren-Knopf gibt"
         assert "nie von selbst" not in text
         assert "INSTALLIEREN.bat" in text, "und nennt den Weg"
-        assert karte.get_by_role("button", name="ZIP herunterladen").count() == 1
-        assert karte.get_by_role("button", name="Veröffentlichung ansehen").count() == 1
-        assert page.get_by_role("button", name="Jetzt installieren").count() == 0, "installiert wird eine Vorabversion nie von selbst"
+        expect(karte.get_by_role("button", name="ZIP herunterladen")).to_have_count(1)
+        expect(karte.get_by_role("button", name="Veröffentlichung ansehen")).to_have_count(1)
+        expect(page.get_by_role("button", name="Jetzt installieren"), "installiert wird eine Vorabversion nie von selbst").to_have_count(0)
     finally:
         ctx.close()
 
@@ -242,7 +243,7 @@ def test_das_dashboard_nennt_die_vorabversion_in_der_hinweiszone(browser, umgebu
         assert f"Neue Vorabversion verfügbar: v{NEUERE_BETA}" in text
         assert "Vorabversionen automatisch einbeziehen" in text and "INSTALLIEREN.bat" in text      # #1221
         assert "nie von selbst" not in text
-        assert page.locator("[data-hinweiszone]").count() == 1, "höchstens EIN Hinweis"
+        expect(page.locator("[data-hinweiszone]"), "höchstens EIN Hinweis").to_have_count(1)
         assert _neue_seite_nach(ctx, zone.get_by_role("button", name="ZIP herunterladen")) == ZIP_URL
         assert _neue_seite_nach(ctx, zone.get_by_role("button", name="Veröffentlichung ansehen")) == RELEASE_URL
     finally:
@@ -277,7 +278,7 @@ def test_1225_ohne_antwort_der_quelle_steht_stand_unbekannt_statt_aktuell(browse
         page.locator("button[data-page=einstellungen]").wait_for(timeout=15000)
         tab = _zu_den_updates(page)
         tab.get_by_text("Stand unbekannt", exact=True).wait_for(timeout=15000)
-        assert tab.get_by_text("Aktuell", exact=True).count() == 0, "„Aktuell“ widerspricht der Zeile mit dem Grund"
+        expect(tab.get_by_text("Aktuell", exact=True), "„Aktuell“ widerspricht der Zeile mit dem Grund").to_have_count(0)
         assert "Die Verbindung zu GitHub hat nicht geklappt" in tab.inner_text()
     finally:
         ctx.close()
@@ -287,11 +288,11 @@ def test_ohne_neuere_version_steht_aktuell_und_nirgends_eine_meldung(browser, um
     ctx, page = _seite(browser, umgebung, _au(), _info(None), ruhiges_dashboard=True)
     try:
         page.locator("button[data-page=einstellungen]").wait_for(timeout=15000)
-        assert page.locator('[data-update-stand="neu"]').count() == 0
-        assert page.locator('[data-hinweiszone="update-vorab"]').count() == 0
+        expect(page.locator('[data-update-stand="neu"]')).to_have_count(0)
+        expect(page.locator('[data-hinweiszone="update-vorab"]')).to_have_count(0)
         tab = _zu_den_updates(page)
-        assert tab.get_by_text("Aktuell", exact=True).count() == 1
-        assert page.locator("[data-updates-vorab]").count() == 0
+        expect(tab.get_by_text("Aktuell", exact=True)).to_have_count(1)
+        expect(page.locator("[data-updates-vorab]")).to_have_count(0)
     finally:
         ctx.close()
 
@@ -307,8 +308,8 @@ def test_eine_fertige_neue_version_wird_wie_bisher_angeboten(browser, umgebung):
         notiz.click()
         tab = page.locator("[data-updates-tab]")
         tab.wait_for(timeout=15000)
-        assert tab.get_by_role("button", name="Jetzt installieren").count() == 1
-        assert page.locator("[data-updates-vorab]").count() == 0
+        expect(tab.get_by_role("button", name="Jetzt installieren")).to_have_count(1)
+        expect(page.locator("[data-updates-vorab]")).to_have_count(0)
     finally:
         ctx.close()
 
@@ -319,10 +320,10 @@ def test_eine_von_hand_installierte_vorabversion_ist_kein_neues_update_mehr(brow
     ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
     try:
         page.locator("button[data-page=einstellungen]").wait_for(timeout=15000)
-        assert page.locator('[data-update-stand="neu"]').count() == 0
+        expect(page.locator('[data-update-stand="neu"]')).to_have_count(0)
         assert f"Neustart nötig für v{NEUERE_BETA}" in page.locator("[data-update-neustart]").inner_text()
         _zu_den_updates(page)
-        assert page.locator("[data-updates-vorab]").count() == 0
+        expect(page.locator("[data-updates-vorab]")).to_have_count(0)
     finally:
         ctx.close()
 
@@ -456,7 +457,7 @@ def test_1226_umschalten_in_der_oberflaeche_zeigt_danach_jetzt_installieren(brow
         neu = tab.locator("[data-updates-neu]")
         neu.wait_for(timeout=15000)
         assert "Jetzt installieren" in neu.inner_text()
-        assert tab.locator("[data-updates-vorab]").count() == 0, "die Karte „Vorabversion kommt nur von Hand“ ist weg"
+        expect(tab.locator("[data-updates-vorab]"), "die Karte „Vorabversion kommt nur von Hand“ ist weg").to_have_count(0)
     finally:
         ctx.close()
 
@@ -474,7 +475,7 @@ def test_1229_die_frage_zum_umschalten_nennt_die_richtung(browser, umgebung):
     try:
         tab = _zu_den_updates(page)
         knoepfe = tab.get_by_role("button", name="Beim nächsten Start nutzen")
-        assert knoepfe.count() == 2, "für die laufende Fassung gibt es keinen Knopf"
+        expect(knoepfe, "für die laufende Fassung gibt es keinen Knopf").to_have_count(2)
         knoepfe.nth(1).click()               # die neuere (Reihenfolge der Liste)
         dialog = page.get_by_role("dialog")
         dialog.wait_for(timeout=15000)

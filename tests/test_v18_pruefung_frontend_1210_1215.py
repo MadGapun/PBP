@@ -17,6 +17,7 @@ import time
 import pytest
 
 pytest.importorskip("playwright.sync_api")
+from playwright.sync_api import expect  # noqa: E402
 
 from test_v18_weg_leiste_1171 import (  # noqa: E402,F401  (die Fixtures kommen mit)
     FIRMA, KLEIN, TEXT, TITEL, _timeline, _warte, browser, umgebung,
@@ -53,12 +54,14 @@ def test_1210_die_zurueck_taste_mit_geaenderter_eingabe_fragt_nach_und_haengt_ni
         page.go_back()
         assert _warte(lambda: page.locator("[data-verwerfen-frage]").count() == 1, sekunden=10), "die Rückfrage erscheint"
         assert _lebt(page), "die Seite antwortet noch"
-        assert page.locator("[role=dialog]").count() == 1, "der Dialog bleibt offen"
+        expect(page.locator("[role=dialog]"), "der Dialog bleibt offen").to_have_count(1)
         assert page.get_by_placeholder("Notiz hinzufügen...").input_value().startswith("Eine Notiz"), "die Eingabe ist noch da"
         # ein zweites Zurueck bei stehender Rueckfrage aendert nichts und haengt nicht
         page.go_back()
         page.wait_for_timeout(400)
-        assert _lebt(page) and page.locator("[data-verwerfen-frage]").count() == 1 and page.locator("[role=dialog]").count() == 1
+        assert _lebt(page)
+        expect(page.locator("[data-verwerfen-frage]")).to_have_count(1)
+        expect(page.locator("[role=dialog]")).to_have_count(1)
     finally:
         ctx.close()
 
@@ -106,7 +109,7 @@ def test_1210_ohne_eingabe_schliesst_zurueck_den_dialog_wie_vorher(browser, umge
         page.locator("[role=dialog]").wait_for(timeout=15000)
         page.go_back()
         assert _warte(lambda: page.locator("[role=dialog]").count() == 0)
-        assert page.locator("[data-verwerfen-frage]").count() == 0
+        expect(page.locator("[data-verwerfen-frage]")).to_have_count(0)
     finally:
         ctx.close()
 
@@ -143,7 +146,7 @@ def test_1211_auch_eine_aeltere_bewerbung_zeigt_zur_bewerbung_in_der_leiste(brow
         leiste.wait_for(timeout=20000)
         assert _warte(lambda: "Zur Bewerbung" in leiste.locator("[data-weg-haupt]").inner_text()), \
             leiste.locator("[data-weg-haupt]").inner_text()
-        assert leiste.locator("[data-weg-fall='bewerbung']").count() == 1
+        expect(leiste.locator("[data-weg-fall='bewerbung']")).to_have_count(1)
         assert "Stelle bewerten" not in leiste.inner_text()
     finally:
         ctx.close()
@@ -179,7 +182,7 @@ def test_1213_escape_schliesst_zuerst_das_menue_der_leiste_dann_den_dialog(brows
         menue.wait_for(timeout=10000)
         page.keyboard.press("Escape")
         assert _warte(lambda: menue.count() == 0), "das Menü schliesst"
-        assert page.locator("[role=dialog]").count() == 1, "der Dialog bleibt"
+        expect(page.locator("[role=dialog]"), "der Dialog bleibt").to_have_count(1)
         assert schalter.evaluate("el => el === document.activeElement"), "der Fokus kehrt zum Auslöser zurück"
         page.keyboard.press("Escape")
         assert _warte(lambda: page.locator("[role=dialog]").count() == 0), "das zweite Escape schliesst den Dialog"
@@ -202,7 +205,7 @@ def test_1213_weitere_wege_schliesst_ebenfalls_zuerst(browser, umgebung):
             menue.wait_for(timeout=10000)
             page.keyboard.press("Escape")
             assert _warte(lambda: menue.count() == 0), "das Menü schliesst"
-            assert page.locator("[role=dialog]").count() == 1, "der Dialog bleibt"
+            expect(page.locator("[role=dialog]"), "der Dialog bleibt").to_have_count(1)
             page.keyboard.press("Escape")
             assert _warte(lambda: page.locator("[role=dialog]").count() == 0)
         finally:
@@ -269,7 +272,7 @@ def test_1215_nach_einem_sprung_aus_dem_dialog_bleibt_kein_toter_schritt_im_verl
         # 2: die Bewerbungen - ohne Zwischenschritt (der Eintrag der Timeline ist zum Eintrag der Stellen geworden)
         page.go_back()
         assert _warte(lambda: page.url.endswith("#bewerbungen") and page.locator("#page-bewerbungen").is_visible())
-        assert page.locator("[role=dialog]").count() == 0
+        expect(page.locator("[role=dialog]")).to_have_count(0)
         # 3: die leere Seite davor
         page.go_back()
         assert _warte(lambda: page.url == "about:blank"), f"ein toter Schritt: {page.url}"

@@ -99,6 +99,7 @@ def test_die_seite_meldet_ihren_reiter_ueber_den_kontext():
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 TEXT = ("Ihre Aufgaben: Sie betreuen die Engineering-Systeme unseres Werks, pflegen Stuecklisten und Freigabeprozesse "
@@ -174,7 +175,7 @@ def test_in_den_einstellungen_gibt_es_eine_navigation_und_der_pfad_nennt_den_rei
         page.locator("[data-settings-reiter]").wait_for(timeout=20000)
         seitenleiste = page.locator("aside[aria-label='Hauptnavigation'] nav")
         # keine eingerueckte Unterliste unter "Einstellungen"
-        assert seitenleiste.locator("ul ul").count() == 0, "die Seitenleiste fuehrt wieder Unterpunkte"
+        expect(seitenleiste.locator("ul ul"), "die Seitenleiste fuehrt wieder Unterpunkte").to_have_count(0)
         assert "Erscheinungsbild" not in " ".join(seitenleiste.inner_text().split())
         # der Reiter der Seite ist markiert, und der Pfad oben nennt ihn
         assert _warte(lambda: "Quellen" in page.locator("header").inner_text())

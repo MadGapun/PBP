@@ -20,6 +20,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
@@ -118,7 +119,7 @@ def test_ohne_wartende_stellen_steht_keine_karte_da(browser, umgebung):
     try:
         page.locator("#page-dashboard").wait_for(timeout=20000)
         page.wait_for_timeout(1200)
-        assert page.locator("[data-stellen-zu-pruefen]").count() == 0
+        expect(page.locator("[data-stellen-zu-pruefen]")).to_have_count(0)
     finally:
         ctx.close()
 
@@ -160,11 +161,11 @@ def test_was_claude_aussortiert_hat_ist_in_der_karte_zurueckholbar(browser, umge
         karte.wait_for(timeout=20000)
         kopf = " ".join(karte.locator("[data-zu-pruefen-claude]").inner_text().split())
         assert "2 Stellen hat Claude nach dem Lesen aussortiert" in kopf and "Du kannst sie zurückholen" in kopf
-        assert karte.locator("[data-zu-pruefen-liste]").count() == 0, "eingeklappt: die Liste steht noch nicht da"
+        expect(karte.locator("[data-zu-pruefen-liste]"), "eingeklappt: die Liste steht noch nicht da").to_have_count(0)
         karte.get_by_role("button", name="Ansehen").click()
         zeilen = karte.locator("[data-zu-pruefen-zeile]")
         zeilen.first.wait_for(timeout=5000)
-        assert zeilen.count() == 2
+        expect(zeilen).to_have_count(2)
         erste = " ".join(zeilen.filter(has_text=TITEL[0]).inner_text().split())
         assert FIRMEN[0] in erste and "Falsches Fachgebiet" in erste, erste
         # zurueckholen: echt (Datenbank), und die Karte zaehlt neu

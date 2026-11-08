@@ -259,7 +259,7 @@ def test_1134_server_und_oberflaeche_nennen_dieselbe_untergrenze():
 
 try:
     from playwright.sync_api import Error as PlaywrightError
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:  # pragma: no cover
     sync_playwright = None
     PlaywrightError = Exception
@@ -340,7 +340,7 @@ def test_1134_jetzt_pruefen_holt_das_update_nach(browser, live):
         dash._update_cache["ts"] -= uq.MIN_ABSTAND_FRISCH_S + 1
         page.click("[data-update-pruefen]")
         page.wait_for_selector('[data-update-stand="neu"]', timeout=15000)
-        assert page.locator('[data-update-stand="unbekannt"]').count() == 0
+        expect(page.locator('[data-update-stand="unbekannt"]')).to_have_count(0)
     finally:
         page.close()
 
@@ -372,7 +372,7 @@ def test_1134_ein_lange_offenes_dashboard_erfaehrt_von_einer_neuen_version(brows
         page.clock.install()
         page.goto(url, wait_until="networkidle", timeout=30000)
         page.wait_for_timeout(500)
-        assert page.locator("[data-update-stand]").count() == 0
+        expect(page.locator("[data-update-stand]")).to_have_count(0)
         netz.version = uq.linie_von(__version__) + ".999"  # inzwischen erschienen
         dash._update_cache["ts"] -= uq.STANDARD_PAUSE_S + 1
         page.clock.fast_forward((uq.STANDARD_PAUSE_S + 60) * 1000)
@@ -397,6 +397,6 @@ def test_1134_ein_behobener_fehler_raeumt_die_unbekannt_anzeige_weg(browser, liv
         page.click("[data-update-pruefen]")
         page.wait_for_selector('[data-update-stand="unbekannt"]',
                                state="detached", timeout=15000)
-        assert page.locator("[data-update-stand]").count() == 0
+        expect(page.locator("[data-update-stand]")).to_have_count(0)
     finally:
         page.close()
