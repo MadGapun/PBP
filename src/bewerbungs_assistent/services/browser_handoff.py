@@ -34,6 +34,9 @@ from __future__ import annotations
 
 UEBERSPRUNGEN = "uebersprungen"
 DEFEKT_NUR_BROWSER = "defekt_nur_browser"
+#: #1302: eine interne Quelle, deren letzter Suchlauf scheiterte (freelancermap: Abbruch an der Zeitgrenze) und die
+#: im Browser eine Such-URL hat. Solange der interne Weg ausfaellt, steht sie im Auftrag - sonst fiel sie zweimal durch.
+INTERN_AUSGEFALLEN = "intern_ausgefallen"
 
 # Werkzeuge, die den Lauf im Browser fuer ein Portal vorbereiten. Die
 # Namen prueft ein Test gegen die registrierten Werkzeuge (#1000).
@@ -42,7 +45,12 @@ WERKZEUG_JE_PORTAL = {
     "google_jobs": "google_jobs_url()",
     "stepstone": "google_jobs_url()",
     "jobtic": "quelle_handoff('jobtic', <Suchbegriff>)",
+    "freelancermap": "quelle_handoff('freelancermap', <Suchbegriff>)",
 }
+
+#: #1302: Portale, deren gespeichertes Suchprofil auch der INTERNE Suchlauf liest (vor den MUSS-Begriffen). EINE Liste fuer
+#: `build_search_keywords` und die Auskunft von `suchprofil_lesen`. LinkedIn bleibt aussen vor (#1071).
+PORTALE_MIT_SUCHPROFIL_IM_LAUF = ("indeed", "freelancermap")
 
 #: Der Anfang der Regel - daran erkennt ein Test, dass eine Anleitung sie enthaelt.
 MARKE_IM_ZWEIFEL = "Trage im Zweifel ein."
@@ -94,6 +102,44 @@ def suchbegriffe(profil: dict | None) -> list[str]:
     return ergebnis
 
 
+def intern_ausgefallen(db, auswahl=None, registry=None) -> dict[str, str]:
+    """Gewaehlte interne Quellen, deren letzter Lauf scheiterte und die im Browser eine Such-URL haben (#1302).
+
+    Rueckgabe: {Quelle: Grund des letzten Laufs}. "Gescheitert" heisst: Fehler in Serie oder pausiert. Eine Quelle,
+    die wieder liefert, faellt von selbst heraus (die Fehlerserie steht dann auf 0).
+    """
+    if registry is None:
+        from ..job_scraper import SOURCE_REGISTRY as registry
+    from ..job_scraper.handoff import HANDOFF_URL_TEMPLATES
+    from ..services.search_service import _zugriffsart
+    gewaehlt = list(auswahl or [])
+    if not gewaehlt:
+        return {}
+    try:
+        gesundheit = {h["scraper_name"]: h for h in db.get_scraper_health()}
+    except Exception:
+        return {}
+    ergebnis: dict[str, str] = {}
+    for key in gewaehlt:
+        info = registry.get(key) or {}
+        if (key not in HANDOFF_URL_TEMPLATES or info.get("defekt")
+                or _zugriffsart(key, info) == "browser_login"):
+            continue
+        h = gesundheit.get(key) or {}
+        if (h.get("consecutive_failures") or 0) >= 1 or (h and not h.get("is_active", 1)):
+            ergebnis[key] = str(h.get("last_status_detail") or h.get("last_error") or "").strip()
+    return ergebnis
+
+
+def _suchkriterien_begriffe(db) -> list[str]:
+    """Die Begriffe, mit denen auch der interne Lauf sucht: MUSS, ohne MUSS die PLUS-Begriffe (#1071)."""
+    try:
+        krit = db.get_search_criteria() or {}
+    except Exception:
+        return []
+    return [str(b).strip() for b in (krit.get("keywords_muss") or krit.get("keywords_plus") or []) if str(b).strip()]
+
+
 def browser_quellen(db, auswahl=None, registry=None,
                     ersatzwege=None) -> list[dict]:
     """Die Quellen, die nur im Browser liefern — mit allem, was der Prompt braucht.
@@ -110,6 +156,7 @@ def browser_quellen(db, auswahl=None, registry=None,
         from ..tools.jobs import _MANUAL_SOURCES as ersatzwege
     from ..services.search_service import _zugriffsart
     gewaehlt = set(auswahl or [])
+    ausgefallen = intern_ausgefallen(db, [k for k in registry if k in gewaehlt], registry=registry)
     eintraege: list[dict] = []
     for key, info in registry.items():
         if _zugriffsart(key, info) == "browser_login":
@@ -117,6 +164,10 @@ def browser_quellen(db, auswahl=None, registry=None,
                 continue
             art = UEBERSPRUNGEN
             weg = ersatzwege.get(key) or info.get("login_hinweis") or ""
+        elif key in ausgefallen:
+            art = INTERN_AUSGEFALLEN
+            grund = ausgefallen[key]
+            weg = "interner Suchlauf zuletzt ausgefallen" + (f" ({grund})" if grund else "")
         elif info.get("defekt") and _nur_im_browser(info) and not info.get("ersatz_quelle"):
             # #1159: hat die defekte Quelle eine eigene Browser-Schwester (ersatz_quelle), steht DIE in der Liste, wenn
             # der Mensch sie gewaehlt hat; die defekte noch einmal zu nennen waere dieselbe Quelle zweimal.
@@ -126,14 +177,23 @@ def browser_quellen(db, auswahl=None, registry=None,
             continue
         profil = db.find_portal_search_profile(key)
         begriffe = suchbegriffe(profil)
+        herkunft = "suchprofil" if begriffe else ""
+        if not begriffe and art == INTERN_AUSGEFALLEN:
+            # #1302: eine interne Quelle sucht ohne eigenes Profil mit den Suchkriterien - der Browser mit denselben.
+            begriffe = _suchkriterien_begriffe(db)
+            herkunft = "suchkriterien" if begriffe else ""
+        werkzeug = WERKZEUG_JE_PORTAL.get(key, "")
+        if not werkzeug and art == INTERN_AUSGEFALLEN:
+            werkzeug = f"quelle_handoff('{key}', <Suchbegriff>)"
         eintraege.append({
             "key": key,
             "name": info.get("name") or key,
             "art": art,
             "ersatzweg": str(weg),
             "suchbegriffe": begriffe,
-            "suchprofil_vorhanden": bool(begriffe),
-            "werkzeug": WERKZEUG_JE_PORTAL.get(key, ""),
+            "suchprofil_vorhanden": herkunft == "suchprofil",
+            "suchbegriffe_herkunft": herkunft,
+            "werkzeug": werkzeug,
             # #1189: Auflagen der Quelle (jobtic) - der Auftrag nennt sie unter der Quelle.
             "auflagen": str((info.get("auflagen") or {}).get("hinweis") or ""),
         })
@@ -143,16 +203,23 @@ def browser_quellen(db, auswahl=None, registry=None,
 def prompt(eintraege: list[dict]) -> str:
     """Der kopierbare Auftrag an Claude — leer, wenn es nichts zu tun gibt."""
     haupt = [e for e in eintraege if e["art"] == UEBERSPRUNGEN]
+    ausgefallen = [e for e in eintraege if e["art"] == INTERN_AUSGEFALLEN]
     extra = [e for e in eintraege if e["art"] == DEFEKT_NUR_BROWSER]
-    if not haupt and not extra:
+    if not haupt and not extra and not ausgefallen:
         return ""
-    zeilen = ["Suche für mich in diesen Quellen, die PBP nur über den "
-              "Browser erreicht (Claude-in-Chrome). Der interne Suchlauf "
-              "hat sie uebersprungen.", ""]
+    if haupt:
+        zeilen = ["Suche für mich in diesen Quellen, die PBP nur über den "
+                  "Browser erreicht (Claude-in-Chrome). Der interne Suchlauf "
+                  "hat sie uebersprungen.", ""]
+    else:
+        zeilen = ["Suche für mich im Browser (Claude-in-Chrome) in diesen Quellen.", ""]
 
     def _zeile(nummer, e):
         teile = [f"{nummer}. {e['name']}"]
-        if e["suchbegriffe"]:
+        if e["suchbegriffe"] and e.get("suchbegriffe_herkunft") == "suchkriterien":
+            teile.append("Suchbegriffe aus meinen Suchkriterien (kein eigenes Suchprofil der Quelle): "
+                         + ", ".join(e["suchbegriffe"]))
+        elif e["suchbegriffe"]:
             teile.append("erprobte Suchbegriffe: " + ", ".join(e["suchbegriffe"]))
         else:
             teile.append(
@@ -166,8 +233,16 @@ def prompt(eintraege: list[dict]) -> str:
         zeilen.append(_zeile(nummer, e))
         if e.get("auflagen"):
             zeilen.append(f"   {e['auflagen']}")
-    if extra:
+    if ausgefallen:
         if haupt:
+            zeilen.append("")
+        zeilen.append("Diese Quellen laufen sonst intern, der letzte interne Suchlauf ist dort ausgefallen – "
+                      "suche dort, bis er wieder liefert:")
+        for nummer, e in enumerate(ausgefallen, len(haupt) + 1):
+            zeilen.append(_zeile(nummer, e))
+            zeilen.append(f"   {e['ersatzweg']}")
+    if extra:
+        if haupt or ausgefallen:
             zeilen.append("")
         zeilen.append("Optional, wenn Zeit bleibt — diese Quellen führt PBP "
                       "als defekt, im Browser liefern sie:")

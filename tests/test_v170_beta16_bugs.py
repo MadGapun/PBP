@@ -182,12 +182,9 @@ def test_527_refresh_endpoint_caps_at_200(setup_env):
     assert r.status_code == 200
 
 
-def test_527_scraper_detail_limit_lifted_to_75():
-    """Kommentar im Scraper bestaetigt Limit-Anhebung von 30 auf 75."""
-    from pathlib import Path
-    src = (Path(__file__).resolve().parents[1]
-           / "src" / "bewerbungs_assistent" / "job_scraper" / "freelancermap.py")
-    code = src.read_text(encoding="utf-8")
-    assert "DETAIL_FETCH_LIMIT = 75" in code
-    # Alte Limit-Definition darf nicht mehr aktiv sein
-    assert "DETAIL_FETCH_LIMIT = 30" not in code
+def test_527_scraper_detail_limit_nur_noch_im_notweg():
+    """#1302: die 75 Detailabrufe je Begriff waren die Ursache des 90-s-Abbruchs. Die Beschreibung steht
+    heute in der eingebetteten Ergebnisliste; Detailseiten holt nur noch der Notweg, hoechstens wenige."""
+    from bewerbungs_assistent.job_scraper import freelancermap
+    assert freelancermap.DETAIL_FETCH_LIMIT <= 10
+    assert freelancermap.ZEITBUDGET_S < 120

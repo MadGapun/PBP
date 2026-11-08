@@ -6152,6 +6152,21 @@ def register(mcp, db, logger):
                     continue
                 results.append(check_source(s))
 
+        # #1302: die Probe sagt, ob die Seite antwortet - der letzte Suchlauf, WARUM es nicht klappte. Stand an
+        # freelancermap nur "timeout"/server_weg, obwohl die Seite in 0,5 s lieferte; jetzt stehen beide nebeneinander.
+        try:
+            _gesundheit = {h["scraper_name"]: h for h in db.get_scraper_health()}
+        except Exception:
+            _gesundheit = {}
+        for r in results:
+            h = _gesundheit.get(r.get("source")) or {}
+            if not (h.get("consecutive_failures") or 0):
+                continue
+            r["letzter_lauf"] = (h.get("last_status_detail") or h.get("last_error") or "fehlgeschlagen")[:200]
+            if r.get("reachable") and r.get("inhalt") == "ok":
+                r["einordnung"] = ("Die Seite antwortet und liefert Stellen – der Fehler lag im Suchlauf: "
+                                   + r["letzter_lauf"])
+
         reachable = sum(1 for r in results if r.get("reachable"))
         # v1.7.23 (#808): "antwortet" und "liefert Stellen" sind zwei
         # verschiedene Fragen. Vorher zaehlte nur die erste — und
