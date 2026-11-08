@@ -2781,7 +2781,13 @@ def _word_boundary_match(keyword: str, text: str) -> bool:
     return re.search(pattern, text, flags=re.IGNORECASE) is not None
 
 
-def _strict_keyword_match(keyword: str, text: str) -> bool:
+# #1287: Endungen, mit denen ein deutsches Wort in Anzeigen gebeugt oder gegendert steht ("Projektleiterin",
+# "Ingenieure", "Konstrukteurinnen"). Nur fuer das Pflicht-Tor und nur an Woertern ab vier Buchstaben. Kein -s:
+# "product lifecycles" ist nicht "Product Lifecycle" (#940), englische Plurale bleiben aussen vor.
+_BEUGUNG = r"(?:innen|in|en|e|n)?"
+
+
+def _strict_keyword_match(keyword: str, text: str, beugung: bool = False) -> bool:
     """v1.7.7 (#755, C25): Praezises Matching fuer MINUS-Keywords.
 
     MINUS-Keywords BESTRAFEN — anders als beim PLUS-Matching (Recall,
@@ -2805,7 +2811,11 @@ def _strict_keyword_match(keyword: str, text: str) -> bool:
         parts = [re.escape(p) for p in re.split(r"[\s\-/]+", needle) if p]
         if not parts:
             continue
-        pattern = (r"(?<![\w])" + r"[\s\-/]+".join(parts) + r"(?![\w])")
+        endung = ""
+        letztes = [w for w in re.split(r"[\s\-/]+", needle) if w][-1]
+        if beugung and len(letztes) >= 4 and letztes.isalpha():
+            endung = _BEUGUNG
+        pattern = (r"(?<![\w])" + r"[\s\-/]+".join(parts) + endung + r"(?![\w])")
         if re.search(pattern, haystack):
             return True
     return False
@@ -2978,7 +2988,7 @@ def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     Teamcenter-Stelle IST eine PLM-Stelle, auch ohne das Kuerzel im
     Text.
     """
-    if _strict_keyword_match(keyword, text):
+    if _strict_keyword_match(keyword, text, beugung=True):
         return True
 
     # v1.7.28 (#969): amtliche Alternativbezeichnungen desselben Berufs.
@@ -2991,7 +3001,7 @@ def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     # Geprueft werden sie strikt wie das Keyword selbst: ein Synonym
     # darf den Torwaechter erweitern, nicht aufweichen.
     for alternative in (synonyme or []):
-        if _strict_keyword_match(alternative, text):
+        if _strict_keyword_match(alternative, text, beugung=True):
             return True
 
     kw_lower = keyword.lower().strip()

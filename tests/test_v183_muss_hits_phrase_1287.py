@@ -248,3 +248,38 @@ def test_tote_pflichtbegriffe_wie_das_tor(umgebung):
     tote = [k.lower() for k in (erg.get("tote_keywords") or [])]
     assert "data office" in tote, erg
     assert "sales" not in tote
+
+
+# ── Beugung im Pflicht-Tor: gegenderte und gebeugte Formen sind derselbe Begriff ──
+
+@pytest.mark.parametrize("begriff, text", [
+    ("Projektleiter", "Wir suchen eine Projektleiterin (m/w/d)"),
+    ("Ingenieur", "Ingenieurin oder Ingenieur"),
+    ("Konstrukteur", "Konstrukteure gesucht"),
+    ("Konstrukteur", "Team aus Konstrukteurinnen"),
+    ("Data Owner", "als Data Owner (m/w/d)"),
+    ("Data-Owner", "als Data Owner"),
+    ("Bauleiter", "Bauleitern und Bauleiterinnen"),
+])
+def test_1287_gebeugte_formen_oeffnen_das_tor(begriff, text):
+    from bewerbungs_assistent.services import muss_tor
+    assert muss_tor.pflicht_treffer({"keywords_muss": [begriff]}, text) == [begriff]
+
+
+@pytest.mark.parametrize("begriff, text", [
+    ("Data Owner", "Data Ownership ist uns wichtig"),   # anderes Wort, keine Endung
+    ("Projektleiter", "die Projektleiterstelle"),        # Zusammensetzung bleibt aussen vor
+    ("PLM", "PLMs"),                                     # Kuerzel unter vier Buchstaben: ohne Endung
+    ("Product Lifecycle", "product lifecycles"),         # #940: kein englisches Plural-s
+    ("Rat", "die Rate"),
+])
+def test_1287_beugung_macht_das_tor_nicht_weich(begriff, text):
+    from bewerbungs_assistent.services import muss_tor
+    assert muss_tor.pflicht_treffer({"keywords_muss": [begriff]}, text) == []
+
+
+def test_1287_ausschlussbegriffe_bekommen_keine_beugung():
+    """Die Endungen gelten nur fuer das Pflicht-Tor; MINUS bleibt so streng wie bisher."""
+    from bewerbungs_assistent.job_scraper import _strict_keyword_match
+    assert not _strict_keyword_match("Praktikant", "Praktikantin")
+    assert _strict_keyword_match("Praktikant", "Praktikantin", beugung=True)
