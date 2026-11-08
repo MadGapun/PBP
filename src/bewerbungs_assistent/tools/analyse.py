@@ -4,6 +4,7 @@ import json
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.nutzerfuehrung import kein_profil, leer
+from ..services.profile_service import stufe_heute
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -2449,7 +2450,7 @@ def register(mcp, db, logger):
                 vorschlag_muss = []
             skills = sorted(
                 profile.get("skills", []),
-                key=lambda s: -(s.get("level") or 0),
+                key=lambda s: -stufe_heute(s),  # #1264: heutiger Stand, nicht die Spitze
             )
             vorschlag_plus = [
                 s["name"] for s in skills
