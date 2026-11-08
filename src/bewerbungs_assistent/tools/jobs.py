@@ -1746,15 +1746,9 @@ def register(mcp, db, logger):
                 if _alter.get("hinweis"):
                     entry["anzeigenalter_hinweis"] = _alter["hinweis"]
             emp_type = j.get("employment_type") or ""
-            if emp_type == "freelance":
-                typ_emoji = "🟢"
-                typ_label = "🟢 Freelance"
-            elif emp_type == "festanstellung":
-                typ_emoji = "🔵"
-                typ_label = "🔵 Festanstellung"
-            else:
-                typ_emoji = "⚪"
-                typ_label = "⚪ Sonstige"
+            # #1301: dieselbe Farbtabelle wie das Dashboard; jede Form beim Namen.
+            from ..services.stellenart import form_kennzeichen
+            typ_emoji, typ_label = form_kennzeichen(emp_type)
             entry["titel"] = f"{typ_emoji} {entry['titel']}"
             entry["typ_label"] = typ_label
             if emp_type:

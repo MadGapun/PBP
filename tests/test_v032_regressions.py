@@ -197,7 +197,7 @@ def test_stellen_anzeigen_emoji_marker(tmp_db):
     stellen = {}
     for s in result["stellen"]:
         # Strip emoji prefix to map back to original title
-        for prefix in ("🟢 ", "🔵 ", "⚪ "):
+        for prefix in ("🟢 ", "🔵 ", "⚪ ", "🟣 "):
             if s["titel"].startswith(prefix):
                 stellen[s["titel"][len(prefix):]] = s
                 break
@@ -214,10 +214,10 @@ def test_stellen_anzeigen_emoji_marker(tmp_db):
     assert fe["typ_label"] == "🔵 Festanstellung"
     assert fe["typ"] == "festanstellung"
 
-    # Zeitarbeit (sonstige) → ⚪
+    # Zeitarbeit → 🟣, beim Namen statt "Sonstige" (#1301)
     za = stellen["Zeitarbeit Data Science"]
-    assert za["titel"].startswith("⚪")
-    assert za["typ_label"] == "⚪ Sonstige"
+    assert za["titel"].startswith("🟣")
+    assert za["typ_label"] == "🟣 Zeitarbeit"
 
     # Kein employment_type → default 'festanstellung' from DB → 🔵
     em = stellen["Unbekannter Typ"]

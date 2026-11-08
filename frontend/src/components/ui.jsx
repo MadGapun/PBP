@@ -128,6 +128,11 @@ export function Badge({ children, tone = "neutral", className }) {
     success: "border-teal/15 bg-teal/8 text-teal",
     amber: "border-amber/15 bg-amber/8 text-amber",
     danger: "border-coral/15 bg-coral/8 text-coral",
+    // #1301: die Anstellungsformen ohne eigenen Akzent
+    violett: "border-violett/15 bg-violett/8 text-violett",
+    mandarine: "border-mandarine/15 bg-mandarine/8 text-mandarine",
+    gelb: "border-gelb/15 bg-gelb/8 text-gelb",
+    braun: "border-braun/15 bg-braun/8 text-braun",
   };
 
   return (
