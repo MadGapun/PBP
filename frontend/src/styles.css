@@ -14,6 +14,12 @@
   --color-amber: 251 191 36;
   --color-coral: 251 113 133;
   --color-sky: 129 161 255;
+  /* #1301: Anstellungsformen ohne eigenen Akzent (Festanstellung = sky,
+     Freelance = teal). Eine Tabelle: frontend/src/lib/stellenAngaben.js. */
+  --color-violett: 180 150 255;
+  --color-mandarine: 251 146 60;
+  --color-gelb: 222 220 80;
+  --color-braun: 214 170 130;
 
   /* Semantic surface-tokens (Beta.7) — Alpha-Varianten fuer Glass-Look */
   --surface-overlay-weak: 255 255 255;   /* rgba(..., 0.04) fuer sanfte Hover */
@@ -34,6 +40,10 @@
   --color-amber: 165 90 5;
   --color-coral: 214 28 68;
   --color-sky: 37 99 235;
+  --color-violett: 109 40 217;
+  --color-mandarine: 194 65 12;
+  --color-gelb: 104 108 0;
+  --color-braun: 120 74 44;
 
   /* Im Light-Mode sind Overlays dunkel, nicht hell */
   --surface-overlay-weak: 20 24 40;

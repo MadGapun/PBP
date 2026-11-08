@@ -129,6 +129,35 @@ ZEITARBEIT = "zeitarbeit"
 ANSTELLUNGSFORMEN = (FESTANSTELLUNG, ZEITARBEIT, FREELANCE, PRAKTIKUM,
                      WERKSTUDENT, AUSBILDUNG)
 
+#: #1301: EINE Farbtabelle je Anstellungsform: (Ton, Kennzeichen, Name).
+#: Der Ton ist derselbe wie in `ANSTELLUNGSFORM_TON` im Dashboard
+#: (frontend/src/lib/stellenAngaben.js); der Test
+#: tests/test_v183_anstellungsform_farben_1301.py haelt beide
+#: deckungsgleich. Das Kennzeichen ist der naechste farbige Kreis, den es
+#: als Zeichen gibt — `stellen_anzeigen` setzt ihn vor den Titel.
+ANSTELLUNGSFORM_FARBE = {
+    FESTANSTELLUNG: ("sky", "🔵", "Festanstellung"),   # blau
+    FREELANCE: ("success", "🟢", "Freelance"),          # gruen
+    ZEITARBEIT: ("violett", "🟣", "Zeitarbeit"),        # violett
+    PRAKTIKUM: ("mandarine", "🟠", "Praktikum"),        # orange
+    WERKSTUDENT: ("gelb", "🟡", "Werkstudent"),         # gelb
+    AUSBILDUNG: ("braun", "🟤", "Ausbildung"),          # braun
+}
+#: Unbekannt ist ein eigener Zustand (Lehre 2): grau, nie wie Festanstellung.
+ANSTELLUNGSFORM_FARBE_UNBEKANNT = ("neutral", "⚪", "Anstellungsform unbekannt")
+
+
+def form_kennzeichen(art: str | None) -> tuple[str, str]:
+    """(Kennzeichen, Beschriftung) einer Anstellungsform, z. B.
+    ("🟣", "🟣 Zeitarbeit"). Eine unbekannte oder fehlende Form
+    bleibt grau und behaelt ihren Rohwert als Namen statt "Sonstige"."""
+    wert = str(art or "").strip()
+    _ton, zeichen, name = ANSTELLUNGSFORM_FARBE.get(
+        wert, ANSTELLUNGSFORM_FARBE_UNBEKANNT)
+    if wert and wert not in ANSTELLUNGSFORM_FARBE:
+        name = wert
+    return zeichen, f"{zeichen} {name}"
+
 VOLLZEIT = "vollzeit"
 BEIDES = "beides"
 UNBEKANNT = "unbekannt"
