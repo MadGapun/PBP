@@ -581,13 +581,18 @@ function TelemetrySharingCard({ pushToast }) {
 // Quellen ohne Login still aktiviert (im Demo 29 von 34), und die Kopfleiste
 // zeigte bis zum Neuladen weiter 0. Jetzt waehlt PBP die Empfehlung fuer
 // das Profil, sagt das einmal — und die Kopfleiste liest sofort neu.
+// #1280: solange die Bestaetigung unterwegs ist, bleibt die Karte weg - auch wenn die Seite neu aufgebaut wird, bevor
+// der Server sie gespeichert hat (sonst lieferte das erneute Lesen noch "offen").
+let erstauswahlBestaetigt = false;
+
 function ErstauswahlHinweis({ refreshChrome }) {
   const [daten, setDaten] = useState(null);
   useEffect(() => {
     let aktiv = true;
+    if (erstauswahlBestaetigt) return () => { aktiv = false; };
     api("/api/sources/erstauswahl")
       .then((d) => {
-        if (!aktiv) return;
+        if (!aktiv || erstauswahlBestaetigt) return;
         setDaten(d);
         if (d?.offen) refreshChrome?.({ quiet: true });
       })
@@ -597,9 +602,14 @@ function ErstauswahlHinweis({ refreshChrome }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!daten?.offen) return null;
+  // #1280: sofort ausblenden, nicht erst nach der Antwort - bei einem langsamen Server stand die Karte sonst
+  // sekundenlang ohne Reaktion da und lud zum zweiten Klick ein.
   async function bestaetigen() {
-    try { await postJson("/api/sources/erstauswahl/bestaetigen", {}); } catch {}
+    erstauswahlBestaetigt = true;
     setDaten({ offen: false });
+    try { await postJson("/api/sources/erstauswahl/bestaetigen", {}); } catch {}
+    // Danach gilt wieder, was der Server sagt (ein anderes Profil hat seine eigene Erstauswahl).
+    erstauswahlBestaetigt = false;
   }
   const namen = daten.namen || [];
   return (
