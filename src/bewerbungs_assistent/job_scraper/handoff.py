@@ -32,6 +32,9 @@ HANDOFF_URL_TEMPLATES: dict[str, str] = {
     # #1189: Projektsuche von jobtic, serverseitig geliefert; `q` filtert (live gemessen 10.10.2026).
     "jobtic": "https://jobtic.com/search?type=projects&q={keyword}",
 }
+# #1302: freelancermap - dieselbe Suchadresse wie der interne Lauf (EINE Fassung in freelancermap.SUCH_URL).
+from .freelancermap import SUCH_URL as _FREELANCERMAP_SUCHE  # noqa: E402
+HANDOFF_URL_TEMPLATES["freelancermap"] = _FREELANCERMAP_SUCHE.replace("{begriff}", "{keyword}")
 
 # Quellen mit eigenem Auswerte-Skript. Es liest, was die Seite selbst als Liste mitliefert - eine
 # Datei im Paket, die ein Test (und die CI) gegen eine nachgebaute Seite ausfuehrt, nicht eine Kopie.

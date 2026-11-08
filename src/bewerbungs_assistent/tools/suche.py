@@ -1519,7 +1519,12 @@ def register(mcp, db, logger):
         start = (db._LINKEDIN_START if portal.strip().lower() == "linkedin"
                  else {"primaere_suchen": [], "sekundaere_suchen": [],
                        "nicht_verwenden": [], "notizen": ""})
+        # #1302: "gespeichert: false" hiess nicht "sucht ohne Begriffe" - der interne Lauf nimmt dann die MUSS-Begriffe.
+        from ..services.browser_handoff import PORTALE_MIT_SUCHPROFIL_IM_LAUF
+        ohne_profil = ({"interner_lauf_sucht_mit": "deinen Suchkriterien (MUSS-Begriffe), bis hier eigene Begriffe stehen"}
+                       if portal.strip().lower() in PORTALE_MIT_SUCHPROFIL_IM_LAUF else {})
         return {
+            **ohne_profil,
             "portal": portal.strip().lower(),
             "primaere_suchen": list(start["primaere_suchen"]),
             "sekundaere_suchen": list(start["sekundaere_suchen"]),

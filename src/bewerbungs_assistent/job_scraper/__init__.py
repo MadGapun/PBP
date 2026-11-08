@@ -32,6 +32,7 @@ from ..services.scraper_classifier import (
     classify_scraper_error,
     ERROR_CLASS_SERVER_WEG,
     ERROR_CLASS_KAPUTT,
+    lauf_grund,
 )
 
 logger = logging.getLogger("bewerbungs_assistent.scraper")
@@ -772,14 +773,6 @@ def build_search_keywords(db) -> dict:
     # Hays: lowercase keywords for sitemap URL matching
     hays_keywords = [kw.lower().replace(" ", "-") for kw in suchbegriffe]
 
-    # Freelancermap: slug-basierte URLs (#500). Die alte
-    # /projektboerse.html?q=... Endpunkt leitet jetzt 301 auf /projekte
-    # ohne Query-Parameter um. Das neue Schema ist /projekte/<keyword-slug>.
-    freelancermap_urls = []
-    for kw in suchbegriffe:
-        slug = kw.lower().strip().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-        freelancermap_urls.append(f"https://www.freelancermap.de/projekte/{slug}")
-
     # freelance.de: skill-based URLs (keyword → Skill-Projekte)
     freelance_de_urls = [
         f"https://www.freelance.de/{quote(kw.replace(' ', '-'))}-Projekte"
@@ -796,13 +789,21 @@ def build_search_keywords(db) -> dict:
     # vor, weil dessen Vorgaben die Fachrichtung eines Profils tragen.
     portal_suchbegriffe: dict = {}
     try:
-        from ..services.browser_handoff import suchbegriffe as _pb
-        for _portal in ("indeed",):
+        from ..services.browser_handoff import suchbegriffe as _pb, PORTALE_MIT_SUCHPROFIL_IM_LAUF
+        # #1302: auch freelancermap - ein gespeichertes Suchprofil der Quelle gilt vor den MUSS-Begriffen.
+        for _portal in PORTALE_MIT_SUCHPROFIL_IM_LAUF:
             _liste = _pb(db.find_portal_search_profile(_portal))
             if _liste:
                 portal_suchbegriffe[_portal] = _liste
     except Exception as _exc:  # pragma: no cover — nie den Suchlauf stoppen
         logger.debug("Portal-Suchprofile nicht gelesen (#1071): %s", _exc)
+
+    # Freelancermap (#1302, gemessen 08.11.2026): die Volltextsuche `/projekte?query=<Begriff>`. Die
+    # Schlagwort-Seiten (`/projekte/<slug>`, #500) waren enger - `/projekte/sap-mdm` 2 Projekte, die Suche 16.
+    # Ohne eigenes Suchprofil der Quelle gelten die MUSS-Begriffe der Suchkriterien (wie bei jeder Quelle).
+    from .freelancermap import such_url as _fmap_url
+    freelancermap_urls = [_fmap_url(kw) for kw in
+                          (portal_suchbegriffe.get("freelancermap") or suchbegriffe)]
 
     # #500: greenhouse_companies aus criteria durchschleusen, damit der User
     # eigene Greenhouse-Slugs (zusaetzlich zu DEFAULT_COMPANIES) konfigurieren
@@ -1565,10 +1566,15 @@ def run_search(db, job_id: str, params: dict):
         _start = time.time()
         try:
             search_func = _load_scraper(quelle)
-            timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
+            # #1302: die Zeitgrenze aus der Tabelle oben. Hier stand bisher "StepStone 180 s, sonst 90 s" -
+            # die 120 s fuer freelancermap und indeed galten nie, der Lauf brach nach 90 s ab.
+            timeout = _timeout_for(quelle)
+            # #1302: der Scraper schreibt hier hinein, wie weit er kam - daraus entsteht der Grund, den die
+            # Quellen-Diagnose nennt, statt nur "timeout"/"server_weg".
+            _fortschritt: dict = {}
 
             executor = ThreadPoolExecutor(max_workers=1)
-            future = executor.submit(_run_with_loop, search_func, params)
+            future = executor.submit(_run_with_loop, search_func, dict(params, _fortschritt=_fortschritt))
             try:
                 jobs = future.result(timeout=timeout)
             except FuturesTimeoutError:
@@ -1576,7 +1582,9 @@ def run_search(db, job_id: str, params: dict):
                 executor.shutdown(wait=False, cancel_futures=True)
                 skipped_sources.append(quelle)
                 source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout,
-                                         "error_class": ERROR_CLASS_SERVER_WEG}
+                                         "error_class": ERROR_CLASS_SERVER_WEG,
+                                         "detail": lauf_grund(_fortschritt, timeout)
+                                         or f"Zeitgrenze {timeout}s erreicht"}
                 continue
             finally:
                 executor.shutdown(wait=False)
@@ -1585,6 +1593,9 @@ def run_search(db, job_id: str, params: dict):
             all_jobs.extend(jobs)
             logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
             source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
+            _grund = lauf_grund(_fortschritt)
+            if _grund:
+                source_status[quelle]["detail"] = _grund
         except ImportError as e:
             logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
             skipped_sources.append(quelle)
