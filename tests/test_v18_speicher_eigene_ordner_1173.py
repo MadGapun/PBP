@@ -173,6 +173,7 @@ def test_die_komponente_zeigt_den_grund_und_schickt_zum_zuruecksetzen_leer():
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -243,14 +244,14 @@ def test_die_karte_traegt_die_eingabefelder_und_sagt_wohin_die_dateien_gehen(bro
         karte = _eigene_karte(page)
         editor = karte.locator("[data-ablage-eingebettet]")
         editor.wait_for(timeout=15000)
-        assert editor.locator("input").count() == 2, "Ausgabe-Ordner und Vorlagen-Ordner"
+        expect(editor.locator("input"), "Ausgabe-Ordner und Vorlagen-Ordner").to_have_count(2)
         text = karte.inner_text()
         assert "noch kein eigener Ordner gewählt" in text and "export" in text
         assert "Ausgabe-Ordner" in text and "Vorlagen-Ordner" in text
         assert "Aktuell:" not in text, "der Ort steht schon im Hinweis darueber — nicht ein zweites Mal"
-        assert karte.get_by_role("button", name="Ordner öffnen").count() == 0, "ohne eigenen Ordner gibt es nichts Eigenes zu öffnen"
+        expect(karte.get_by_role("button", name="Ordner öffnen"), "ohne eigenen Ordner gibt es nichts Eigenes zu öffnen").to_have_count(0)
         # die anderen Orte nehmen keine Eingaben an
-        assert page.locator("[data-speicher-ort='daten'] input, [data-speicher-ort='programm'] input").count() == 0
+        expect(page.locator("[data-speicher-ort='daten'] input, [data-speicher-ort='programm'] input")).to_have_count(0)
     finally:
         page.close()
 
@@ -280,7 +281,7 @@ def test_den_eigenen_ordner_auf_der_speicher_seite_aendern_und_wieder_zurueckset
         page.wait_for_function(
             "() => document.querySelector(\"[data-speicher-ort='eigene']\").innerText.includes('noch kein eigener Ordner gewählt')",
             timeout=15000)
-        assert karte.locator("[data-speicher-pfad]").count() == 0
+        expect(karte.locator("[data-speicher-pfad]")).to_have_count(0)
         assert ablage.ordner_lesen(server["db"], "ausgabe") is None
         assert "HTTP 400" not in editor.inner_text(), "das Zuruecksetzen darf nicht abgewiesen werden"
     finally:
@@ -297,7 +298,7 @@ def test_ein_ungueltiger_pfad_wird_am_feld_abgewiesen_und_nicht_gespeichert(brow
         editor.get_by_role("button", name="Speichern").first.click()
         editor.get_by_text("vollständigen Pfad", exact=False).wait_for(timeout=10000)
         assert ablage.ordner_lesen(server["db"], "ausgabe") is None
-        assert karte.locator("[data-speicher-pfad]").count() == 0
+        expect(karte.locator("[data-speicher-pfad]")).to_have_count(0)
         editor.locator("input").first.fill(str(server["tmp"] / "gibt_es_nicht"))   # absolut, aber nicht vorhanden
         editor.get_by_role("button", name="Speichern").first.click()
         editor.get_by_text("Diesen Ordner gibt es nicht", exact=False).wait_for(timeout=10000)
@@ -353,8 +354,8 @@ def test_unter_einstellungen_ordner_gibt_es_die_karte_weiter_als_eigene_karte(br
         page.goto(f"{server['url']}/#einstellungen", wait_until="load", timeout=30000)
         page.locator("[data-settings-reiter]").get_by_role("button", name="Ordner", exact=True).click(timeout=20000)
         page.get_by_text("Ordner für Dokumente und Vorlagen").wait_for(timeout=15000)
-        assert page.locator("[data-ablage-eingebettet]").count() == 0, "dort steht sie mit eigener Überschrift, nicht eingebettet"
-        assert page.locator("input[placeholder*='Bewerbungen']").count() >= 1
-        assert page.get_by_text("Aktuell:").count() == 1, "dort ist die Zeile mit dem Ort weiter die einzige Auskunft"
+        expect(page.locator("[data-ablage-eingebettet]"), "dort steht sie mit eigener Überschrift, nicht eingebettet").to_have_count(0)
+        expect(page.locator("input[placeholder*='Bewerbungen']").first).to_be_attached()
+        expect(page.get_by_text("Aktuell:"), "dort ist die Zeile mit dem Ort weiter die einzige Auskunft").to_have_count(1)
     finally:
         page.close()

@@ -17,6 +17,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -99,10 +100,10 @@ def test_g59_ein_einstieg_ohne_overlay(browser, ohne_profil):
         assert "So arbeiten Dashboard und Claude zusammen" in text
         assert "Lebenslauf hochladen" in text and "Gespräch mit Claude starten" in text
         assert "Starte die Ersterfassung" in text
-        assert page.locator("#wizard-overlay").count() == 0
+        expect(page.locator("#wizard-overlay")).to_have_count(0)
         assert "Willkommen beim Bewerbungs-Assistenten" not in text
         # Ohne Profil keine Hinweiszone — der Einstieg erklaert es selbst.
-        assert page.locator("[data-hinweiszone]").count() == 0
+        expect(page.locator("[data-hinweiszone]")).to_have_count(0)
     finally:
         page.close()
 
@@ -143,7 +144,7 @@ def test_g60_hoechstens_ein_hinweis_nur_auf_dem_dashboard(browser, mit_profil):
     page = _seite(browser, url, "dashboard")
     try:
         page.locator("[data-hinweiszone]").first.wait_for(timeout=10000)
-        assert page.locator("[data-hinweiszone]").count() == 1
+        expect(page.locator("[data-hinweiszone]")).to_have_count(1)
         # Ohne Verbindung steht die Verbindung vorn.
         assert page.locator("[data-hinweiszone]").get_attribute("data-hinweiszone") == "verbindung"
         assert "Keine Jobquellen aktiviert" not in page.inner_text("body")
@@ -151,9 +152,9 @@ def test_g60_hoechstens_ein_hinweis_nur_auf_dem_dashboard(browser, mit_profil):
         page.close()
     page = _seite(browser, url, "aufgaben")
     try:
-        assert page.locator("[data-hinweiszone]").count() == 0
-        assert page.locator("#workspace-strip").count() == 0
-        assert page.locator("#source-banner").count() == 0
+        expect(page.locator("[data-hinweiszone]")).to_have_count(0)
+        expect(page.locator("#workspace-strip")).to_have_count(0)
+        expect(page.locator("#source-banner")).to_have_count(0)
     finally:
         page.close()
 
@@ -198,7 +199,7 @@ def test_b69_erstauswahl_wird_gezeigt(browser, mit_profil):
         with page.expect_response(lambda r: r.url.endswith("/api/sources/erstauswahl/bestaetigen"), timeout=15000):
             page.get_by_role("button", name="Passt so").click()
         page.locator("[data-erstauswahl]").first.wait_for(state="detached", timeout=15000)
-        assert page.locator("[data-erstauswahl]").count() == 0
+        expect(page.locator("[data-erstauswahl]")).to_have_count(0)
         assert (db.get_profile_setting("quellen_erstauswahl") or {}).get("bestaetigt") is True
     finally:
         page.close()

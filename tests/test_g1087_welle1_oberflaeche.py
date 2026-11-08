@@ -25,6 +25,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -163,7 +164,7 @@ def test_g57_termin_loeschen_nimmt_ihn_aus_der_timeline(browser, server):
         n = con.execute("SELECT COUNT(*) FROM application_meetings WHERE application_id=?",
                         (aid,)).fetchone()[0]
         assert n == 0
-        assert page.get_by_title("Termin löschen").count() == 0
+        expect(page.get_by_title("Termin löschen")).to_have_count(0)
     finally:
         page.close()
 

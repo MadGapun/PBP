@@ -150,13 +150,13 @@ def test_beispielfragen_stehen_vor_der_ersten_frage_und_fragen_beim_klick(live, 
     try:
         _hilfe_oeffnen(seite)
         beispiele = seite.locator("[data-hilfe-beispiel]")
-        assert beispiele.count() >= 3
+        expect(beispiele.nth(2)).to_be_attached()
         text = beispiele.first.inner_text().strip()
         beispiele.first.click()
         antwort = seite.locator('[data-hilfe-antwort="gefunden"]')
         antwort.wait_for(state="visible")
         assert text in antwort.locator("[data-hilfe-frage-text]").inner_text()
-        assert seite.locator("[data-hilfe-beispiele]").count() == 0, "nach der ersten Frage stehen die Beispiele nicht mehr da"
+        expect(seite.locator("[data-hilfe-beispiele]"), "nach der ersten Frage stehen die Beispiele nicht mehr da").to_have_count(0)
     finally:
         kontext.close()
 
@@ -173,7 +173,7 @@ def test_oeffnen_fuehrt_in_den_richtigen_reiter_und_schliesst_den_dialog(live, b
         knopf.click()
         seite.wait_for_function("() => location.hash.startsWith('#einstellungen')")
         seite.locator("[data-settings-reiter]").wait_for(state="visible")
-        assert seite.get_by_role("heading", name="Hilfe & Support").count() == 0, "der Dialog bleibt nicht stehen"
+        expect(seite.get_by_role("heading", name="Hilfe & Support"), "der Dialog bleibt nicht stehen").to_have_count(0)
     finally:
         kontext.close()
 
@@ -218,7 +218,7 @@ def test_eine_frage_ausserhalb_bekommt_den_hinweis_und_den_satz_fuer_claude(live
         antwort.wait_for(state="visible")
         assert "nur zur Bedienung von PBP" in antwort.inner_text()
         assert "Dafür ist Claude da" not in antwort.inner_text(), "der Hinweis sagt schon, dass Claude dafür da ist: nicht doppelt"
-        assert antwort.locator("[data-hilfe-karte]").count() == 0
+        expect(antwort.locator("[data-hilfe-karte]")).to_have_count(0)
         antwort.locator("[data-hilfe-satz]").click()
         seite.wait_for_function("() => window.__kopiert && window.__kopiert.includes('Wetter')")
         assert seite.evaluate("() => window.__kopiert").startswith("Ich habe eine Frage zu PBP")
@@ -275,7 +275,7 @@ def test_die_seitenleiste_fragt_nur_bei_laufender_ki(live, browser):
                 seite.locator("[data-sidebar-hilfe]").wait_for(state="visible", timeout=15000)
             else:
                 seite.wait_for_timeout(500)
-                assert seite.locator("[data-sidebar-hilfe]").count() == 0, f"bei {zustand} darf die Eingabe nicht erscheinen"
+                expect(seite.locator("[data-sidebar-hilfe]"), f"bei {zustand} darf die Eingabe nicht erscheinen").to_have_count(0)
         finally:
             kontext.close()
 
@@ -290,13 +290,13 @@ def test_in_der_seitenleiste_erscheint_die_antwort_kompakt_mit_wegen(live, brows
         seite.locator("div#root").wait_for(state="visible")
         leiste = seite.locator("[data-sidebar-hilfe]")
         leiste.wait_for(state="visible", timeout=15000)
-        assert leiste.locator("[data-hilfe-beispiele]").count() == 0, "die schmale Seitenleiste zeigt keine Beispielfragen"
+        expect(leiste.locator("[data-hilfe-beispiele]"), "die schmale Seitenleiste zeigt keine Beispielfragen").to_have_count(0)
         _fragen(seite, leiste, "Wie aktualisiere ich PBP?")
         # #1254: die Antwort steht im Bereich des Verlaufs (ueber dem Feld), nicht mehr im Block des Feldes
         verlauf = seite.locator("[data-elwosa-liste]")
         antwort = verlauf.locator('[data-hilfe-antwort="gefunden"]')
         antwort.wait_for(state="visible")
-        assert antwort.locator("[data-hilfe-karte]").count() == 1, "kompakt: zuerst nur der beste Treffer"
+        expect(antwort.locator("[data-hilfe-karte]"), "kompakt: zuerst nur der beste Treffer").to_have_count(1)
         mehr = verlauf.get_by_role("button", name="weitere Treffer zeigen")
         if mehr.count():
             mehr.first.click()
@@ -335,7 +335,7 @@ def test_die_kurzantwort_erscheint_ueber_den_karten_und_nennt_ihre_herkunft(live
         seite.locator("[data-hilfe-ki-text]").wait_for(state="visible", timeout=10000)
         assert "Erweitert › Updates" in seite.locator("[data-hilfe-ki-text]").inner_text()
         assert "lokalen KI" in seite.locator("[data-hilfe-ki]").inner_text()
-        assert seite.locator("[data-hilfe-karte]").count() >= 1, "die Karten stehen weiter da"
+        expect(seite.locator("[data-hilfe-karte]").first, "die Karten stehen weiter da").to_be_attached()
     finally:
         kontext.close()
 
@@ -348,7 +348,7 @@ def test_eine_verworfene_kurzantwort_zeigt_nichts_und_laesst_die_karten(live, br
         _fragen(seite, seite.locator('[data-hilfe-frage="voll"]'), "Wie aktualisiere ich PBP?")
         seite.locator("[data-hilfe-karte]").first.wait_for(state="visible")
         seite.wait_for_timeout(2500)
-        assert seite.locator("[data-hilfe-ki]").count() == 0
+        expect(seite.locator("[data-hilfe-ki]")).to_have_count(0)
     finally:
         kontext.close()
 
@@ -391,7 +391,7 @@ def _ruhig(seite):
 
 def _geschlossen_ohne_rueckfrage(seite):
     seite.get_by_role("heading", name="Hilfe & Support").wait_for(state="detached", timeout=5000)
-    assert seite.locator("[data-verwerfen-frage]").count() == 0
+    expect(seite.locator("[data-verwerfen-frage]")).to_have_count(0)
 
 
 def test_1247_eine_getippte_frage_loest_beim_schliessen_keine_rueckfrage_aus(live, browser):
@@ -540,16 +540,16 @@ def test_1254_die_antwort_steht_im_verlauf_und_die_eingabe_bleibt_sichtbar_daneb
     kontext, seite = _seite_mit_verlauf(browser, live)
     try:
         liste = seite.locator("[data-elwosa-liste]")
-        assert liste.locator("[data-hilfe-trennzeile]").count() == 0, "die Trennzeile steht, bevor etwas gefragt wurde"
+        expect(liste.locator("[data-hilfe-trennzeile]"), "die Trennzeile steht, bevor etwas gefragt wurde").to_have_count(0)
         # der Rahmen fuer Vorleseprogramme ist schon da, bevor etwas gefragt wird: nur dann meldet es die neue Antwort
         ansage = seite.locator('[data-elwosa-chat] [data-hilfe-ansage][aria-live="polite"]')
-        assert ansage.count() == 1, "der Rahmen fuer die Meldung einer neuen Antwort fehlt oder meldet nichts"
+        expect(ansage, "der Rahmen fuer die Meldung einer neuen Antwort fehlt oder meldet nichts").to_have_count(1)
         _gefragt(seite, "Wie aktualisiere ich PBP?")
-        assert liste.locator('[data-hilfe-antwort="gefunden"]').count() == 1, "die Antwort steht nicht im Bereich des Verlaufs"
-        assert liste.locator("[data-hilfe-eingabe]").count() == 0, "die Eingabe scrollt mit weg"
-        assert liste.locator("[data-hilfe-trennzeile]").count() == 1, "die Trennzeile fehlt"
+        expect(liste.locator('[data-hilfe-antwort="gefunden"]'), "die Antwort steht nicht im Bereich des Verlaufs").to_have_count(1)
+        expect(liste.locator("[data-hilfe-eingabe]"), "die Eingabe scrollt mit weg").to_have_count(0)
+        expect(liste.locator("[data-hilfe-trennzeile]"), "die Trennzeile fehlt").to_have_count(1)
         assert "Fragen zur Bedienung" in liste.locator("[data-hilfe-trennzeile]").text_content()      # inner_text() waere GROSS geschrieben (CSS)
-        assert liste.locator("[data-elwosa-nachricht]").count() >= 8, "Elwosas Nachrichten sind verschwunden"
+        expect(liste.locator("[data-elwosa-nachricht]").nth(7), "Elwosas Nachrichten sind verschwunden").to_be_attached()
         # nach der Zeit: die Nachrichten, die schon da waren, stehen VOR der Frage und ihrer Antwort (nicht danach, nicht am Anfang)
         davor = seite.evaluate(
             "() => { const a = document.querySelector('[data-elwosa-liste] [data-hilfe-antwort]'); "
@@ -584,7 +584,7 @@ def test_1254_zwei_fragen_stehen_der_reihe_nach_und_die_neueste_ist_im_blick(liv
         _gefragt(seite, "Wie lege ich eine Bewerbung an?")
         fragen = liste.locator("[data-hilfe-frage-text]").all_inner_texts()
         assert [f.removeprefix("Frage: ").strip() for f in fragen] == ["Wie aktualisiere ich PBP?", "Wie lege ich eine Bewerbung an?"], fragen
-        assert liste.locator("[data-hilfe-trennzeile]").count() == 1, "die Trennzeile steht einmal vor der Reihe der Antworten, nicht je Frage"
+        expect(liste.locator("[data-hilfe-trennzeile]"), "die Trennzeile steht einmal vor der Reihe der Antworten, nicht je Frage").to_have_count(1)
         seite.wait_for_function(ANFANG_IM_BLICK, arg=1, timeout=5000)
         assert seite.locator("[data-elwosa-chat]").evaluate(SCROLLBEREICHE) == 1
     finally:
@@ -645,7 +645,7 @@ def test_1254_die_sechste_frage_verdraengt_die_aelteste_und_ist_im_blick(live, b
             _gefragt(seite, frage)
         gezeigt = [f.removeprefix("Frage: ").strip() for f in liste.locator("[data-hilfe-frage-text]").all_inner_texts()]
         assert gezeigt == fragen[1:], gezeigt
-        assert liste.locator("[data-hilfe-trennzeile]").count() == 1
+        expect(liste.locator("[data-hilfe-trennzeile]")).to_have_count(1)
         seite.wait_for_function(ANFANG_IM_BLICK, arg=4, timeout=5000)
     finally:
         kontext.close()
@@ -783,13 +783,13 @@ def _marke_neu_pruefen(live, browser, anzahl):
         _holen(seite, "waehrend oben gelesen wird")
         erwartet = seite.evaluate(NACHRICHTEN_NACH, gelesen)
         assert erwartet >= 1, "der Fall ist keiner: die neue Meldung steht nicht unter der zuletzt gelesenen"
-        assert marke.count() == 1, f"keine Marke 'N neu', obwohl {erwartet} neue Meldung(en) unter dem Bild liegen (Verlauf mit {anzahl} Nachrichten)"
+        expect(marke, f"keine Marke 'N neu', obwohl {erwartet} neue Meldung(en) unter dem Bild liegen (Verlauf mit {anzahl} Nachrichten)").to_have_count(1)
         assert marke.inner_text().strip() == f"{erwartet} neu", marke.inner_text()
         assert liste.evaluate("l => l.scrollTop") < 60, "wer oben liest, wird nach unten gezogen"
         marke.click()
         _bilder(seite)
         assert seite.evaluate(ABSTAND_ZUM_ENDE) < 2, "der Klick auf die Marke fuehrt nicht ans Ende"
-        assert marke.count() == 0, "die Marke bleibt nach dem Klick stehen"
+        expect(marke, "die Marke bleibt nach dem Klick stehen").to_have_count(0)
     finally:
         kontext.close()
 
@@ -814,23 +814,26 @@ def test_1256_die_marke_zaehlt_mit_und_beginnt_am_ende_von_vorn(live, browser):
         _meldung(live, "Erste neue Meldung: die Suche ist fertig.", 1)
         _holen(seite, "Erste neue Meldung")
         eins = seite.evaluate(NACHRICHTEN_NACH, gelesen)
-        assert marke.count() == 1 and marke.inner_text().strip() == f"{eins} neu", f"nach der ersten Meldung: {marke.count()} Marke(n), erwartet '{eins} neu'"
+        expect(marke, "keine Marke 'N neu' (nach der ersten Meldung)").to_have_count(1)
+        expect(marke, f"nach der ersten Meldung: {marke.count()} Marke(n), erwartet '{eins} neu'").to_have_text(f"{eins} neu")
         _meldung(live, "Zweite neue Meldung: ein Termin steht an.", 2)
         _meldung(live, "Dritte neue Meldung: eine Nachfrage ist faellig.", 3)
         _holen(seite, "Dritte neue Meldung")
         drei = seite.evaluate(NACHRICHTEN_NACH, gelesen)
         assert drei >= eins + 2, "der Fall ist keiner: die letzten Meldungen stehen nicht unter der ersten"
-        assert marke.count() == 1 and marke.inner_text().strip() == f"{drei} neu", f"nach drei Meldungen: erwartet '{drei} neu', steht '{marke.all_inner_texts()}'"
+        expect(marke, "keine Marke 'N neu' (nach drei Meldungen)").to_have_count(1)
+        expect(marke, f"nach drei Meldungen: erwartet '{drei} neu', steht '{marke.all_inner_texts()}'").to_have_text(f"{drei} neu")
         # wer bis ans Ende liest, hat alles gesehen: die Marke verschwindet, und die naechste Meldung zaehlt wieder von vorn
         _ans_ende(seite)
-        assert marke.count() == 0, "am Ende steht noch eine Marke"
+        expect(marke, "am Ende steht noch eine Marke").to_have_count(0)
         _nach_oben(seite)
         gelesen = _zuletzt_gelesen(seite)
         _meldung(live, "Vierte neue Meldung: das Profil ist vollstaendig.", 4)
         _holen(seite, "Vierte neue Meldung")
         wieder = seite.evaluate(NACHRICHTEN_NACH, gelesen)
         assert wieder < drei, "der Fall ist keiner: die Zahl haette von vorn beginnen muessen"
-        assert marke.count() == 1 and marke.inner_text().strip() == f"{wieder} neu", f"nach dem Ende: erwartet '{wieder} neu', steht '{marke.all_inner_texts()}'"
+        expect(marke, "keine Marke 'N neu' (nach dem Ende)").to_have_count(1)
+        expect(marke, f"nach dem Ende: erwartet '{wieder} neu', steht '{marke.all_inner_texts()}'").to_have_text(f"{wieder} neu")
     finally:
         kontext.close()
 
@@ -852,7 +855,7 @@ def test_1256_das_ausblenden_einer_nachricht_macht_keine_marke(live, browser):
         seite.wait_for_function(
             "() => [...document.querySelectorAll('[data-elwosa-nachricht]')].some((e) => e.textContent.includes('Hinweis aus dem Wiki'))", timeout=10000)
         _bilder(seite)
-        assert marke.count() == 0, f"die Marke zeigt '{marke.all_inner_texts()}', obwohl nichts neu ist: nur eine aeltere Nachricht rueckte ins Fenster"
+        expect(marke, f"die Marke zeigt '{marke.all_inner_texts()}', obwohl nichts neu ist: nur eine aeltere Nachricht rueckte ins Fenster").to_have_count(0)
     finally:
         kontext.close()
 
@@ -927,14 +930,14 @@ def test_1256_wird_der_bereich_hoeher_und_liegt_das_ende_im_bild_verschwindet_di
         _bilder(seite)
         _meldung(live, "Neu, waehrend knapp ueber dem Ende gelesen wird: die Suche ist fertig.", 1)
         _holen(seite, "knapp ueber dem Ende")
-        assert marke.count() == 1, "der Fall ist keiner: es gibt keine Marke"
+        expect(marke, "der Fall ist keiner: es gibt keine Marke").to_have_count(1)
         # so viel hoeher, dass das Ende 10 px unter dem unteren Rand liegt: im Bild, ohne dass sich die Scrollposition aendern muss
         mehr = round(seite.evaluate(ABSTAND_ZUM_ENDE)) - 10
         seite.locator("[data-elwosa-chat]").evaluate("(el, px) => { el.style.maxHeight = (el.getBoundingClientRect().height + px) + 'px'; }", mehr)
         _bilder(seite)
         abstand = seite.evaluate(ABSTAND_ZUM_ENDE)
         assert 0 <= abstand < 30, f"der Fall ist keiner: das Ende liegt {abstand:.0f} px unter dem Rand"
-        assert marke.count() == 0, "die Marke steht noch, obwohl die neue Meldung jetzt im Bild liegt"
+        expect(marke, "die Marke steht noch, obwohl die neue Meldung jetzt im Bild liegt").to_have_count(0)
     finally:
         kontext.close()
 
@@ -1019,7 +1022,7 @@ def test_1256_was_waehrend_des_ausblendens_kam_steht_beim_wiedereinblenden_unten
         with seite.expect_response(lambda r: "/api/elwosa/messages?" in r.url and r.request.method == "GET"):
             seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
         _bilder(seite)
-        assert marke.count() == 0, f"die Marke zeigt '{marke.all_inner_texts()}' fuer eine Meldung, die beim Wiedereinblenden schon im Bild stand"
+        expect(marke, f"die Marke zeigt '{marke.all_inner_texts()}' fuer eine Meldung, die beim Wiedereinblenden schon im Bild stand").to_have_count(0)
     finally:
         kontext.close()
 
@@ -1038,7 +1041,7 @@ def test_1256_wer_nach_einer_frage_den_anfang_der_antwort_liest_wird_von_einer_m
         _meldung(live, "Meldung beim Lesen der Antwort: die Suche ist fertig.", 1)
         _holen(seite, "beim Lesen der Antwort")
         assert seite.evaluate(ANFANG_IM_BLICK, 0), "wer den Anfang der Antwort las, wurde von der neuen Meldung ans Ende gezogen"
-        assert marke.count() == 1, "die neue Meldung liegt unter dem Bild, die Marke fehlt"
+        expect(marke, "die neue Meldung liegt unter dem Bild, die Marke fehlt").to_have_count(1)
     finally:
         kontext.close()
 
@@ -1066,6 +1069,6 @@ def test_1256_nach_einem_profilwechsel_beginnt_die_zaehlung_neu(live, browser):
         seite.wait_for_function(
             "() => [...document.querySelectorAll('[data-elwosa-nachricht]')].some((e) => e.textContent.includes('Beta-Nachricht'))", timeout=10000)
         _bilder(seite)
-        assert marke.count() == 0, f"die Marke zeigt '{marke.all_inner_texts()}': die Liste des anderen Profils gilt als neu"
+        expect(marke, f"die Marke zeigt '{marke.all_inner_texts()}': die Liste des anderen Profils gilt als neu").to_have_count(0)
     finally:
         kontext.close()

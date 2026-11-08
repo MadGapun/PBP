@@ -70,6 +70,7 @@ def umgebung(tmp_path_factory):
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -111,7 +112,7 @@ def test_u6_ohne_profil_ist_die_karte_der_ganze_inhalt(browser, umgebung, route,
                     "CV als DOCX", "Bewerbung anlegen", "Filter", "Auf Kurs"):
             assert weg not in text, f"{weg!r} steht ohne Profil auf der Seite {route}"
         # und der eine Knopf ist da
-        assert page.get_by_role("button", name="Lebenslauf hochladen").count() == 1
+        expect(page.get_by_role("button", name="Lebenslauf hochladen")).to_have_count(1)
     finally:
         page.context.close()
 
@@ -127,7 +128,7 @@ def test_u5_die_suchseite_ohne_profil_heisst_nicht_profil(browser, umgebung):
         assert "Suchbegriffe, Schwellen und Blacklist stellst du ein, sobald dein Profil steht." in text
         assert "Lege dein erstes Profil an" not in text
         assert "Noch kein aktives Profil" not in text
-        assert page.get_by_role("button", name="Lebenslauf hochladen").count() == 1
+        expect(page.get_by_role("button", name="Lebenslauf hochladen")).to_have_count(1)
     finally:
         page.context.close()
 
@@ -141,7 +142,7 @@ def test_u5_die_profilseite_ohne_profil_nennt_denselben_schritt(browser, umgebun
         assert "Zuerst dein Profil" in text
         assert "Dein Lebenslauf ist die Grundlage für alles andere." in text
         assert "Noch kein aktives Profil" not in text
-        assert page.get_by_role("button", name="Lebenslauf hochladen").count() == 1
+        expect(page.get_by_role("button", name="Lebenslauf hochladen")).to_have_count(1)
     finally:
         page.context.close()
 
@@ -160,7 +161,7 @@ def test_u7_lebenslauf_hochladen_oeffnet_denselben_ersten_dialog(browser, umgebu
         assert "Dein Profil anlegen" in text
         assert "Dein Name" in text
         assert "weiteres Profil" not in text and "Karrierepfad" not in text and "IT Consulting" not in text
-        assert page.get_by_role("button", name="Weiter zum Lebenslauf").count() == 1
+        expect(page.get_by_role("button", name="Weiter zum Lebenslauf")).to_have_count(1)
         # die Adresse bleibt: es ging kein Umweg über die Profilseite
         assert page.url.rstrip("/").endswith(f"#{route}"), page.url
     finally:
@@ -206,10 +207,10 @@ def test_u6_waehrend_der_status_laedt_steht_keine_behauptung_ueber_das_profil(br
     try:
         page.goto(f"{umgebung['url']}/#{route}")
         page.wait_for_timeout(700)  # der Status ist noch unterwegs
-        assert page.locator("[data-zuerst-profil]").count() == 0, "während des Ladens steht keine Aussage über das Profil da"
+        expect(page.locator("[data-zuerst-profil]"), "während des Ladens steht keine Aussage über das Profil da").to_have_count(0)
         assert "Zuerst dein Profil" not in page.inner_text("body")
         page.locator(wurzel).wait_for(timeout=15000)  # danach kommt die richtige Seite
-        assert page.locator("[data-zuerst-profil]").count() == 0
+        expect(page.locator("[data-zuerst-profil]")).to_have_count(0)
     finally:
         ctx.close()
 
@@ -376,8 +377,8 @@ def test_u18_die_kopfzeile_der_kontakte_nennt_im_reiter_firmen_die_firmen(browse
     try:
         page.get_by_role("tab", name="Firmen").click()
         page.locator("h2", has_text="Firmen").first.wait_for(timeout=10000)
-        assert page.get_by_role("button", name="Neuer Kontakt").count() == 0
-        assert page.get_by_role("button", name="Importieren").count() == 0
+        expect(page.get_by_role("button", name="Neuer Kontakt")).to_have_count(0)
+        expect(page.get_by_role("button", name="Importieren")).to_have_count(0)
         page.get_by_role("tab", name="Kontakte").click()
         page.get_by_role("button", name="Neuer Kontakt").wait_for(timeout=10000)
     finally:

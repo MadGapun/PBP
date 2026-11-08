@@ -33,6 +33,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
@@ -279,7 +280,7 @@ def test_nach_bewerbung_speichern_liegt_die_neue_bewerbung_offen_da(browser, ser
         titel = _dialog_titel(page, "Timeline", frist=15000)
         assert "Sachbearbeitung Einkauf" in titel, titel
         weiter = page.locator("[data-weiter-unterlagen]")
-        assert weiter.count() == 2, "Lebenslauf und Anschreiben sind der naechste Schritt, solange die Bewerbung vorbereitet wird"
+        expect(weiter, "Lebenslauf und Anschreiben sind der naechste Schritt, solange die Bewerbung vorbereitet wird").to_have_count(2)
         assert all(_im_fenster(page, w) for w in weiter.all()), "die Knoepfe liegen nicht ohne Scrollen im Fenster"
         assert _dialog_zeigt(page, "In Vorbereitung").count("In Vorbereitung") >= 1
     finally:
