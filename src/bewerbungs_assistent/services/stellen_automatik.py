@@ -605,10 +605,18 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
 
 
 def _lade(db) -> list:
+    """Die Belege der Automatik: die Aussortierten, ohne abgeschaltete Gruende.
+
+    #1297: ein Grund, den der Mensch abgeschaltet hat, ist keine Grundlage
+    mehr fuer eine Entscheidung ohne Rueckfrage - in keiner Stufe (1, 1b, 2),
+    denn alle drei lesen diese eine Liste.
+    """
     try:
-        return db.get_dismissed_jobs()
+        dismissed = db.get_dismissed_jobs()
     except Exception:
         return []
+    from .ablehnungsgruende import abgeschaltete_gruende, belege_ohne_abgeschaltete
+    return belege_ohne_abgeschaltete(dismissed, abgeschaltete_gruende(db))
 
 
 def _bewerbungen_lesen(db) -> list:

@@ -2747,7 +2747,8 @@ export default function JobsPage() {
         <div className="grid gap-4">
           <p className="text-sm text-muted">Warum passt diese Stelle nicht? (Mehrfachauswahl möglich)</p>
           <div className="flex flex-wrap gap-2">
-            {(dismissReasons.length ? dismissReasons : [
+            {/* #1297: abgeschaltete Gruende stehen nicht zur Auswahl */}
+            {(dismissReasons.length ? dismissReasons.filter((r) => r.is_active === undefined || Boolean(r.is_active)) : [
               { label: "zu_weit_entfernt" }, { label: "gehalt_zu_niedrig" }, { label: "falsches_fachgebiet" },
               { label: "zu_junior" }, { label: "zu_senior" }, { label: "unpassendes_arbeitsmodell" },
               { label: "firma_uninteressant" }, { label: "zeitarbeit" }, { label: "befristet" }, { label: "sonstiges" },

@@ -299,9 +299,12 @@ def test_aussortieren_setzt_grund_herkunft_claude_und_laesst_sich_zurueckholen(u
 
 def test_ein_erfundener_grund_wird_nicht_zur_statistik(umgebung):
     mcp, db = umgebung
-    _lauf(mcp, [_t(0, beschreibung=TEXT, aussortieren_grund="windchill_fehlt")], dry_run=False, rohtreffer=1)
+    erg = _lauf(mcp, [_t(0, beschreibung=TEXT, aussortieren_grund="windchill_fehlt")], dry_run=False, rohtreffer=1)
     (z,) = _stellen(db)
-    assert z["dismiss_reason"] == "sonstiges"
+    # #1297: ein Grund, der nicht in der Liste steht, wird abgewiesen statt still zu 'sonstiges' -
+    # die Stelle bleibt angelegt und aktiv, der Eintrag sagt warum.
+    assert z["is_active"] == 1 and not z["dismiss_reason"]
+    assert "windchill_fehlt" in erg["angelegt"][0]["aussortieren_fehlgeschlagen"]
     assert "windchill_fehlt" not in db.get_setting("dismiss_counts", {})
 
 

@@ -541,46 +541,19 @@ def register(mcp, db, logger):
     # falsche_branche (Rolle stimmt, Branche nicht). Alle Schreibpfade
     # auf jobs.dismiss_reason laufen durch dieselbe Normalisierung
     # (verdrahtet in db.dismiss_job); Freitext landet in dismiss_note.
-    from ..services.ablehnungsgruende import STANDARD_GRUENDE
-    ABLEHNUNGSGRUENDE = list(STANDARD_GRUENDE)
-
-    def _mit_erlaubten_gruenden(fn):
-        """Setzt die erlaubten Gruende aus der Quelle in den Docstring (#1115).
-
-        Der Platzhalter `{ERLAUBTE_GRUENDE}` im Args-Block wird beim
-        Registrieren ersetzt. Claude liest genau diesen Text als
-        Parameterbeschreibung — eine abgeschriebene Liste war seit #913
-        um zwei Gruende zu kurz, und "nur diese, nichts anderes" hat die
-        Aufrufer daran gehindert, sie zu benutzen.
-        """
-        fn.__doc__ = (fn.__doc__ or "").replace(
-            "{ERLAUBTE_GRUENDE}", ", ".join(ABLEHNUNGSGRUENDE))
-        return fn
+    # #1297: die waehlbaren Gruende stehen nicht mehr fest im Code. Der
+    # Mensch schaltet auch Standardgruende ab; gefragt wird bei JEDEM Aufruf
+    # `waehlbare_gruende(db)`, geprueft mit `gruende_pruefen` - dieselbe
+    # Funktion fuer stelle_einordnen, stellen_bulk_bewerten und das
+    # Dashboard. Die Werkzeugbeschreibung nennt keine Liste mehr (#1115 hatte
+    # sie aus der Konstante eingesetzt; ein abgeschalteter Grund stand dann
+    # weiter als zulaessig da).
+    from ..services import ablehnungsgruende as _ag
 
     def _detect_duplicate(job_hash: str) -> dict | None:
         """#1095: die Regel steht in services/aussortieren.duplikat_finden."""
         from ..services import aussortieren as _aus
         return _aus.duplikat_finden(db, job_hash)
-
-    def _normalize_dismiss_reason(reason: str) -> str:
-        """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158).
-
-        v1.7.17 (#913): delegiert an die EINE zentrale Normalisierung —
-        vorher gab es hier eine eigene, unvollstaendige Musterliste,
-        waehrend andere Schreibpfade komplett daran vorbeischrieben.
-        """
-        from ..services.ablehnungsgruende import _kanonisch_einzeln
-        erlaubt = set(ABLEHNUNGSGRUENDE) | _get_active_custom_reasons_lower()
-        grund, _freitext = _kanonisch_einzeln(reason, erlaubt)
-        return grund
-
-    def _get_active_custom_reasons_lower() -> set:
-        try:
-            rows = db.get_dismiss_reasons() or []
-            return {r["label"].lower() for r in rows
-                    if r.get("is_custom") and r.get("is_active", 1)}
-        except Exception:
-            return set()
 
     def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
         """#1095: der Lerneffekt steht in services/aussortieren.regler_anpassen."""
@@ -597,37 +570,22 @@ def register(mcp, db, logger):
                                  collect_hints=collect_hints,
                                  skip_auto_adjust=skip_auto_adjust)
 
-    def _get_active_custom_reasons() -> set:
-        """v45 (#663 C20, beta.85): Zusaetzlich erlaubte Custom-Gruende
-        aus der DB. is_custom=1 AND is_active=1. Kann fehlschlagen wenn
-        is_active-Spalte (noch) nicht da ist — dann leerer Set."""
-        try:
-            rows = db.get_dismiss_reasons() or []
-            return {
-                r["label"] for r in rows
-                if r.get("is_custom") and r.get("is_active", 1)
-            }
-        except Exception:
-            return set()
+    def _gruende_pruefen(grund: str = "", gruende: list[str] = None) -> dict:
+        """#1297: `ablehnungsgruende.gruende_pruefen` fuer die Werkzeuge.
 
-    def _normalize_reason_list(grund: str = "", gruende: list[str] = None) -> list[str]:
-        """Normalisiert Eingabe-Gruende auf erlaubte Werte (#302).
-
-        v45 (#663 C20, beta.85): Custom-Gruende des Users (aus
-        dismiss_reasons-Tabelle, is_custom=1, is_active=1) sind
-        zusaetzlich zur ABLEHNUNGSGRUENDE-Whitelist erlaubt — der
-        User hat sie explizit angelegt.
+        Liefert {"gruende": [...]} oder - bei einem abgeschalteten oder
+        unbekannten Grund - die fertige Ablehnung ({"fehler", ...}). Nichts
+        wird umgedeutet: ein still auf 'sonstiges' gebogener Grund
+        verfaelscht Statistik und Lerneffekt (#648).
         """
-        custom_allowed = _get_active_custom_reasons()
-        allowed = set(ABLEHNUNGSGRUENDE) | custom_allowed
-        raw_reasons = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
-        return list(dict.fromkeys(
-            r if r in allowed else "sonstiges" for r in raw_reasons
-        ))
+        werte = gruende or ([grund] if grund else [])
+        pruefung = _ag.gruende_pruefen(db, werte)
+        if pruefung["abgeschaltet"] or pruefung["unbekannt"] or not pruefung["gruende"]:
+            return _ag.ablehnung_antwort(pruefung)
+        return {"gruende": pruefung["gruende"]}
 
     @mcp.tool()
     @time_tool(logger, "stelle_einordnen")
-    @_mit_erlaubten_gruenden
     def stelle_einordnen(job_hash: str, bewertung: str, grund: str = "",
                         gruende: list[str] = None) -> dict:
         """Bewertet eine gefundene Stelle.
@@ -638,9 +596,9 @@ def register(mcp, db, logger):
         STRENG VERBOTEN: Die KI darf KEINE eigenen Ablehnungsgründe erfinden,
         generieren oder formulieren! Auch keine "intelligenten" Gruende wie
         "Duplikat — bereits als Bewerbung xyz erfasst". AUSSCHLIESSLICH die
-        vordefinierten Gruende aus der Liste unten verwenden. Bei Unsicherheit
-        den Nutzer fragen oder 'sonstiges' wählen. Jeder nicht-vordefinierte
-        Grund wird automatisch auf 'sonstiges' normalisiert.
+        Gruende aus 'verfuegbare_gruende' verwenden. Bei Unsicherheit den
+        Nutzer fragen oder 'sonstiges' wählen. Ein Grund, der nicht in der
+        Liste steht oder abgeschaltet ist, wird abgewiesen (#1297).
 
         FUER MEHRERE STELLEN AUF EINMAL: Nutze 'stellen_bulk_bewerten' mit
         Filtern wie min_score, titel_enthaelt_nicht, beschreibung_enthaelt_nicht.
@@ -650,8 +608,8 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
             grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gruende)
-            gruende: Gründe bei passt_nicht, NUR diese Werte:
-                {ERLAUBTE_GRUENDE}
+            gruende: Gründe bei passt_nicht. Nur eingeschaltete Gründe, maßgeblich
+                ist verfuegbare_gruende der Antwort (ablehnungsgruende_anzeigen).
         """
         # #695: Existenz-Guard — vorher meldete das Tool bei unbekanntem Hash
         # "aussortiert"/"als_passend_markiert" und zaehlte sogar die
@@ -661,12 +619,10 @@ def register(mcp, db, logger):
                               "Prüfe den Hash mit stellen_anzeigen()."}
 
         if bewertung == "passt_nicht":
-            reason_list = _normalize_reason_list(grund, gruende)
-            if not reason_list:
-                return {
-                    "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",
-                    "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
-                }
+            geprueft = _gruende_pruefen(grund, gruende)
+            if "fehler" in geprueft:
+                return geprueft
+            reason_list = geprueft["gruende"]
 
             ctx = _apply_dismiss_with_lifecycle(job_hash, reason_list, collect_hints=True)
             counts = ctx["counts"]
@@ -678,7 +634,7 @@ def register(mcp, db, logger):
                 "gruende": reason_list,
                 "ablehnungs_statistik": {k: v for k, v in sorted(counts.items(), key=lambda x: -x[1])[:5]},
                 "hinweise": hints if hints else None,
-                "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
+                "verfuegbare_gruende": _ag.waehlbare_gruende(db),
             }
             if dup_info:
                 result["duplikat_erkannt"] = dup_info
@@ -1161,12 +1117,10 @@ def register(mcp, db, logger):
 
         reason_list: list[str] = []
         if bewertung == "passt_nicht":
-            reason_list = _normalize_reason_list(grund, gruende)
-            if not reason_list:
-                return {
-                    "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",
-                    "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
-                }
+            geprueft = _gruende_pruefen(grund, gruende)
+            if "fehler" in geprueft:
+                return geprueft
+            reason_list = geprueft["gruende"]
 
         # 2) Kandidaten laden — semantisch unterschiedlicher Pool je Aktion:
         #    - 'passt_nicht' (Aussortieren) wirkt auf aktuell aktive Stellen
@@ -3995,8 +3949,12 @@ def register(mcp, db, logger):
                             eintrag["urteil_nicht_gespeichert"] = str(exc)[:120]
                 grund_roh = str(e.get("aussortieren_grund") or "").strip()
                 if grund_roh and not dry_run:
-                    gruende = _normalize_reason_list(grund_roh)
-                    if gruende:
+                    geprueft = _gruende_pruefen(grund_roh)
+                    gruende = geprueft.get("gruende") or []
+                    if not gruende:
+                        # #1297: ein abgeschalteter oder unbekannter Grund wird nicht umgedeutet.
+                        eintrag["aussortieren_fehlgeschlagen"] = geprueft.get("fehler", "")[:160]
+                    else:
                         try:
                             from ..services import aussortieren as _aus
                             _aus.aussortieren(db, res["hash"], gruende, collect_hints=False, herkunft="claude")

@@ -2743,8 +2743,13 @@ def register(mcp, db, logger):
 
         # Lerneffekt: dismiss_count fuer den Grund hochzaehlen damit
         # AblehnungsMuster-Statistik den Inbound-Pfad mitbekommt
+        # #1297: gezaehlt wird der GESPEICHERTE (normalisierte) Grund - der
+        # Zaehler legt keinen neuen Grund mehr an ('standort' entstand so
+        # frueher als eigener Grund neben zu_weit_entfernt).
         try:
-            db.increment_dismiss_reason_usage([grund])
+            from ..services.ablehnungsgruende import gruende_aus_wert
+            _gespeichert = (db.get_job(target_hash) or {}).get("dismiss_reason")
+            db.increment_dismiss_reason_usage(gruende_aus_wert(_gespeichert) or [grund])
         except Exception:
             pass
 
