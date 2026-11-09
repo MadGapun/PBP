@@ -335,6 +335,18 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
             return grund, (rest or None)
         return "sonstiges", text
 
+    # #1321: 'wiedergaenger:<grund>' schreibt die Wiedergaenger-Pruefung
+    # (`stelle_wiedergaenger_pruefen` mit aussortieren=True). Bis 1.8.3 fiel der
+    # Wert hier durch und wurde schon beim Speichern zu 'sonstiges' - der
+    # fachliche Grund ging verloren. Gespeichert wird der Kern wie bei 'auto:';
+    # dass es die Pruefung war, steht in dismissed_by und in der Notiz.
+    m = re.match(r"^wiedergaenger:([a-z_]+)$", text, re.IGNORECASE)
+    if m:
+        grund = m.group(1).lower()
+        if grund in erlaubt:
+            return grund, None
+        return "sonstiges", text
+
     # 'Duplikat von <hash>: ...' u. ae.
     if (lower.startswith("duplikat") or lower.startswith("dublikat")) \
             and "duplikat" in erlaubt:
