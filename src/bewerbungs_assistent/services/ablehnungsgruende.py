@@ -278,9 +278,9 @@ def standardgruende_wiederherstellen(db, bestaetigt: bool = False) -> dict:
     anlegen, einschalten, vorhanden_als = [], [], []
     unveraendert = 0
     for grund in STANDARD_GRUENDE:
-        eigene_zeilen = nach_label.get(grund)
-        if eigene_zeilen:
-            aus = [r for r in eigene_zeilen if not r.get("is_active", 1)]
+        namens_zeilen = nach_label.get(grund)
+        if namens_zeilen:
+            aus = [r for r in namens_zeilen if not r.get("is_active", 1)]
             if aus:
                 einschalten.append({"grund": grund, "label": grund, "_id": aus[0]["id"]})
             else:
