@@ -105,7 +105,10 @@ def test_filter_stellenart_zeigt_genau_die_gewaehlte_form(server, browser):
         auswahl = page.get_by_role("combobox", name=re.compile(r"^Stellenart\b"))
         expect(auswahl).to_have_count(1)
         auswahl.click()
-        namen = page.get_by_role("listbox").get_by_role("option").all_inner_texts()
+        # Erst auf die offene Liste warten: all_inner_texts wartet nicht.
+        eintraege = page.get_by_role("listbox").get_by_role("option")
+        expect(eintraege).to_have_count(1 + len(TEXT), timeout=10000)
+        namen = eintraege.all_inner_texts()
         assert [n.strip() for n in namen] == ["Alle", *TEXT.values()], namen
         page.keyboard.press("Escape")
         for form, titel in BEWERBUNGEN.items():
