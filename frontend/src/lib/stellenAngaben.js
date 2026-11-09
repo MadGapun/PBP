@@ -125,6 +125,28 @@ export function anstellungsformMarke(art) {
   return { wert, text, ton, karte: KARTE_TON[ton] || "", titel };
 }
 
+// #1326: der Filter "Stellenart" auf der Bewerbungsseite. Er kannte nur
+// Festanstellung und Freelance, und "Freelance" hiess "alles ausser
+// Festanstellung" (Zeitarbeit, Praktikum ... landeten dort), "Festanstellung"
+// schloss die Bewerbungen ohne Angabe ein. Jetzt dieselbe Liste wie die
+// Kartenfarben; "Form unbekannt" ist ein eigener Eintrag (Lehre 2) und
+// umfasst genau das, was die Karte grau zeigt: keine oder eine fremde Angabe.
+export const STELLENART_FILTER_UNBEKANNT = "unbekannt";
+
+export const STELLENART_FILTER_OPTIONEN = [
+  ...Object.entries(ANSTELLUNGSFORM_TEXT).map(([wert, text]) => ({ wert, text })),
+  { wert: STELLENART_FILTER_UNBEKANNT, text: "Form unbekannt" },
+];
+
+/** Passt die Anstellungsform `art` zum Filterwert? Leerer Filter = alle. */
+export function passtZurStellenart(art, filter) {
+  if (!filter) return true;
+  const wert = String(art || "").trim();
+  const bekannt = Object.prototype.hasOwnProperty.call(ANSTELLUNGSFORM_TEXT, wert);
+  if (filter === STELLENART_FILTER_UNBEKANNT) return !bekannt;
+  return bekannt && wert === filter;
+}
+
 /**
  * Der Arbeitsumfang als Text — oder null. `unbekannt` bekommt bewusst
  * kein Etikett (#1023): an den meisten Stellen fehlt die Angabe, und ein
