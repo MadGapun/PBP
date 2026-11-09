@@ -56,8 +56,9 @@ Beim Start öffnen sich keine schwarzen Fenster mehr, freelancermap liefert wied
 
 - **Einmal die Punkte neu berechnen lassen:** sag Claude „Berechne die Punkte neu“. Pflichtbegriffe aus mehreren Wörtern zählen jetzt nur noch zusammenhängend
   (#1287); bei Stellen, die bisher Scheintreffer hatten, sinken die Punkte. Bis dahin meldet die Fit-Analyse dort eine Abweichung.
-- **Gelöschte Standard-Ablehnungsgründe einmal abschalten.** Wer einen Standardgrund (etwa „Kein Hochschulabschluss“) früher gelöscht hat, findet ihn nach
-  dem Update wieder in der Liste. Unter Einstellungen › Ablehnungsgründe einmal abschalten — ab dann merkt PBP sich das.
+- **Einmal die Ablehnungsgründe ansehen** (Einstellungen › Ablehnungsgründe). Hast du früher einen Standardgrund gelöscht (etwa „Kein
+  Hochschulabschluss“) und sind noch Stellen damit aussortiert, steht er nach dem Update abgeschaltet in der Liste. Standardgründe, die es bei dir nie
+  gab und die nie benutzt wurden, stehen eingeschaltet da — schalte ab, was für dich nie ein Grund ist.
 
 **Neu und behoben (kurz)**
 
@@ -77,8 +78,9 @@ Beim Start öffnen sich keine schwarzen Fenster mehr, freelancermap liefert wied
   und legst du eine Bewerbung aus der Stelle an, stehen sie in deren Verlauf. Alte Notizen hinter einer Zeile „---“ in der Beschreibung bietet PBP an, in
   die Notizen zu verschieben — nur auf deinen Klick und mit Vorschau. Die Fit-Analyse liefert die Notizen in einem eigenen Feld.
 - **Standard-Ablehnungsgründe abschaltbar** (#1297): Unter Einstellungen › Ablehnungsgründe lässt sich jeder Standardgrund abschalten. Ein abgeschalteter
-  Grund steht in keiner Auswahl mehr: nicht im Aussortieren-Dialog, nicht für Claude, nicht für die Wiedergänger-Automatik und nicht für eigene Regeln.
-  Bisher so aussortierte Stellen bleiben, wie sie sind; PBP nennt beim Abschalten, wie viele es sind. Ein „gelöschter“ Standardgrund bleibt abgeschaltet.
+  Grund steht in keiner Auswahl mehr: nicht im Aussortieren-Dialog, nicht für Claude, nicht für die Wiedergänger-Automatik, nicht für eigene Regeln,
+  und er macht keine Stelle mehr zum Wiedergänger, weder in der Fit-Analyse noch in der Stellenliste. Bisher so aussortierte Stellen bleiben, wie sie sind;
+  PBP nennt beim Abschalten, wie viele es sind. Ein „gelöschter“ Standardgrund bleibt abgeschaltet, auch einer, der vor 1.8.3 gelöscht wurde.
   „Sonstiges“ bleibt immer an.
 
 ### Fixed
@@ -112,7 +114,7 @@ Beim Start öffnen sich keine schwarzen Fenster mehr, freelancermap liefert wied
 - Die Suchlauf-Zeitgrenzen gelten jetzt für alle Quellen, die im Browser laufen (freelancermap und Indeed 120 s statt 90 s).
 - Browser-Tests warten auf Zustände statt einmal zu zählen (#1271).
 
-*Schema v52 (unverändert, neue Tabelle `job_notes` als Safety-Net), 282 MCP-Werkzeuge, 10312 Tests.*
+*Schema v52 (unverändert, neue Tabelle `job_notes` als Safety-Net), 282 MCP-Werkzeuge, 10319 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 

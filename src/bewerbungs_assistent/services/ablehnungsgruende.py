@@ -180,6 +180,35 @@ def ablehnung_antwort(pruefung: dict) -> dict:
     }
 
 
+def standardgrund_geloescht(conn, label: str) -> bool:
+    """Wurde dieser Standardgrund geloescht? (#1297, Abnahme 09.11.2026)
+
+    Aufgerufen nur, wenn seine Zeile in `dismiss_reasons` fehlt. Bis 1.8.2
+    legte der erste Gebrauch die Zeile an, und Loeschen entfernte sie. Fehlt
+    sie, obwohl Stellen mit dem Grund aussortiert sind (auch als `auto:` oder
+    `wiedergaenger:`), war das Loeschen. Im Zweifel gilt der restriktivere
+    Zustand: der Grund kommt abgeschaltet zurueck.
+    """
+    ziel = str(label or "").strip().lower()
+    if not ziel:
+        return False
+    try:
+        zeilen = conn.execute(
+            "SELECT dismiss_reason FROM jobs WHERE dismiss_reason LIKE ?",
+            (f"%{ziel}%",)).fetchall()
+    except Exception:
+        return False
+    for z in zeilen:
+        for g in gruende_aus_wert(z[0]):
+            k = str(g or "").strip().lower()
+            for vorsilbe in ("auto:", "wiedergaenger:"):
+                if k.startswith(vorsilbe):
+                    k = k[len(vorsilbe):].split(":", 1)[0]
+            if k == ziel:
+                return True
+    return False
+
+
 def belege_ohne_abgeschaltete(dismissed, aus: set):
     """Aussortierte Stellen ohne die abgeschalteten Gruende (#1297).
 

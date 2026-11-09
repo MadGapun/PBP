@@ -325,7 +325,7 @@ class AussortiertePool(list):
         return self._nach_firma.get(norm, [])
 
 
-def aussortierte_laden(db) -> AussortiertePool:
+def aussortierte_laden(db, *, ohne_abgeschaltete: bool = False) -> AussortiertePool:
     """Die Aussortierten fuer die Wiedergaenger-Pruefung — ohne die langen Texte (#1154).
 
     Die Pruefung liest Firma, Titel, Gruende, die Gehaltsangabe und die LAENGE der
@@ -333,12 +333,19 @@ def aussortierte_laden(db) -> AussortiertePool:
     sonst (Testdoubles, aeltere Datenbank-Klassen) das volle Lesen mit demselben
     Ergebnis, nur langsamer.
     """
+    zeilen = None
     schlank = getattr(db, "get_dismissed_jobs_schlank", None)
     if callable(schlank):
         zeilen = schlank()
-        if isinstance(zeilen, list):
-            return AussortiertePool(zeilen)
-    return AussortiertePool(db.get_dismissed_jobs())
+    if not isinstance(zeilen, list):
+        zeilen = db.get_dismissed_jobs()
+    if ohne_abgeschaltete:
+        # #1297: ein abgeschalteter Grund ist kein Beleg mehr fuer ein Urteil -
+        # weder in der Automatik noch in der Analyse oder der Stellenliste.
+        # Die Firmen-Historie zeigt dagegen weiter, was war (Schalter aus).
+        from .ablehnungsgruende import abgeschaltete_gruende, belege_ohne_abgeschaltete
+        zeilen = belege_ohne_abgeschaltete(zeilen, abgeschaltete_gruende(db))
+    return AussortiertePool(zeilen)
 
 
 def _reasons_of(job: dict) -> list[str]:
@@ -536,7 +543,7 @@ def find_wiedergaenger_pattern(
 
     if dismissed is None:
         try:
-            dismissed = aussortierte_laden(db)
+            dismissed = aussortierte_laden(db, ohne_abgeschaltete=True)
         except Exception:
             return None
 

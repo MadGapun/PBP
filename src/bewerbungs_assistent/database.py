@@ -1110,13 +1110,25 @@ class Database:
             # wie sie ist: ein abgeschalteter Grund wird nie neu angelegt
             # und nie wieder eingeschaltet.
             from .services.ablehnungsgruende import STANDARD_GRUENDE as _STD
+            from .services.ablehnungsgruende import standardgrund_geloescht as _weg_gewesen
+            _vorhanden = {str(r[0] or "").strip().lower() for r in
+                          conn.execute("SELECT label FROM dismiss_reasons")}
             for _label in _STD:
+                if _label in _vorhanden:
+                    continue
+                # #1297 (Abnahme 09.11.): fehlt die Zeile, obwohl Stellen mit
+                # dem Grund aussortiert sind, hat der Mensch sie geloescht -
+                # bis 1.8.2 hiess Loeschen genau das. Ein geloeschter Grund
+                # gilt als abgeschaltet und kommt so zurueck; einer, der nie
+                # benutzt wurde, kommt eingeschaltet.
+                _aktiv = 0 if _weg_gewesen(conn, _label) else 1
                 conn.execute(
                     "INSERT INTO dismiss_reasons (label, is_custom, "
-                    "profile_id, created_at) "
-                    "SELECT ?, 0, '', ? WHERE NOT EXISTS "
-                    "(SELECT 1 FROM dismiss_reasons WHERE label=?)",
-                    (_label, _now(), _label))
+                    "profile_id, created_at, is_active) VALUES (?, 0, '', ?, ?)",
+                    (_label, _now(), _aktiv))
+                if not _aktiv:
+                    logger.info("Safety-Net: geloeschter Standardgrund %s "
+                                "abgeschaltet angelegt (#1297)", _label)
             conn.commit()
             # #1115: das Anlegen allein spaltet. Gab es vorher einen
             # eigenen Eintrag "falsches system", stand er nach dem Seed

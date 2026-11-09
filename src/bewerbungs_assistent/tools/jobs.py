@@ -197,6 +197,10 @@ def _aehnliche_outcome_pattern(
     target_hash = target_job.get("hash")
     try:
         dismissed = db.get_dismissed_jobs()
+        # #1297: ein abgeschalteter Grund begruendet keinen Hinweis mehr.
+        from ..services.ablehnungsgruende import (
+            abgeschaltete_gruende, belege_ohne_abgeschaltete)
+        dismissed = belege_ohne_abgeschaltete(dismissed, abgeschaltete_gruende(db))
     except Exception:
         return None
 
@@ -1568,7 +1572,7 @@ def register(mcp, db, logger):
                     aussortierte_laden, find_wiedergaenger_pattern,
                     ist_fachlicher_ko)
                 # #1154: ohne Anzeigentexte; die Pruefung braucht nur deren Laenge.
-                _dismissed_pool = aussortierte_laden(db)
+                _dismissed_pool = aussortierte_laden(db, ohne_abgeschaltete=True)  # #1297
                 for j in jobs:
                     muster = find_wiedergaenger_pattern(
                         db, j.get("company", ""), j.get("title", ""),
