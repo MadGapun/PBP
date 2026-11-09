@@ -39,7 +39,7 @@ import {
 } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
 import { punkteText, scoreText } from "@/lib/score";
-import { ANSTELLUNGSFORM_TEXT, anstellungsformMarke } from "@/lib/stellenAngaben";
+import { ANSTELLUNGSFORM_TEXT, STELLENART_FILTER_OPTIONEN, anstellungsformMarke, passtZurStellenart } from "@/lib/stellenAngaben";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import MitClaude from "@/components/MitClaude";
@@ -668,8 +668,8 @@ export default function ApplicationsPage() {
         : application.status === filters.status);
     const dateMatch = (!filters.fromDate || (application.applied_at || "") >= filters.fromDate) &&
                       (!filters.toDate || (application.applied_at || "") <= filters.toDate + "T23:59:59");
-    const artMatch = !filters.stellenart ||
-      (filters.stellenart === "freelance" ? (application.job_employment_type && application.job_employment_type !== "festanstellung") : application.job_employment_type === "festanstellung" || !application.job_employment_type);
+    // #1326: genau die gewaehlte Form; "Form unbekannt" ist ein eigener Eintrag.
+    const artMatch = passtZurStellenart(application.job_employment_type, filters.stellenart);
     const specialMatch = !specialFilter
       || (specialFilter === "followups_due" && dueFollowUpAppIds.has(application.id))
       || (specialFilter === "zombies" && zombieAppIds.has(application.id));
@@ -946,8 +946,7 @@ export default function ApplicationsPage() {
             <Field label="Stellenart">
               <SelectInput value={filters.stellenart} onChange={(event) => setFilters((current) => ({ ...current, stellenart: event.target.value }))}>
                 <option value="">Alle</option>
-                <option value="festanstellung">Festanstellung</option>
-                <option value="freelance">Freelance</option>
+                {STELLENART_FILTER_OPTIONEN.map(({ wert, text }) => <option key={wert} value={wert}>{text}</option>)}
               </SelectInput>
             </Field>
             <Field label="Von">
