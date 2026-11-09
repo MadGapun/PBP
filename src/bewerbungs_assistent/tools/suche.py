@@ -1832,6 +1832,20 @@ def register(mcp, db, logger):
         return antwort
 
     @mcp.tool()
+    def ablehnungsgruende_wiederherstellen(bestaetigung: bool = False) -> dict:
+        """Holt alle Standard-Ablehnungsgründe zurück: fehlende anlegen, abgeschaltete einschalten (#1323).
+
+        Ohne bestaetigung nur die Vorschau. Abgeschaltet hat sie der Mensch
+        bewusst: Vorschau zeigen, erst nach seinem Ja ausführen. Eigene
+        Gründe bleiben unverändert.
+
+        Args:
+            bestaetigung: True führt aus.
+        """
+        from ..services.ablehnungsgruende import standardgruende_wiederherstellen
+        return standardgruende_wiederherstellen(db, bestaetigt=bool(bestaetigung))
+
+    @mcp.tool()
     def stellen_filter_verwalten(
         aktion: str = "anzeigen",
         name: str = "",
