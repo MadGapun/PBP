@@ -1197,6 +1197,28 @@ class Database:
                         "normalisiert (Original steht in dismiss_note). "
                         "Haeufigste Abbildungen: %s", _geheilt,
                         "; ".join(f"{k} ({n}x)" for k, n in _top))
+                # #1321: bis 1.8.3 wurde 'wiedergaenger:<grund>' schon beim
+                # Speichern zu 'sonstiges', das Original stand allein in der
+                # Notiz. Ist der Grund bekannt, kommt er zurueck (die Notiz
+                # bleibt als Spur). Idempotent: danach ist es kein 'sonstiges'.
+                from .services.ablehnungsgruende import STANDARD_GRUENDE
+                _bekannt = set(STANDARD_GRUENDE) | _custom
+                _zurueck = 0
+                for _r in conn.execute(
+                        "SELECT hash, dismiss_note FROM jobs "
+                        "WHERE dismiss_reason = 'sonstiges' "
+                        "AND dismiss_note LIKE 'wiedergaenger:%'").fetchall():
+                    _kern = str(_r["dismiss_note"]).strip()[
+                        len("wiedergaenger:"):].strip().lower()
+                    if _kern in _bekannt and _kern != "sonstiges":
+                        conn.execute(
+                            "UPDATE jobs SET dismiss_reason=? WHERE hash=?",
+                            (_kern, _r["hash"]))
+                        _zurueck += 1
+                if _zurueck:
+                    conn.commit()
+                    logger.info("#1321: %d Wiedergaenger-Gruende aus der "
+                                "Notiz wiederhergestellt", _zurueck)
         except Exception as e:
             logger.warning("Ablehnungsgrund-Safety-Net (#913): %s", e)
 
