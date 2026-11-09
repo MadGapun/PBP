@@ -43,6 +43,8 @@ UEBER_ALLE_PROFILE = {
         "Ablehnungsgruende sind profiluebergreifend (dismiss_reasons ohne profile_id)",
     ("services/gruende_schreibweise.py", "SELECT hash, dismiss_reason FROM jobs"):
         "Umschreiben eines profiluebergreifenden Grundes",
+    ("services/ablehnungsgruende.py", "SELECT dismiss_reason FROM jobs WHERE dismiss_reason LIKE ?"):
+        "Erkennung eines geloeschten profiluebergreifenden Grundes beim Start (#1297)",
     ("tools/suche.py", "SELECT COUNT(*) FROM jobs WHERE dismiss_reason=?"):
         "Loeschvorschau eines profiluebergreifenden Grundes",
     ("services/karten_heilung.py", "SELECT * FROM jobs WHERE source IN"):

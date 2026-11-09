@@ -337,15 +337,15 @@ def aussortierte_laden(db, *, ohne_abgeschaltete: bool = False) -> AussortierteP
     schlank = getattr(db, "get_dismissed_jobs_schlank", None)
     if callable(schlank):
         zeilen = schlank()
-    if not isinstance(zeilen, list):
-        zeilen = db.get_dismissed_jobs()
+    pool = (AussortiertePool(zeilen) if isinstance(zeilen, list)
+            else AussortiertePool(db.get_dismissed_jobs()))
     if ohne_abgeschaltete:
         # #1297: ein abgeschalteter Grund ist kein Beleg mehr fuer ein Urteil -
         # weder in der Automatik noch in der Analyse oder der Stellenliste.
         # Die Firmen-Historie zeigt dagegen weiter, was war (Schalter aus).
         from .ablehnungsgruende import abgeschaltete_gruende, belege_ohne_abgeschaltete
-        zeilen = belege_ohne_abgeschaltete(zeilen, abgeschaltete_gruende(db))
-    return AussortiertePool(zeilen)
+        pool = AussortiertePool(belege_ohne_abgeschaltete(pool, abgeschaltete_gruende(db)))
+    return pool
 
 
 def _reasons_of(job: dict) -> list[str]:
