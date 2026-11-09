@@ -15,14 +15,16 @@ import { useEffect, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 
 import { api } from "@/api";
-import { Button, Modal } from "@/components/ui";
+import { Badge, Button, Modal } from "@/components/ui";
 import { formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
 import { gegliederterAuszug } from "@/lib/textAuszug";
 import { punkteText } from "@/lib/score";
 import { grundText, quelleText } from "@/lib/anzeige";
+import { anstellungsformMarke } from "@/lib/stellenAngaben";
 
 import FirmaLink from "@/components/FirmaLink";
+import StellenNotizen from "@/components/StellenNotizen";
 import WegLeiste from "@/components/WegLeiste";
 import { stelleLeiste } from "@/lib/wegleiste";
 
@@ -90,6 +92,11 @@ export default function InlineJobDetailModal({ jobHash, bewerbungId = "", onClos
               <FirmaLink name={job.company} vorher={onClose}>{job.company || "Unbekannt"}</FirmaLink>
               {job.location ? ` — ${job.location}` : ""}
             </p>
+            {/* #1301: die Anstellungsform wie auf der Stellenkarte */}
+            {(() => {
+              const form = anstellungsformMarke(job.employment_type);
+              return <span data-anstellungsform={form.wert || "unbekannt"} title={form.titel} className="mt-1 inline-block"><Badge tone={form.ton}>{form.text}</Badge></span>;
+            })()}
           </div>
 
           {!job.is_active && job.dismiss_reason && (
@@ -136,10 +143,13 @@ export default function InlineJobDetailModal({ jobHash, bewerbungId = "", onClos
             </details>
           )}
 
+          {/* #1316: eigene Notizen zur Stelle (Mensch und Claude) */}
+          <StellenNotizen jobHash={job.hash} onBeschreibungGeaendert={() => api(`/api/jobs/${jobHash}`).then(setJob).catch(() => {})} />
+
           {job.research_notes && (
             <details>
               <summary className="cursor-pointer text-xs uppercase tracking-wider text-muted">
-                Notizen
+                Recherche
               </summary>
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted">
                 {job.research_notes}

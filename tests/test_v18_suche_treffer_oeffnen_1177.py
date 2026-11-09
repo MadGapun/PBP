@@ -174,6 +174,7 @@ def test_ein_dokument_laesst_sich_per_kennung_holen(umgebung):
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -236,7 +237,7 @@ def test_nach_dem_klick_ist_die_liste_zu_und_das_feld_leer(browser, umgebung):
         feld = _suche_oeffnen(page)
         page.locator("[data-suchergebnisse] button", has_text=f"Konstrukteur {WORT}").first.click()
         _dialog_titel(page, "Timeline")
-        assert page.locator("[data-suchergebnisse]").count() == 0, "die Trefferliste bleibt nicht stehen"
+        expect(page.locator("[data-suchergebnisse]"), "die Trefferliste bleibt nicht stehen").to_have_count(0)
         assert feld.input_value() == ""
     finally:
         page.close()
@@ -313,7 +314,7 @@ def test_ein_aktiver_filter_verbirgt_das_dokument_nicht(browser, umgebung):
         page.wait_for_function("() => !document.body.innerText.includes('Zebrafink-Lebenslauf')", timeout=15000)
         _klick_auf_treffer(page, f"{WORT}-Lebenslauf.docx")
         page.locator(f"#dokument-{u['dokument']}").wait_for(timeout=15000)
-        assert page.locator("button[role=combobox]", has_text="Alle Typen").count() == 1, "der Typ-Filter ist zurueckgesetzt"
+        expect(page.locator("button[role=combobox]", has_text="Alle Typen"), "der Typ-Filter ist zurueckgesetzt").to_have_count(1)
     finally:
         page.close()
 

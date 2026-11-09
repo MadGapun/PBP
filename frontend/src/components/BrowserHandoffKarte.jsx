@@ -33,7 +33,8 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
   }, [anlass]);
 
   const quellen = Array.isArray(daten?.quellen) ? daten.quellen : [];
-  const uebersprungen = quellen.filter((q) => q.art === "uebersprungen");
+  // #1302: eine interne Quelle, deren letzter Lauf ausfiel (freelancermap), steht mit in der Liste, bis sie wieder liefert.
+  const uebersprungen = quellen.filter((q) => q.art === "uebersprungen" || q.art === "intern_ausgefallen");
   const optional = quellen.filter((q) => q.art === "defekt_nur_browser");
   // #1170 U16: die Karte steht nur, wenn der Mensch Browser-Quellen gewaehlt hat. Die "optionalen" (als defekt gefuehrten, im
   // Browser erreichbaren) Quellen allein waren fuer jede Installation da und kosteten rund 180 px vor der ersten Stelle; sie
@@ -49,7 +50,7 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
             Diese Quellen laufen nur über den Browser
           </p>
           <p className="mt-1 text-xs text-muted">
-            Die interne Jobsuche überspringt sie. Claude kann sie mit der
+            Die interne Jobsuche überspringt sie oder ist dort zuletzt ausgefallen. Claude kann sie mit der
             Chrome-Erweiterung abarbeiten — der Prompt enthält deine
             Suchbegriffe je Portal.
           </p>
@@ -63,7 +64,8 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
           {uebersprungen.map((q) => (
             <li key={q.key} className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
               <span className="font-medium text-ink">{q.name}</span>
-              {q.suchprofil_vorhanden ? (
+              {q.art === "intern_ausgefallen" ? <Badge>interner Lauf ausgefallen</Badge> : null}
+              {q.suchbegriffe?.length ? (
                 <span className="text-muted">{q.suchbegriffe.join(", ")}</span>
               ) : (
                 // AK 6: ohne Suchprofil ein Hinweis, keine erfundenen Begriffe.

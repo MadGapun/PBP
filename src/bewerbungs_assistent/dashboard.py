@@ -2890,15 +2890,28 @@ async def api_dismiss_job(request: Request):
     Die Hinweise kommen mit, damit die Oberflaeche einen ausgeloesten
     Lerneffekt nennen kann."""
     from .services import aussortieren as _aus
+    from .services import ablehnungsgruende as _ag
     data = await request.json()
     # Einzelgrund (alt) oder Mehrfachauswahl (#108, #120)
-    reasons = [str(r) for r in (data.get("reasons") or []) if str(r).strip()]
+    reasons = [str(r).strip() for r in (data.get("reasons") or []) if str(r).strip()]
     if not reasons and str(data.get("reason") or "").strip():
         reasons = [str(data["reason"]).strip()]
     if not reasons:
         return JSONResponse({"error": "Mindestens ein Ablehnungsgrund ist erforderlich"}, status_code=400)
     if not _db.get_job(str(data.get("hash") or "")):
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    # #1297: dieselbe Pruefung wie stelle_einordnen. Ein abgeschalteter Grund
+    # wird abgewiesen; einen GETIPPTEN neuen Grund legt der Mensch hier
+    # ausdruecklich an (#126) - vorher entstand er still beim Zaehlen.
+    pruefung = _ag.gruende_pruefen(_db, reasons)
+    if pruefung["abgeschaltet"]:
+        return JSONResponse({
+            "error": ("Abgeschaltet: " + ", ".join(pruefung["abgeschaltet"])
+                      + ". Wieder einschalten unter Einstellungen › Ablehnungsgründe."),
+            "verfuegbare_gruende": pruefung["verfuegbar"]}, status_code=400)
+    for neu in pruefung["unbekannt"]:
+        _db.add_dismiss_reason(neu)
+    reasons = pruefung["gruende"] + pruefung["unbekannt"]
     erg = _aus.aussortieren(_db, data["hash"], reasons)
     return {"status": "ok", "lerneffekt": erg["lerneffekt_text"],
             "hinweise": erg["hints"]}
@@ -3088,6 +3101,8 @@ async def api_add_application(request: Request):
         antwort["nachfass_in_tagen"] = erg["nachfass_tage"]
     if erg.get("stelle_aussortiert"):
         antwort["stelle_aussortiert"] = True
+    if erg.get("stellen_notizen_uebernommen"):  # #1316
+        antwort["stellen_notizen_uebernommen"] = erg["stellen_notizen_uebernommen"]
     return antwort
 
 
@@ -5464,8 +5479,18 @@ async def api_set_criteria(request: Request):
 
 @app.get("/api/dismiss-reasons")
 async def api_dismiss_reasons():
-    """Get all dismiss reasons for the dismiss dialog (#108, #120)."""
-    return _db.get_dismiss_reasons()
+    """Get all dismiss reasons for the dismiss dialog (#108, #120).
+
+    #1297: je Zeile `ist_standard` und `abschaltbar` - die Einstellungen
+    kennzeichnen Standardgruende und bieten nur Abschaltbares zum Abschalten an.
+    """
+    from .services.ablehnungsgruende import NICHT_ABSCHALTBAR, ist_standardgrund
+    zeilen = []
+    for r in _db.get_dismiss_reasons():
+        label = str(r.get("label") or "").strip()
+        zeilen.append({**r, "ist_standard": ist_standardgrund(label),
+                       "abschaltbar": label.lower() not in NICHT_ABSCHALTBAR})
+    return zeilen
 
 
 @app.post("/api/dismiss-reasons")
@@ -5497,11 +5522,20 @@ async def api_update_dismiss_reason(reason_id: int, request: Request):
         if res.get("status") == "nicht_gefunden":
             return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
         rename_info = res
+    bestand = None
     if "is_active" in data:
-        ok = _db.set_dismiss_reason_active(reason_id, bool(data["is_active"]))
+        try:
+            ok = _db.set_dismiss_reason_active(reason_id, bool(data["is_active"]))
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
         if not ok:
             return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
-    return {"status": "ok", "rename": rename_info}
+        if not data["is_active"]:
+            # #1297 Punkt 7: was den Grund traegt, bleibt - die Oberflaeche nennt es.
+            row = _db.connect().execute("SELECT label FROM dismiss_reasons WHERE id=?",
+                                        (reason_id,)).fetchone()
+            bestand = _db.dismiss_reason_bestand(row["label"]) if row else None
+    return {"status": "ok", "rename": rename_info, "bestand": bestand}
 
 
 @app.delete("/api/dismiss-reasons/{reason_id}")
@@ -8744,6 +8778,57 @@ async def api_get_job_detail(job_hash: str):
     from .services import bewerbungs_hinweis as _bh
     _bh.anreichern(_db, [job])
     return job
+
+
+# === Notizen an Stellen (#1316) ===
+# Analog zu den Notizen der Bewerbung (/api/applications/{id}/notes), aber in
+# einer eigenen Tabelle: nie Teil des Anzeigentexts, nie in den Punkten.
+# Schreibende Aufrufe faengt der Schema-Schutz von selbst ab (/api/..., POST/PUT/DELETE).
+
+def _notiz_fehler(erg: dict):
+    code = 404 if erg.get("grund") == "nicht_gefunden" else 400
+    return JSONResponse({"error": erg.get("fehler") or "Fehler"}, status_code=code)
+
+
+@app.get("/api/jobs/{job_hash}/notizen")
+async def api_job_notizen(job_hash: str):
+    from .services import stellen_notizen as _sn
+    job = _db.get_job(job_hash)
+    if not job:
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    return {"notizen": _sn.liste(_db, job_hash),
+            "notizteil_in_beschreibung": _sn.notizteil_erkennen(job.get("description"))}
+
+
+@app.post("/api/jobs/{job_hash}/notizen")
+async def api_job_notiz_anlegen(job_hash: str, request: Request):
+    from .services import stellen_notizen as _sn
+    data = await request.json()
+    erg = _sn.anlegen(_db, job_hash, (data or {}).get("text"), herkunft="mensch")
+    return {"status": "ok", "notiz": erg["notiz"]} if erg["ok"] else _notiz_fehler(erg)
+
+
+@app.post("/api/jobs/{job_hash}/notizen/aus-beschreibung")
+async def api_job_notiz_aus_beschreibung(job_hash: str):
+    """Verschiebt den Notizteil hinter '---' in eine Notiz - nur auf Klick, je Stelle."""
+    from .services import stellen_notizen as _sn
+    erg = _sn.aus_beschreibung_uebernehmen(_db, job_hash)
+    return {"status": "ok", "notiz": erg["notiz"]} if erg["ok"] else _notiz_fehler(erg)
+
+
+@app.put("/api/jobs/{job_hash}/notizen/{notiz_id}")
+async def api_job_notiz_aendern(job_hash: str, notiz_id: int, request: Request):
+    from .services import stellen_notizen as _sn
+    data = await request.json()
+    erg = _sn.aendern(_db, job_hash, notiz_id, (data or {}).get("text"))
+    return {"status": "ok", "notiz": erg["notiz"]} if erg["ok"] else _notiz_fehler(erg)
+
+
+@app.delete("/api/jobs/{job_hash}/notizen/{notiz_id}")
+async def api_job_notiz_loeschen(job_hash: str, notiz_id: int):
+    from .services import stellen_notizen as _sn
+    erg = _sn.loeschen(_db, job_hash, notiz_id)
+    return {"status": "ok"} if erg["ok"] else _notiz_fehler(erg)
 
 
 # === Kontakte API (v1.7.0 #563) ===

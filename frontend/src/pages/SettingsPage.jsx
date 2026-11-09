@@ -583,13 +583,18 @@ function TelemetrySharingCard({ pushToast }) {
 // Quellen ohne Login still aktiviert (im Demo 29 von 34), und die Kopfleiste
 // zeigte bis zum Neuladen weiter 0. Jetzt waehlt PBP die Empfehlung fuer
 // das Profil, sagt das einmal — und die Kopfleiste liest sofort neu.
+// #1280: solange die Bestaetigung unterwegs ist, bleibt die Karte weg - auch wenn die Seite neu aufgebaut wird, bevor
+// der Server sie gespeichert hat (sonst lieferte das erneute Lesen noch "offen").
+let erstauswahlBestaetigt = false;
+
 function ErstauswahlHinweis({ refreshChrome }) {
   const [daten, setDaten] = useState(null);
   useEffect(() => {
     let aktiv = true;
+    if (erstauswahlBestaetigt) return () => { aktiv = false; };
     api("/api/sources/erstauswahl")
       .then((d) => {
-        if (!aktiv) return;
+        if (!aktiv || erstauswahlBestaetigt) return;
         setDaten(d);
         if (d?.offen) refreshChrome?.({ quiet: true });
       })
@@ -599,9 +604,14 @@ function ErstauswahlHinweis({ refreshChrome }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!daten?.offen) return null;
+  // #1280: sofort ausblenden, nicht erst nach der Antwort - bei einem langsamen Server stand die Karte sonst
+  // sekundenlang ohne Reaktion da und lud zum zweiten Klick ein.
   async function bestaetigen() {
-    try { await postJson("/api/sources/erstauswahl/bestaetigen", {}); } catch {}
+    erstauswahlBestaetigt = true;
     setDaten({ offen: false });
+    try { await postJson("/api/sources/erstauswahl/bestaetigen", {}); } catch {}
+    // Danach gilt wieder, was der Server sagt (ein anderes Profil hat seine eigene Erstauswahl).
+    erstauswahlBestaetigt = false;
   }
   const namen = daten.namen || [];
   return (
@@ -3978,14 +3988,21 @@ export default function SettingsPage() {
   async function handleToggleReason(reason) {
     const willDeactivate = Boolean(reason.is_active);
     try {
-      await api(`/api/dismiss-reasons/${reason.id}`, {
+      const res = await api(`/api/dismiss-reasons/${reason.id}`, {
         method: "PATCH",
         body: JSON.stringify({ is_active: willDeactivate ? 0 : 1 }),
       });
       await reloadDismissReasons();
+      // #1297: beim Abschalten sagen, was den Grund weiter traegt - der Bestand bleibt.
+      const stellen = Number(res?.bestand?.stellen || 0);
+      const auto = Number(res?.bestand?.davon_automatisch || 0);
+      const bestandText = willDeactivate && stellen
+        ? ` ${stellen} bisher so aussortierte Stelle(n) bleiben aussortiert${auto ? `, davon ${auto} von der Automatik — zurückholen unter Stellen › Aussortiert` : ""}.`
+        : "";
       pushToast(
-        `"${reason.label}" ${willDeactivate ? "deaktiviert" : "aktiviert"}.`,
+        `"${grundText(reason.label, dismissReasons)}" ${willDeactivate ? "abgeschaltet: steht in keiner Auswahl mehr, auch nicht für Claude" : "wieder eingeschaltet"}.${bestandText}`,
         "success",
+        { duration: bestandText ? 12000 : 6000 },
       );
     } catch (error) {
       pushToast(error?.message || "Konnte Status nicht ändern.", "danger");
@@ -4283,7 +4300,7 @@ export default function SettingsPage() {
           <Card className="rounded-2xl">
             <SectionHeading
               title="Ablehnungsgründe"
-              description="Eigene Gründe für 'passt nicht' anlegen, umbenennen (Tippfehler-Korrektur zieht bestehende Stellen mit), deaktivieren oder löschen. Aktive Gründe stehen Claude bei stelle_einordnen zur Verfügung."
+              description="Welche Gründe für 'passt nicht' gelten, entscheidest du. Auch Standardgründe lassen sich abschalten: ein abgeschalteter Grund steht in keiner Auswahl mehr, auch nicht für Claude oder die Automatik. Bisher so aussortierte Stellen bleiben, wie sie sind. Eigene Gründe lassen sich zusätzlich umbenennen und löschen."
             />
             <div className="mt-4 grid gap-2">
               {dismissReasons.length === 0 && (
@@ -4295,6 +4312,10 @@ export default function SettingsPage() {
                 .map((reason) => {
                   const active = reason.is_active === undefined ? true : Boolean(reason.is_active);
                   const isEditing = editReasonId === reason.id;
+                  // #1297: Standardgruende lassen sich abschalten, nicht loeschen oder umbenennen;
+                  // 'sonstiges' und Systemgruende gar nicht.
+                  const standard = Boolean(reason.ist_standard);
+                  const abschaltbar = reason.abschaltbar !== false;
                   return (
                     <div
                       key={reason.id ?? reason.label}
@@ -4328,12 +4349,14 @@ export default function SettingsPage() {
                             <span className={`text-sm ${active ? "text-ink" : "text-muted line-through"}`}>
                               {grundText(reason.label, dismissReasons)}
                             </span>
-                            {reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
+                            {standard ? <Badge>Standard</Badge> : reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
+                            {!active ? <span className="text-xs text-muted">abgeschaltet</span> : null}
                             {reason.usage_count ? (
                               <span className="text-xs text-muted">{reason.usage_count}x</span>
                             ) : null}
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
+                            {!standard && abschaltbar ? (
                             <Button aria-label="Umbenennen (Tippfehler korrigieren)"
                               type="button"
                               variant="ghost"
@@ -4343,14 +4366,22 @@ export default function SettingsPage() {
                             >
                               <Pencil size={15} />
                             </Button>
+                            ) : null}
+                            {abschaltbar ? (
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
+                              data-grund-schalter={reason.label}
                               onClick={() => handleToggleReason(reason)}
+                              title={active ? "Abschalten: der Grund steht in keiner Auswahl mehr" : "Wieder einschalten"}
                             >
-                              {active ? "Deaktivieren" : "Aktivieren"}
+                              {active ? "Abschalten" : "Einschalten"}
                             </Button>
+                            ) : (
+                              <span className="px-2 text-xs text-muted" title="Rückfall für alles, was in keinen anderen Grund passt">immer an</span>
+                            )}
+                            {!standard && abschaltbar ? (
                             <Button
                               type="button"
                               variant="danger"
@@ -4360,6 +4391,7 @@ export default function SettingsPage() {
                             >
                               <Trash2 size={15} />
                             </Button>
+                            ) : null}
                           </div>
                         </>
                       )}

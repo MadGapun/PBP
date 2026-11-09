@@ -4,6 +4,7 @@ import json
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.nutzerfuehrung import kein_profil, leer
+from ..services.profile_service import stufe_heute
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -2449,7 +2450,7 @@ def register(mcp, db, logger):
                 vorschlag_muss = []
             skills = sorted(
                 profile.get("skills", []),
-                key=lambda s: -(s.get("level") or 0),
+                key=lambda s: -stufe_heute(s),  # #1264: heutiger Stand, nicht die Spitze
             )
             vorschlag_plus = [
                 s["name"] for s in skills
@@ -2636,13 +2637,18 @@ def register(mcp, db, logger):
             })
 
         # Keywords die in keiner Stelle vorkommen (tote Keywords)
-        from ..job_scraper import _fuzzy_keyword_match
+        from ..job_scraper import _fuzzy_keyword_match, _muss_tor_match
         tote_keywords = []
         all_text = " ".join(
             f"{j.get('title', '')} {(j.get('description') or '')[:500]}"
             for j in all_jobs
         ).lower()
-        for kw in muss + plus:
+        # #1287: ein MUSS-Begriff lebt nur, wenn er das Tor oeffnet —
+        # verstreute Einzelwoerter zaehlen nicht (dieselbe Frage wie im Score).
+        for kw in muss:
+            if not _muss_tor_match(kw, all_text):
+                tote_keywords.append(kw)
+        for kw in plus:
             if not _fuzzy_keyword_match(kw, all_text):
                 tote_keywords.append(kw)
 

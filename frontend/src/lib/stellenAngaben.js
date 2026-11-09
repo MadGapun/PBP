@@ -18,13 +18,36 @@ export const ANSTELLUNGSFORM_TEXT = {
   ausbildung: "Ausbildung",
 };
 
+// #1301: EINE Farbtabelle fuer die Anstellungsform. Abzeichen, Stellenkarte,
+// Popup und Bewerbungskarte lesen sie; das MCP-Werkzeug `stellen_anzeigen`
+// liest das Gegenstueck `ANSTELLUNGSFORM_FARBE` in services/stellenart.py,
+// und tests/test_v183_anstellungsform_farben_1301.py haelt beide
+// deckungsgleich. Vorgabe aus #111/#435: Freelance gruen, Festanstellung
+// blau, unbekannt grau. Die uebrigen Formen haben je einen ruhigen eigenen
+// Ton — nicht amber (das ist "Angepinnt") und nicht rot (das ist eine
+// Warnung, Zeitarbeit ist keine).
 export const ANSTELLUNGSFORM_TON = {
   festanstellung: "sky",
   freelance: "success",
-  praktikum: "amber",
-  werkstudent: "amber",
-  ausbildung: "amber",
-  zeitarbeit: "danger",
+  zeitarbeit: "violett",
+  praktikum: "mandarine",
+  werkstudent: "gelb",
+  ausbildung: "braun",
+};
+
+/** Unbekannt ist ein eigener Zustand (Lehre 2) — grau, nie wie Festanstellung. */
+export const ANSTELLUNGSFORM_TON_UNBEKANNT = "neutral";
+
+// Der dezente Rand und Hauch der Karte je Ton. Die Klassen stehen hier
+// ausgeschrieben, damit Tailwind sie findet.
+export const KARTE_TON = {
+  sky: "border-sky/25 bg-sky/[0.03]",
+  success: "border-teal/25 bg-teal/[0.03]",
+  violett: "border-violett/25 bg-violett/[0.03]",
+  mandarine: "border-mandarine/25 bg-mandarine/[0.03]",
+  gelb: "border-gelb/25 bg-gelb/[0.03]",
+  braun: "border-braun/25 bg-braun/[0.03]",
+  neutral: "",
 };
 
 export const UMFANG_TEXT = {
@@ -81,8 +104,25 @@ export function anstellungsform(job) {
   if (!art) return null;
   return {
     text: ANSTELLUNGSFORM_TEXT[art] || art,
-    ton: ANSTELLUNGSFORM_TON[art] || "neutral",
+    ton: ANSTELLUNGSFORM_TON[art] || ANSTELLUNGSFORM_TON_UNBEKANNT,
   };
+}
+
+/**
+ * #1301: das Abzeichen der Anstellungsform fuer JEDE Karte — auch ohne
+ * Angabe. `art` ist der Rohwert (Stelle: `employment_type`, Bewerbung:
+ * `job_employment_type`). Die Farbe steht nie allein: das Abzeichen
+ * nennt die Form beim Namen, `titel` erklaert die Farbe am Kartenrand.
+ */
+export function anstellungsformMarke(art) {
+  const wert = String(art || "").trim();
+  const bekannt = Object.prototype.hasOwnProperty.call(ANSTELLUNGSFORM_TON, wert);
+  const ton = bekannt ? ANSTELLUNGSFORM_TON[wert] : ANSTELLUNGSFORM_TON_UNBEKANNT;
+  const text = wert ? (ANSTELLUNGSFORM_TEXT[wert] || wert) : "Form unbekannt";
+  const titel = wert
+    ? `Anstellungsform: ${text}. Die Farbe des Kartenrands steht für die Anstellungsform.`
+    : "Die Anzeige nennt keine Anstellungsform. Grau heißt: unbekannt, nicht Festanstellung. Eintragen kannst du sie in den Details.";
+  return { wert, text, ton, karte: KARTE_TON[ton] || "", titel };
 }
 
 /**

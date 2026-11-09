@@ -95,12 +95,15 @@ def gruende_top(db) -> list[dict]:
 
     #1239: nur Urteile des MENSCHEN (`nur_menschen=True`); die Automatik und Systemgruende (`bewerbung_erstellt`,
     `profil_match_negativ`, ...) sind keine Anti-Muster des Bewerbers, sonst lernt das Modell von sich selbst.
+    #1297: ein abgeschalteter Grund ist kein Anti-Muster mehr.
     """
     try:
         conn = db.connect()
         pid = db.get_active_profile_id()
-        from .ablehnungsgruende import gruende_zaehlen
+        from .ablehnungsgruende import abgeschaltete_gruende, gruende_zaehlen
         liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)
+        _aus = abgeschaltete_gruende(db)
+        liste = [(g, n) for g, n in liste if g.lower() not in _aus]
         return [{"reason": g, "count": n} for g, n in liste[:3]]
     except Exception:
         return []

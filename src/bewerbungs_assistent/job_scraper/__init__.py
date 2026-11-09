@@ -32,6 +32,7 @@ from ..services.scraper_classifier import (
     classify_scraper_error,
     ERROR_CLASS_SERVER_WEG,
     ERROR_CLASS_KAPUTT,
+    lauf_grund,
 )
 
 logger = logging.getLogger("bewerbungs_assistent.scraper")
@@ -772,14 +773,6 @@ def build_search_keywords(db) -> dict:
     # Hays: lowercase keywords for sitemap URL matching
     hays_keywords = [kw.lower().replace(" ", "-") for kw in suchbegriffe]
 
-    # Freelancermap: slug-basierte URLs (#500). Die alte
-    # /projektboerse.html?q=... Endpunkt leitet jetzt 301 auf /projekte
-    # ohne Query-Parameter um. Das neue Schema ist /projekte/<keyword-slug>.
-    freelancermap_urls = []
-    for kw in suchbegriffe:
-        slug = kw.lower().strip().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-        freelancermap_urls.append(f"https://www.freelancermap.de/projekte/{slug}")
-
     # freelance.de: skill-based URLs (keyword → Skill-Projekte)
     freelance_de_urls = [
         f"https://www.freelance.de/{quote(kw.replace(' ', '-'))}-Projekte"
@@ -796,13 +789,21 @@ def build_search_keywords(db) -> dict:
     # vor, weil dessen Vorgaben die Fachrichtung eines Profils tragen.
     portal_suchbegriffe: dict = {}
     try:
-        from ..services.browser_handoff import suchbegriffe as _pb
-        for _portal in ("indeed",):
+        from ..services.browser_handoff import suchbegriffe as _pb, PORTALE_MIT_SUCHPROFIL_IM_LAUF
+        # #1302: auch freelancermap - ein gespeichertes Suchprofil der Quelle gilt vor den MUSS-Begriffen.
+        for _portal in PORTALE_MIT_SUCHPROFIL_IM_LAUF:
             _liste = _pb(db.find_portal_search_profile(_portal))
             if _liste:
                 portal_suchbegriffe[_portal] = _liste
     except Exception as _exc:  # pragma: no cover — nie den Suchlauf stoppen
         logger.debug("Portal-Suchprofile nicht gelesen (#1071): %s", _exc)
+
+    # Freelancermap (#1302, gemessen 08.11.2026): die Volltextsuche `/projekte?query=<Begriff>`. Die
+    # Schlagwort-Seiten (`/projekte/<slug>`, #500) waren enger - `/projekte/sap-mdm` 2 Projekte, die Suche 16.
+    # Ohne eigenes Suchprofil der Quelle gelten die MUSS-Begriffe der Suchkriterien (wie bei jeder Quelle).
+    from .freelancermap import such_url as _fmap_url
+    freelancermap_urls = [_fmap_url(kw) for kw in
+                          (portal_suchbegriffe.get("freelancermap") or suchbegriffe)]
 
     # #500: greenhouse_companies aus criteria durchschleusen, damit der User
     # eigene Greenhouse-Slugs (zusaetzlich zu DEFAULT_COMPANIES) konfigurieren
@@ -1565,10 +1566,15 @@ def run_search(db, job_id: str, params: dict):
         _start = time.time()
         try:
             search_func = _load_scraper(quelle)
-            timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
+            # #1302: die Zeitgrenze aus der Tabelle oben. Hier stand bisher "StepStone 180 s, sonst 90 s" -
+            # die 120 s fuer freelancermap und indeed galten nie, der Lauf brach nach 90 s ab.
+            timeout = _timeout_for(quelle)
+            # #1302: der Scraper schreibt hier hinein, wie weit er kam - daraus entsteht der Grund, den die
+            # Quellen-Diagnose nennt, statt nur "timeout"/"server_weg".
+            _fortschritt: dict = {}
 
             executor = ThreadPoolExecutor(max_workers=1)
-            future = executor.submit(_run_with_loop, search_func, params)
+            future = executor.submit(_run_with_loop, search_func, dict(params, _fortschritt=_fortschritt))
             try:
                 jobs = future.result(timeout=timeout)
             except FuturesTimeoutError:
@@ -1576,7 +1582,9 @@ def run_search(db, job_id: str, params: dict):
                 executor.shutdown(wait=False, cancel_futures=True)
                 skipped_sources.append(quelle)
                 source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout,
-                                         "error_class": ERROR_CLASS_SERVER_WEG}
+                                         "error_class": ERROR_CLASS_SERVER_WEG,
+                                         "detail": lauf_grund(_fortschritt, timeout)
+                                         or f"Zeitgrenze {timeout}s erreicht"}
                 continue
             finally:
                 executor.shutdown(wait=False)
@@ -1585,6 +1593,9 @@ def run_search(db, job_id: str, params: dict):
             all_jobs.extend(jobs)
             logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
             source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
+            _grund = lauf_grund(_fortschritt)
+            if _grund:
+                source_status[quelle]["detail"] = _grund
         except ImportError as e:
             logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
             skipped_sources.append(quelle)
@@ -2781,7 +2792,13 @@ def _word_boundary_match(keyword: str, text: str) -> bool:
     return re.search(pattern, text, flags=re.IGNORECASE) is not None
 
 
-def _strict_keyword_match(keyword: str, text: str) -> bool:
+# #1287: Endungen, mit denen ein deutsches Wort in Anzeigen gebeugt oder gegendert steht ("Projektleiterin",
+# "Ingenieure", "Konstrukteurinnen"). Nur fuer das Pflicht-Tor und nur an Woertern ab vier Buchstaben. Kein -s:
+# "product lifecycles" ist nicht "Product Lifecycle" (#940), englische Plurale bleiben aussen vor.
+_BEUGUNG = r"(?:innen|in|en|e|n)?"
+
+
+def _strict_keyword_match(keyword: str, text: str, beugung: bool = False) -> bool:
     """v1.7.7 (#755, C25): Praezises Matching fuer MINUS-Keywords.
 
     MINUS-Keywords BESTRAFEN — anders als beim PLUS-Matching (Recall,
@@ -2805,7 +2822,11 @@ def _strict_keyword_match(keyword: str, text: str) -> bool:
         parts = [re.escape(p) for p in re.split(r"[\s\-/]+", needle) if p]
         if not parts:
             continue
-        pattern = (r"(?<![\w])" + r"[\s\-/]+".join(parts) + r"(?![\w])")
+        endung = ""
+        letztes = [w for w in re.split(r"[\s\-/]+", needle) if w][-1]
+        if beugung and len(letztes) >= 4 and letztes.isalpha():
+            endung = _BEUGUNG
+        pattern = (r"(?<![\w])" + r"[\s\-/]+".join(parts) + endung + r"(?![\w])")
         if re.search(pattern, haystack):
             return True
     return False
@@ -2978,7 +2999,7 @@ def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     Teamcenter-Stelle IST eine PLM-Stelle, auch ohne das Kuerzel im
     Text.
     """
-    if _strict_keyword_match(keyword, text):
+    if _strict_keyword_match(keyword, text, beugung=True):
         return True
 
     # v1.7.28 (#969): amtliche Alternativbezeichnungen desselben Berufs.
@@ -2991,7 +3012,7 @@ def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     # Geprueft werden sie strikt wie das Keyword selbst: ein Synonym
     # darf den Torwaechter erweitern, nicht aufweichen.
     for alternative in (synonyme or []):
-        if _strict_keyword_match(alternative, text):
+        if _strict_keyword_match(alternative, text, beugung=True):
             return True
 
     kw_lower = keyword.lower().strip()
@@ -3445,32 +3466,26 @@ def calculate_score(job: dict, criteria: dict) -> int:
     if not isinstance(idf, dict):
         idf = {}
 
-    # MUSS keywords — #183: Fuzzy-Matching statt exakter Substring
     muss = criteria.get("keywords_muss", [])
-    # v1.7.22 (#940): Zwei getrennte Fragen, zwei getrennte Matcher.
-    # Das TOR entscheidet praezise, ob die Stelle ueberhaupt in Frage
-    # kommt. Die PUNKTE bleiben bewusst auf dem bisherigen (weiteren)
-    # Matching — sonst verschieben sich alle Scores und die Wirkung des
-    # Tors waere nicht mehr isoliert messbar. Die Neubewertung der
-    # Punktevergabe ist #942.
-    _muss_syn = criteria.get("_muss_synonyme") or {}
-    # v1.7.28 (#969): ein Keyword zaehlt auch dann als Treffer, wenn eine
-    # amtliche Alternativbezeichnung im Text steht. Ohne das oeffnet das
-    # Tor zwar (muss_tor_kws), es gibt aber KEINE Punkte — die Stelle
-    # haette Score 0 und faellt trotzdem raus. Beim Messen aufgefallen:
-    # fit_analyse lieferte 6,0 und calculate_score 0 fuer dieselbe
-    # Anzeige. Genau die Divergenz aus #963, diesmal vor dem Ausliefern
-    # bemerkt.
-    muss_hits_kws = [
-        kw for kw in muss
-        if _fuzzy_keyword_match(kw, text)
-        or any(_strict_keyword_match(alt_kw, text)
-               for alt_kw in (_muss_syn.get(kw) or []))
-    ]
     # #1310: die Tor-Frage steht in `muss_tor.pflicht_treffer` — dieselbe
     # Funktion fragt die Wiedergaenger-Automatik vor "falsches Fachgebiet".
     muss_tor_kws = _tor.pflicht_treffer(criteria, text)
     muss_found = len(muss_tor_kws)
+    # #1287: die PUNKTE zaehlen dieselben Treffer wie das Tor. Seit #940
+    # liefen hier zwei Matcher (Tor praezise, Punkte unscharf mit
+    # Mehrwort-Split): "Business Architect" bekam Punkte, sobald irgendein
+    # anderer Begriff das Tor oeffnete, obwohl nur "Business Process" und
+    # "Process Architect" im Text standen. Eine Frage, eine Funktion.
+    muss_hits_kws = muss_tor_kws
+    # Ob ein Pflichttreffer ausserhalb des Firmenabsatzes steht (#827),
+    # fragt ebenfalls das Tor — nicht der unscharfe Matcher.
+    _muss_im_kern = (set(_tor.pflicht_treffer(criteria, kern_text))
+                     if _grenze > 0 else None)
+
+    def _muss_faktor(kw: str) -> float:
+        if _muss_im_kern is None or kw in _muss_im_kern:
+            return 1.0
+        return w["firmenabsatz_faktor"]
     # v1.7.68 (#968): Betriebsart des Tors. `hart` verwirft (bisheriges
     # Verhalten und weiterhin Vorgabe), `gewichtet` laesst die Stelle
     # weiterrechnen und deckelt sie am Ende. Die Entscheidung steht in
@@ -3532,7 +3547,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
         zaehlbare_punkte(
             muss_hits_kws,
             lambda kw: (_punkte_pro_treffer(kw, w["muss"], overrides, idf)
-                        * _treffer_faktor(kw))),
+                        * _muss_faktor(kw))),
         reverse=True,
     )
     # AK 4: sagen, WAS zusammengefasst wurde. Eine stille
@@ -3565,7 +3580,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # nur in der Firmen-Selbstdarstellung sitzen — der Score ist dann
     # niedrig, und der Grund soll erklaerbar sein.
     if _grenze > 0 and muss_hits_kws and all(
-            not _fuzzy_keyword_match(kw, kern_text) for kw in muss_hits_kws):
+            kw not in _muss_im_kern for kw in muss_hits_kws):
         job["_treffer_nur_firmenabsatz"] = True
 
     # PLUS keywords — #183: Fuzzy-Matching
@@ -3843,8 +3858,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                     f"AUSSCHLUSS-Keyword '{_ko_kw}' kommt im Anzeigentext "
                     "vor — harter K.o. wie in der Stellenliste. Falls der "
                     "Treffer aus einer redaktionellen Notiz stammt: Notizen "
-                    "gehören hinter eine '---'-Trennzeile (#603), dann "
-                    "zählen sie nicht."
+                    "gehören in die Notizen der Stelle (stelle_bearbeiten mit "
+                    "notiz), dann zählen sie nicht (#1316)."
                 ],
                 "ko_ausschluss": _ko_kw,
                 "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,
@@ -3883,6 +3898,16 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             return 1.0
         return w["firmenabsatz_faktor"]
 
+    # #1287: Pflichtbegriffe fragt das Tor, auch im Kern — wie in
+    # calculate_score (`_muss_faktor`). Der unscharfe Matcher bleibt PLUS.
+    _muss_im_kern = (set(_tor.pflicht_treffer(criteria, _kern))
+                     if _fa_grenze > 0 else None)
+
+    def _fa_faktor_muss(kw: str) -> float:
+        if _muss_im_kern is None or kw in _muss_im_kern:
+            return 1.0
+        return w["firmenabsatz_faktor"]
+
     # #183: Fuzzy-Matching auch in der Fit-Analyse
     # v1.7.12 (#827): PLUS zaehlt Begriffe nicht nochmal, die schon in
     # MUSS stehen — vorher wurden sie doppelt gewertet.
@@ -3893,14 +3918,15 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # sonst oeffnet das Tor und die Punkte bleiben aus. Gemessen: calc
     # 10,5 gegen fit 6,0 fuer dieselbe Anzeige. Der Guard-Test aus #963
     # haelt beide Wege zusammen.
-    _muss_syn_fit = criteria.get("_muss_synonyme") or {}
-    muss_hits = [
-        kw for kw in muss
-        if _fuzzy_keyword_match(kw, text)
-        or any(_strict_keyword_match(a, text)
-               for a in (_muss_syn_fit.get(kw) or []))
-    ]
-    missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
+    # #1287: `muss_hits` sind GENAU die Treffer des Tors
+    # (`muss_tor.pflicht_treffer`). Vorher stand hier der unscharfe
+    # Matcher mit Mehrwort-Split: "Data Office" galt als Treffer, sobald
+    # "data" und "office" irgendwo im Text standen — die Liste meldete
+    # zwei Pflichttreffer, der Score null. Und `missing_muss` fragte noch
+    # einmal anders (ohne Alternativbezeichnungen), sodass ein Begriff in
+    # beiden Listen stehen konnte.
+    muss_hits = _tor.pflicht_treffer(criteria, text)
+    missing_muss = [kw for kw in muss if kw not in muss_hits]
     plus_hits = [kw for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)]
     # #755 (C25): MINUS strikt (Wortgrenzen + Phrase) statt fuzzy —
     # PLUS belohnt (Recall ok), MINUS bestraft (Praezision Pflicht).
@@ -3920,8 +3946,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     _nur_firmenabsatz = (
         _fa_grenze > 0
         and (muss_hits or plus_hits)
-        and all(not _fuzzy_keyword_match(kw, _kern)
-                for kw in muss_hits + plus_hits)
+        and all(kw not in _muss_im_kern for kw in muss_hits)
+        and all(not _fuzzy_keyword_match(kw, _kern) for kw in plus_hits)
     )
 
     if muss_hits:
@@ -3934,7 +3960,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             zaehlbare_punkte(
                 muss_hits,
                 lambda kw: (_punkte_pro_treffer(kw, w["muss"], _overrides, _idf)
-                            * _fa_faktor(kw))),
+                            * _fa_faktor_muss(kw))),
             reverse=True,
         )
         if _idf:
@@ -3942,7 +3968,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             _muss_pts = _muss_pts[:MUSS_TOP_N]
         pts = round(sum(_muss_pts), 1)
         _label = f"MUSS-Keywords ({len(muss_hits)} Treffer)"
-        if _fa_grenze > 0 and any(_fa_faktor(kw) < 1.0 for kw in muss_hits):
+        if _fa_grenze > 0 and any(_fa_faktor_muss(kw) < 1.0 for kw in muss_hits):
             _label += " — teils nur im Firmenabsatz, abgewertet"
         factors[_label] = pts
         total += pts
@@ -4151,7 +4177,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # behalten (beschreibung_vorhanden, beschreibung_unvollstaendig,
     # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
-    _kein_muss_tor = bool(muss) and not _tor.pflicht_treffer(criteria, text)
+    _kein_muss_tor = bool(muss) and not muss_hits  # #1287: dieselbe Liste
     # v1.7.68 (#968): AK 5 — beide Rechenwege tragen die Betriebsart
     # gemeinsam. Stuende sie nur in `calculate_score`, haette dieselbe
     # Stelle je nach Werkzeug einen anderen Wert; das ist #963 und
