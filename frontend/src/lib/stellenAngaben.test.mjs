@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import {
   ANSTELLUNGSFORM_TEXT, ANSTELLUNGSFORM_TON, ANSTELLUNGSFORM_TON_UNBEKANNT, KARTE_TON,
+  STELLENART_FILTER_OPTIONEN, STELLENART_FILTER_UNBEKANNT, passtZurStellenart,
   anstellungsform, anstellungsformMarke, entfernungText, firmaText, gehaltText, stelleSpeichernNutzlast, umfangText,
 } from "./stellenAngaben.js";
 import { FLAECHEN, MINDEST_KONTRAST, kontrast } from "./kontrast.js";
@@ -101,6 +102,27 @@ for (const ton of new Set(toene)) {
   }
 }
 check("Kontrast der Anstellungsform-Farben", zuSchwach, []);
+
+// #1326: der Filter "Stellenart" zeigt genau die gewaehlte Form.
+{
+  const formen = Object.keys(ANSTELLUNGSFORM_TEXT);
+  const bestand = [...formen, "", null, "  ", "arbeitnehmerueberlassung"];
+  for (const filter of formen) {
+    check(`Filter ${filter} trifft nur ${filter}`,
+      bestand.filter((art) => passtZurStellenart(art, filter)), [filter]);
+  }
+  check("Freelance zeigt keine Zeitarbeit", passtZurStellenart("zeitarbeit", "freelance"), false);
+  check("Festanstellung zeigt nichts ohne Angabe", passtZurStellenart("", "festanstellung"), false);
+  check("Form unbekannt: leer, fehlend und fremde Angabe",
+    bestand.filter((art) => passtZurStellenart(art, STELLENART_FILTER_UNBEKANNT)),
+    ["", null, "  ", "arbeitnehmerueberlassung"]);
+  check("leerer Filter zeigt alles", bestand.every((art) => passtZurStellenart(art, "")), true);
+  check("Optionen: jede Form plus unbekannt, keine doppelt",
+    STELLENART_FILTER_OPTIONEN.map((o) => o.wert), [...formen, STELLENART_FILTER_UNBEKANNT]);
+  check("jede Option in genau einem Topf",
+    bestand.map((art) => STELLENART_FILTER_OPTIONEN.filter((o) => passtZurStellenart(art, o.wert)).length),
+    bestand.map(() => 1));
+}
 
 if (failed) {
   console.error(`${failed} Fehler`);
