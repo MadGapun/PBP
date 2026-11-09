@@ -144,15 +144,9 @@ def holen(db, name_oder_id) -> dict | None:
 
 
 def erlaubte_gruende(db) -> list[str]:
-    """Die Gruende, die eine Regel tragen darf: Standard plus eigene, aktive."""
-    from .ablehnungsgruende import STANDARD_GRUENDE
-    eigene = []
-    try:
-        eigene = [str(r["label"]) for r in (db.get_dismiss_reasons() or [])
-                  if r.get("is_custom") and r.get("is_active", 1)]
-    except Exception as exc:  # pragma: no cover
-        logger.debug("Eigene Gruende nicht lesbar: %s", exc)
-    return list(dict.fromkeys(list(STANDARD_GRUENDE) + eigene))
+    """Die Gruende, die eine Regel tragen darf: dieselbe Liste wie beim Aussortieren (#1297)."""
+    from .ablehnungsgruende import waehlbare_gruende
+    return waehlbare_gruende(db)
 
 
 def gruende_pruefen(db, gruende) -> list[str]:
@@ -329,7 +323,13 @@ def vorschau(db, f: dict) -> dict:
 
 def _aussortieren(db, f: dict, jobs: list) -> int:
     """Sortiert die Stellen mit den Gruenden der Regel aus; zaehlt, was wirklich geschah."""
-    g = f["gruende"]
+    # #1297: ein Grund, den der Mensch inzwischen abgeschaltet hat, traegt keine
+    # Regel mehr. Bleibt keiner uebrig, sortiert die Regel nichts aus.
+    aktiv = {x.lower() for x in erlaubte_gruende(db)}
+    g = [x for x in f["gruende"] if str(x).lower() in aktiv]
+    if not g:
+        logger.info("Regel %s: alle Gruende abgeschaltet, nichts aussortiert", f["name"])
+        return 0
     grund = json.dumps(g, ensure_ascii=False) if len(g) > 1 else g[0]
     notiz = f"Regel „{f['name']}“"
     n = 0

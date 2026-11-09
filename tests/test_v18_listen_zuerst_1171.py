@@ -24,6 +24,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 TEXT = ("Ihre Aufgaben: Sie betreuen die Engineering-Systeme unseres Werks, pflegen Stuecklisten und Freigabeprozesse "
@@ -161,12 +162,12 @@ def test_der_listenkopf_ist_zu_klappt_auf_und_merkt_sich_die_wahl(browser, umgeb
         schalter = kopf.locator("[data-listen-uebersicht-schalter]")
         # Vorgabe: zu — die Liste beginnt im ersten Bildschirm
         assert kopf.get_attribute("data-offen") == "nein"
-        assert page.locator("[data-listen-uebersicht-inhalt]").count() == 0
+        expect(page.locator("[data-listen-uebersicht-inhalt]")).to_have_count(0)
         assert schalter.get_attribute("aria-expanded") == "false"
         # ein Klick: Kennzahlen und Erklaerung stehen da
         schalter.click()
         assert kopf.get_attribute("data-offen") == "ja"
-        assert page.locator("[data-listen-uebersicht-inhalt]").count() == 1
+        expect(page.locator("[data-listen-uebersicht-inhalt]")).to_have_count(1)
         assert schalter.get_attribute("aria-expanded") == "true"
         assert page.evaluate("(l) => window.localStorage.getItem('pbp-listenkopf-' + l)", liste) == "auf"
         # die Wahl ueberlebt ein Neuladen ...
@@ -188,15 +189,15 @@ def test_der_suchstand_steht_in_der_zeile_des_listenkopfs(browser, umgebung):
         status.wait_for(timeout=20000)
         assert re.search(r"Noch nie gesucht|Aktualisiert|Jobsuche läuft", status.inner_text()), status.inner_text()
         # steht genau einmal da — keine eigene Zeile vor dem Kopf mehr
-        assert page.get_by_text(re.compile(r"Noch nie gesucht|^Aktualisiert ")).count() == 1
+        expect(page.get_by_text(re.compile(r"Noch nie gesucht|^Aktualisiert "))).to_have_count(1)
         # „Zuletzt aktualisiert“ ist in der Filterkarte, also UEBER der ersten Stelle und nicht als eigene Zeile davor
         zuletzt = page.locator("[data-stellen-zuletzt]")
-        assert zuletzt.count() == 1
+        expect(zuletzt).to_have_count(1)
         erste = page.locator("[data-stellenkarte]").first
         erste.wait_for(timeout=20000)
         assert zuletzt.bounding_box()["y"] + zuletzt.bounding_box()["height"] < erste.bounding_box()["y"]
         filterkarte = zuletzt.locator("xpath=ancestor::section[1]")
-        assert filterkarte.locator("[data-filter-knopf]").count() == 1, "„Zuletzt aktualisiert“ gehoert in die Filterkarte"
+        expect(filterkarte.locator("[data-filter-knopf]"), "„Zuletzt aktualisiert“ gehoert in die Filterkarte").to_have_count(1)
     finally:
         ctx.close()
 

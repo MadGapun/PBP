@@ -10,7 +10,7 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.8.2 (`--latest`, 2026-11-07), Linie 1.8; Hotfix-Branches
+- **Stable:** v1.8.3 (`--latest`, 2026-11-09), Linie 1.8; Hotfix-Branches
   `hotfix/v1.8.N` vom letzten 1.8-Tag. Die Linie 1.7 endet mit v1.7.159.
 - **Beta:** keine offene; die naechste Linie als GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
@@ -22,7 +22,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v52.
-- **Umfang:** 10172 Tests; 282 MCP-Werkzeuge, Wartungswerkzeuge nur im
+- **Umfang:** 10319 Tests; 282 MCP-Werkzeuge, Wartungswerkzeuge nur im
   Expertenmodus; 26 Prompts.
 - **1.8.0:** Auto-Update, Speicher & Downloads, Firmen, Mail-Ordner; Laeufe auf dem
   Werkstatt-PC: `docs/internal/praxisprobe-1.8.0.md`. Neue Arbeit geht als PR gegen `main`.
@@ -472,7 +472,7 @@ bis 1.7 `stelle_bewerten`; `stellen_bulk_bewerten`) NUR Werte aus der
 Liste nutzen — nicht kombinieren, eindeutschen, kuerzen oder umschreiben.
 Massgeblich ist `verfuegbare_gruende` aus der Werkzeugantwort: die
 Standardliste aus `services/ablehnungsgruende.py` (`STANDARD_GRUENDE`) plus
-eigene Gruende, die der User in den Einstellungen angelegt hat.
+eigene, ohne abgeschaltete (`waehlbare_gruende(db)`, #1297).
 
 ```
 zu_weit_entfernt     gehalt_zu_niedrig    falsches_fachgebiet  falsches_system
@@ -484,9 +484,9 @@ duplikat             kein_hochschulabschluss                   sonstiges
 Verboten, weil frei erfunden: z. B. `abgelaufen`, `war_nur_anfrage`,
 `windchill_fehlt`, `duplikat_bewerbung`, `teamcenter_fehlt`,
 `kein_passendes_projekt` (Systemwerte setzen nur die zustaendigen
-Werkzeuge). Unbekanntes wird still zu `sonstiges` normalisiert und
-verfaelscht Statistik und Lerneffekt (#648) — im Zweifel `sonstiges` oder
-den User fragen.
+Werkzeuge). Seit 1.8.3 lehnt das Werkzeug Unbekanntes und Abgeschaltetes
+ab, nichts wird aussortiert (#1297) — im Zweifel `sonstiges` oder den User
+fragen.
 
 ## Fit-Analyse-Verdict scharf zitieren (#662, #999, #1003)
 

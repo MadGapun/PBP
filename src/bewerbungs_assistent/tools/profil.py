@@ -2172,8 +2172,11 @@ def register(mcp, db, logger):
     def skill_zeitraeume_anzeigen(skill_id: str) -> dict:
         """Listet alle Zeiträume eines Skills (#572)."""
         periods = db.get_skill_periods(skill_id)
+        skill = next((s for s in (db.get_profile() or {}).get("skills", []) if s.get("id") == skill_id), None)
         return {
             "skill_id": skill_id,
+            # #1264: der heutige Stand neben den Zeitraeumen; die Stufen der Zeitraeume sind Vergangenheit
+            **({"name": skill.get("name"), **skill_stand(skill)} if skill else {}),
             "anzahl": len(periods),
             "zeitraeume": periods,
         }

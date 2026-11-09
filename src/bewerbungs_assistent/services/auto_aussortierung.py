@@ -194,8 +194,11 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     try:
         conn = db.connect()
         pid = db.get_active_profile_id()
-        from .ablehnungsgruende import gruende_zaehlen
+        from .ablehnungsgruende import abgeschaltete_gruende, gruende_zaehlen
         liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)
+        # #1297: ein abgeschalteter Grund ist kein Anti-Muster mehr.
+        _aus = abgeschaltete_gruende(db)
+        liste = [(g, n) for g, n in liste if g.lower() not in _aus]
         dismiss_reasons_top = [
             {"reason": g, "count": n} for g, n in liste[:3]
         ]

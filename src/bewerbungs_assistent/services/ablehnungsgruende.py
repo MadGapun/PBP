@@ -25,6 +25,9 @@ import re
 
 # Regulaere, vom Nutzer waehlbare Gruende. Erweiterung NUR hier —
 # tools/jobs.py, CLAUDE.md und die dismiss_reasons-Seeds haengen daran.
+# #1297: das ist der SEED, nicht die Liste der waehlbaren Gruende. Welche
+# davon gelten, entscheidet der Mensch in `dismiss_reasons.is_active`;
+# gefragt wird nur `waehlbare_gruende(db)`.
 STANDARD_GRUENDE = [
     "zu_weit_entfernt",
     "gehalt_zu_niedrig",
@@ -42,6 +45,7 @@ STANDARD_GRUENDE = [
     "kein_hochschulabschluss",
     "sonstiges",
 ]
+_STANDARD_KLEIN = frozenset(STANDARD_GRUENDE)
 
 # Systemseitig legitime Werte, die kein Nutzer waehlt, aber Tools
 # schreiben (Statistik-relevant, bleiben unveraendert).
@@ -61,6 +65,184 @@ SYSTEM_GRUENDE = {
     # Beispiele des Menschen und standen als Grund im Block "GELERNT".
     "keyword_blacklisted",
 }
+
+# #1297: was der Mensch NICHT abschalten kann. Systemgruende schreiben die
+# Werkzeuge (Buchhaltung, kein Urteil), und `sonstiges` ist der Rueckfall fuer
+# Freitext - ohne ihn haette eine Notiz keinen Platz.
+NICHT_ABSCHALTBAR = frozenset(SYSTEM_GRUENDE | {"sonstiges"})
+
+
+def _zeilen(db) -> list:
+    try:
+        return list(db.get_dismiss_reasons() or [])
+    except Exception:  # pragma: no cover - aeltere Datenbank ohne Tabelle
+        return []
+
+
+def ist_standardgrund(label) -> bool:
+    return str(label or "").strip().lower() in _STANDARD_KLEIN
+
+
+def abgeschaltete_gruende(db, zeilen=None) -> set:
+    """Die Gruende, die der Mensch abgeschaltet hat (#1297), kleingeschrieben.
+
+    Steht ein Grund doppelt in der Tabelle (Standardzeile und eine alte eigene
+    Zeile gleichen Namens), gilt der restriktivere Zustand: eine abgeschaltete
+    Zeile reicht. `NICHT_ABSCHALTBAR` ist nie dabei.
+    """
+    zeilen = _zeilen(db) if zeilen is None else zeilen
+    return {str(r.get("label") or "").strip().lower() for r in zeilen
+            if not r.get("is_active", 1)} - NICHT_ABSCHALTBAR - {""}
+
+
+def waehlbare_gruende(db) -> list:
+    """DIE Liste der Gruende, die eine neue Aussortierung tragen darf (#1297).
+
+    Standardgruende (in ihrer Reihenfolge) plus eigene, jeweils nur aktive.
+    `stelle_einordnen`, `stellen_bulk_bewerten`, das Dashboard und die Regeln
+    der gespeicherten Filter fragen hier - nie `STANDARD_GRUENDE` direkt.
+    """
+    zeilen = _zeilen(db)
+    aus = abgeschaltete_gruende(db, zeilen)
+    liste = [g for g in STANDARD_GRUENDE if g not in aus]
+    for r in zeilen:
+        label = str(r.get("label") or "").strip()
+        klein = label.lower()
+        if (not label or not r.get("is_active", 1) or klein in aus
+                or klein in _STANDARD_KLEIN or klein in SYSTEM_GRUENDE):
+            continue
+        liste.append(label)
+    return list(dict.fromkeys(liste))
+
+
+def bekannte_gruende(db) -> set:
+    """Alle Gruende, die ein GESPEICHERTER Wert tragen darf, kleingeschrieben.
+
+    Anders als `waehlbare_gruende` auch die abgeschalteten: eine bestehende
+    Aussortierung bleibt, wie sie ist (#1297). Die Heilung beim Start
+    (`ist_konform`) prueft dagegen.
+    """
+    return (set(_STANDARD_KLEIN) | SYSTEM_GRUENDE
+            | {str(r.get("label") or "").strip().lower() for r in _zeilen(db)}) - {""}
+
+
+def gruende_pruefen(db, gruende) -> dict:
+    """Prueft Gruende fuer eine NEUE Aussortierung (#1297, #663).
+
+    Ein Wert gilt, wenn er (gross/klein, Schlusszeichen und alte
+    Schreibweisen wie `Dublikat` egal) ein waehlbarer Grund ist. Ein
+    abgeschalteter oder unbekannter Wert wird NICHT umgedeutet - weder auf
+    `sonstiges` noch auf einen anderen Grund und schon gar nicht neu
+    angelegt; er steht in `abgeschaltet` bzw. `unbekannt`.
+
+    Rueckgabe: {"gruende", "abgeschaltet", "unbekannt", "verfuegbar"}.
+    """
+    if isinstance(gruende, str):
+        gruende = [gruende]
+    verfuegbar = waehlbare_gruende(db)
+    nach_klein = {g.lower(): g for g in verfuegbar}
+    aus = abgeschaltete_gruende(db)
+    ok, abgeschaltet, unbekannt = [], [], []
+    for roh in gruende or []:
+        text = str(roh or "").strip()
+        if not text:
+            continue
+        klein = text.lower()
+        kandidaten = [klein, klein.strip(" .;,:!-")]
+        kandidaten += [_ALIAS[k] for k in list(kandidaten) if k in _ALIAS]
+        treffer = next((nach_klein[k] for k in kandidaten if k in nach_klein), None)
+        if treffer is not None:
+            ok.append(treffer)
+        elif any(k in aus for k in kandidaten):
+            abgeschaltet.append(text)
+        else:
+            unbekannt.append(text)
+    return {"gruende": list(dict.fromkeys(ok)), "abgeschaltet": abgeschaltet,
+            "unbekannt": unbekannt, "verfuegbar": verfuegbar}
+
+
+def ablehnung_antwort(pruefung: dict) -> dict:
+    """Die Antwort an den Aufrufer, wenn `gruende_pruefen` etwas abweist."""
+    teile = []
+    if pruefung["abgeschaltet"]:
+        teile.append("abgeschaltet: " + ", ".join(pruefung["abgeschaltet"]))
+    if pruefung["unbekannt"]:
+        teile.append("nicht in der Liste: " + ", ".join(pruefung["unbekannt"]))
+    return {
+        "fehler": ("Nichts aussortiert. Diese Gründe gelten nicht ("
+                   + "; ".join(teile) + ")." if teile else
+                   "Mindestens ein Ablehnungsgrund ist erforderlich."),
+        "verfuegbare_gruende": pruefung["verfuegbar"],
+        "naechster_schritt": (
+            "Nimm einen Grund aus verfuegbare_gruende oder 'sonstiges'. "
+            "Abgeschaltete Gründe hat der Mensch bewusst ausgeschaltet - "
+            "nur er schaltet sie wieder ein (Einstellungen › Ablehnungsgründe)."),
+    }
+
+
+def standardgrund_geloescht(conn, label: str) -> bool:
+    """Wurde dieser Standardgrund geloescht? (#1297, Abnahme 09.11.2026)
+
+    Aufgerufen nur, wenn seine Zeile in `dismiss_reasons` fehlt. Bis 1.8.2
+    legte der erste Gebrauch die Zeile an, und Loeschen entfernte sie. Fehlt
+    sie, obwohl Stellen mit dem Grund aussortiert sind (auch als `auto:` oder
+    `wiedergaenger:`), war das Loeschen. Im Zweifel gilt der restriktivere
+    Zustand: der Grund kommt abgeschaltet zurueck.
+    """
+    ziel = str(label or "").strip().lower()
+    if not ziel:
+        return False
+    try:
+        zeilen = conn.execute(
+            "SELECT dismiss_reason FROM jobs WHERE dismiss_reason LIKE ?",
+            (f"%{ziel}%",)).fetchall()
+    except Exception:
+        return False
+    for z in zeilen:
+        for g in gruende_aus_wert(z[0]):
+            k = str(g or "").strip().lower()
+            for vorsilbe in ("auto:", "wiedergaenger:"):
+                if k.startswith(vorsilbe):
+                    k = k[len(vorsilbe):].split(":", 1)[0]
+            if k == ziel:
+                return True
+    return False
+
+
+def belege_ohne_abgeschaltete(dismissed, aus: set):
+    """Aussortierte Stellen ohne die abgeschalteten Gruende (#1297).
+
+    Fuer die Wiedergaenger-Automatik: ein abgeschalteter Grund ist keine
+    Grundlage mehr fuer eine Entscheidung ohne Rueckfrage. Eine Zeile mit
+    weiteren Gruenden bleibt mit diesen; eine Zeile, die nur abgeschaltete
+    traegt, faellt als Beleg weg. Die Zeilen werden kopiert, der Bestand
+    bleibt unveraendert. Gibt den Eingang unveraendert zurueck, wenn nichts
+    abgeschaltet ist.
+    """
+    if not aus or dismissed is None:
+        return dismissed
+
+    def _kern(g) -> str:
+        k = str(g or "").strip().lower()
+        if k.startswith("auto:"):
+            k = k[len("auto:"):].split(":", 1)[0]
+        return k
+
+    ergebnis = []
+    for j in dismissed:
+        roh = j.get("dismiss_reasons") or gruende_aus_wert(j.get("dismiss_reason"))
+        rest = [g for g in roh if _kern(g) not in aus]
+        if len(rest) == len(roh):
+            ergebnis.append(j)
+            continue
+        if not rest:
+            continue
+        kopie = dict(j)
+        kopie["dismiss_reasons"] = rest
+        kopie["dismiss_reason"] = (rest[0] if len(rest) == 1
+                                   else json.dumps(rest, ensure_ascii=False))
+        ergebnis.append(kopie)
+    return ergebnis if type(dismissed) is list else type(dismissed)(ergebnis)
 
 # Gruende, die KEIN Urteil des Menschen ueber die Passung einer Stelle sind
 # (#1234). Die Stelle ging aus der Liste, weil sich der Mensch beworben hat
@@ -106,6 +288,17 @@ _ALIAS = {
 }
 
 
+_MUSTER = [
+    ("bereits_beworben", re.compile(r"\b(?:bereits|schon) beworben")),
+    ("zu_weit_entfernt", re.compile(r"\bzu weit\b|\bentfernung")),
+    ("gehalt_zu_niedrig", re.compile(r"\bgehalt|\bzu niedrig\b")),
+    ("zeitarbeit", re.compile(r"\bzeitarbeit|\barbeitnehmer(?:ü|ue)berl")),
+    ("befristet", re.compile(r"\bbefristet")),
+    ("kein_hochschulabschluss", re.compile(
+        r"\bhochschul|\bstudium\b|\bstudienabschluss|\b(?:kein|ohne)(?:en)? abschluss\b")),
+]
+
+
 def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
     """(kanonischer Grund, Freitext-Rest oder None) fuer EINEN Wert."""
     text = str(raw or "").strip()
@@ -115,7 +308,7 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
 
     if lower in erlaubt:
         return lower, None
-    if lower in _ALIAS:
+    if lower in _ALIAS and _ALIAS[lower] in erlaubt:
         return _ALIAS[lower], None
 
     # v1.7.23 (#944): Ein Vokabular-Wert mit angehaengter Zeichensetzung
@@ -127,7 +320,7 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
     if entkleidet and entkleidet != lower:
         if entkleidet in erlaubt:
             return entkleidet, None
-        if entkleidet in _ALIAS:
+        if entkleidet in _ALIAS and _ALIAS[entkleidet] in erlaubt:
             return _ALIAS[entkleidet], None
 
     # Systempfad 'auto:<grund>' bzw. 'auto:<grund>:<llm-begruendung>' —
@@ -143,31 +336,25 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
         return "sonstiges", text
 
     # 'Duplikat von <hash>: ...' u. ae.
-    if lower.startswith("duplikat") or lower.startswith("dublikat"):
+    if (lower.startswith("duplikat") or lower.startswith("dublikat")) \
+            and "duplikat" in erlaubt:
         return "duplikat", text
 
     # Muster-Heuristiken (uebernommen aus dem alten
     # _normalize_dismiss_reason in tools/jobs.py — jetzt an EINER Stelle).
-    if "bereits beworben" in lower or "schon beworben" in lower:
-        return "bereits_beworben", None
-    if "zu weit" in lower or "entfernung" in lower:
-        return "zu_weit_entfernt", None
-    if "gehalt" in lower or "zu niedrig" in lower:
-        return "gehalt_zu_niedrig", None
-    if "zeitarbeit" in lower or "arbeitnehmerüberl" in lower \
-            or "arbeitnehmerueberl" in lower:
-        return "zeitarbeit", None
-    if "befristet" in lower:
-        return "befristet", None
-    if "hochschul" in lower or "studium" in lower or "abschluss" in lower \
-            or "ats" in lower:
-        return "kein_hochschulabschluss", None
+    # #1297: ein Muster erzeugt nur einen Grund, der gilt; ein abgeschalteter
+    # Grund entsteht nicht aus Freitext. Wortanfaenge statt Teilstrings: "ats"
+    # traf "Zertifikats", "abschluss" traf "Projektabschluss".
+    for grund, muster in _MUSTER:
+        if grund in erlaubt and muster.search(lower):
+            return grund, None
 
     # Alles andere ist Freitext: zaehlbar als 'sonstiges', lesbar als Note.
     return "sonstiges", text
 
 
-def normalisiere_dismiss_wert(raw, custom: set | frozenset = frozenset()
+def normalisiere_dismiss_wert(raw, custom: set | frozenset = frozenset(),
+                              abgeschaltet: set | frozenset = frozenset()
                               ) -> tuple[str, list]:
     """Normalisiert einen dismiss_reason-Speicherwert (#913).
 
@@ -176,9 +363,14 @@ def normalisiere_dismiss_wert(raw, custom: set | frozenset = frozenset()
     Speicherwert behaelt das Eingabeformat (Liste -> JSON-Liste,
     String -> String), enthaelt aber nur noch Whitelist-Werte;
     `freitexte` gehoeren nach jobs.dismiss_note.
+
+    `abgeschaltet` (#1297): Gruende, die der Mensch abgeschaltet hat. Sie
+    entstehen weder aus Freitext noch als Wert; ein solcher Wert wird
+    `sonstiges`, das Original bleibt als Freitext lesbar.
     """
-    erlaubt = set(STANDARD_GRUENDE) | SYSTEM_GRUENDE | {
-        str(c).lower() for c in (custom or ())}
+    erlaubt = (set(STANDARD_GRUENDE) | SYSTEM_GRUENDE | {
+        str(c).lower() for c in (custom or ())}) - (
+        {str(a).lower() for a in (abgeschaltet or ())} - NICHT_ABSCHALTBAR)
 
     war_liste = isinstance(raw, (list, tuple))
     werte = list(raw) if war_liste else None

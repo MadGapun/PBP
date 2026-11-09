@@ -314,8 +314,11 @@ def test_1001_start_ist_losgeloest(db, monkeypatch):
     assert ergebnis["pid"] == 1234
     assert aufruf["befehl"] == ["/pfad/ollama", "serve"]
     if sys.platform == "win32":
-        # DETACHED_PROCESS muss gesetzt sein
-        assert aufruf["kwargs"]["creationflags"] & 0x00000008
+        # Versteckte Konsole statt gar keiner (#1317): DETACHED_PROCESS liesse die Hilfsprozesse von Ollama
+        # sichtbare Fenster oeffnen; die eigene Prozessgruppe haelt Ollama nach dem Ende von PBP am Leben.
+        assert aufruf["kwargs"]["creationflags"] & 0x08000000
+        assert aufruf["kwargs"]["creationflags"] & 0x00000200
+        assert not aufruf["kwargs"]["creationflags"] & 0x00000008
     else:
         assert aufruf["kwargs"]["start_new_session"] is True
 

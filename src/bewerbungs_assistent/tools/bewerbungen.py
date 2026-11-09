@@ -753,6 +753,8 @@ def register(mcp, db, logger):
         }
         if auto_followup_id:
             result["auto_follow_up"] = {"id": auto_followup_id, "tage": default_days}
+        if erg.get("stellen_notizen_uebernommen"):  # #1316
+            result["stellen_notizen_uebernommen"] = erg["stellen_notizen_uebernommen"]
         # #931: der Nennwert fuers Gespraech steht VOR dem Termin fest,
         # statt im Gespraech gebildet zu werden. Nur ein Vorschlag —
         # was tatsaechlich genannt wird, entscheidet der Mensch je
@@ -2743,8 +2745,13 @@ def register(mcp, db, logger):
 
         # Lerneffekt: dismiss_count fuer den Grund hochzaehlen damit
         # AblehnungsMuster-Statistik den Inbound-Pfad mitbekommt
+        # #1297: gezaehlt wird der GESPEICHERTE (normalisierte) Grund - der
+        # Zaehler legt keinen neuen Grund mehr an ('standort' entstand so
+        # frueher als eigener Grund neben zu_weit_entfernt).
         try:
-            db.increment_dismiss_reason_usage([grund])
+            from ..services.ablehnungsgruende import gruende_aus_wert
+            _gespeichert = (db.get_job(target_hash) or {}).get("dismiss_reason")
+            db.increment_dismiss_reason_usage(gruende_aus_wert(_gespeichert) or [grund])
         except Exception:
             pass
 

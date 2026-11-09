@@ -309,8 +309,8 @@ class TestBuildKeywords:
         assert any("stepstone.de/jobs/plm-consultant" in url for url in result["stepstone_urls"])
         # Hays keywords
         assert "plm-consultant" in result["hays_keywords"]
-        # Freelancermap URLs (#500: jetzt slug-basiert /projekte/<slug>)
-        assert any("freelancermap.de/projekte/" in url for url in result["freelancermap_urls"])
+        # Freelancermap URLs (#1302: Volltextsuche ?query=, gemessen 08.11.2026 - die Slug-Seiten waren enger)
+        assert "https://www.freelancermap.de/projekte?query=PLM+Consultant" in result["freelancermap_urls"]
         # Indeed/Monster queries
         assert "PLM Consultant" in result["indeed_queries"]
 

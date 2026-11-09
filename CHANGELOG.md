@@ -42,6 +42,126 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.3] - 2026-11-09 — Notizen an Stellen, eine Farbe je Anstellungsform, Ablehnungsgründe abschaltbar
+
+<!-- anwender -->
+Zu jeder Stelle lassen sich eigene Notizen festhalten, getrennt vom Anzeigentext; sie gehen in die Bewerbung mit.
+Jede Anstellungsform hat überall dieselbe Farbe, und jeder Standard-Ablehnungsgrund lässt sich abschalten.
+Beim Start öffnen sich keine schwarzen Fenster mehr, freelancermap liefert wieder, und Pflichtbegriffe zählen nur noch als ganze Phrase.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Einmal die Punkte neu berechnen lassen:** sag Claude „Berechne die Punkte neu“. Pflichtbegriffe aus mehreren Wörtern zählen jetzt nur noch zusammenhängend
+  (#1287); bei Stellen, die bisher Scheintreffer hatten, sinken die Punkte. Bis dahin meldet die Fit-Analyse dort eine Abweichung.
+- **Einmal die Ablehnungsgründe ansehen** (Einstellungen › Ablehnungsgründe). Hast du früher einen Standardgrund gelöscht (etwa „Kein
+  Hochschulabschluss“) und sind noch Stellen damit aussortiert, steht er nach dem Update abgeschaltet in der Liste. Standardgründe, die es bei dir nie
+  gab und die nie benutzt wurden, stehen eingeschaltet da — schalte ab, was für dich nie ein Grund ist.
+
+**Neu und behoben (kurz)**
+
+- Eigene Notizen an jeder Stelle, von dir oder von Claude, getrennt vom Anzeigentext.
+- Jede Anstellungsform hat überall dieselbe Farbe, mit Namen auf der Karte.
+- Auch Standard-Ablehnungsgründe lassen sich abschalten; kein Grund entsteht mehr still neu.
+- Keine aufpoppenden Konsolenfenster mehr, wenn PBP Ollama startet.
+- freelancermap liefert wieder, schnell und mit Volltextsuche.
+- Pflichttreffer nur noch als ganze Phrase; „Projektleiterin“ trifft „Projektleiter“.
+- Lebenslauf-Bewertung und Vorschläge rechnen mit deinem heutigen Können, nicht mit der früheren Spitze.
+
+### Added
+
+- **Notizen an Stellen** (#1316): Zu jeder Stelle lassen sich eigene Notizen festhalten, auch bevor du dich bewirbst — im Stellen-Dialog unter „Deine
+  Notizen zur Stelle“ oder indem du Claude bittest, etwas an der Stelle zu notieren (`stelle_bearbeiten(notiz=...)`). Jede Notiz zeigt, wann sie entstand und
+  ob sie von dir oder von Claude stammt. Notizen sind kein Teil der Anzeige: Sie zählen nie in die Punkte, das Nachladen der Beschreibung lässt sie stehen,
+  und legst du eine Bewerbung aus der Stelle an, stehen sie in deren Verlauf. Alte Notizen hinter einer Zeile „---“ in der Beschreibung bietet PBP an, in
+  die Notizen zu verschieben — nur auf deinen Klick und mit Vorschau. Die Fit-Analyse liefert die Notizen in einem eigenen Feld.
+- **Standard-Ablehnungsgründe abschaltbar** (#1297): Unter Einstellungen › Ablehnungsgründe lässt sich jeder Standardgrund abschalten. Ein abgeschalteter
+  Grund steht in keiner Auswahl mehr: nicht im Aussortieren-Dialog, nicht für Claude, nicht für die Wiedergänger-Automatik, nicht für eigene Regeln,
+  und er macht keine Stelle mehr zum Wiedergänger, weder in der Fit-Analyse noch in der Stellenliste. Bisher so aussortierte Stellen bleiben, wie sie sind;
+  PBP nennt beim Abschalten, wie viele es sind. Ein „gelöschter“ Standardgrund bleibt abgeschaltet, auch einer, der vor 1.8.3 gelöscht wurde.
+  „Sonstiges“ bleibt immer an.
+
+### Fixed
+
+- **Konsolenfenster beim Start** (#1317): Startete PBP Ollama, öffneten dessen Hilfsprogramme (Grafikkarten-Erkennung, Modell-Laden) je ein schwarzes
+  Fenster, das gleich wieder zuging. PBP startet Ollama jetzt mit einer versteckten Konsole, die die Hilfsprogramme erben.
+- **Pflichttreffer nur noch als ganze Phrase** (#1287): Die Fit-Analyse meldete mehrteilige Pflichtbegriffe wie „Data Office“ als Treffer, wenn nur die
+  Einzelwörter irgendwo in der Anzeige standen; öffnete ein anderer Begriff die Stelle, brachten solche Scheintreffer sogar Punkte. Jetzt zählen Liste,
+  Punkte und das MUSS-Tor dieselben Treffer. Gebeugte und gegenderte Formen zählen mit („Projektleiterin“, „Ingenieure“ für „Projektleiter“,
+  „Ingenieur“). Damit stimmt der beim Anlegen gespeicherte Wert wieder mit der Fit-Analyse überein.
+- **freelancermap liefert wieder** (#1302): Die interne Suche brach nach 90 Sekunden ab und verwarf alles Gefundene, weil PBP für jedes Projekt einzeln die
+  Detailseite abrief. PBP liest jetzt die Ergebnisliste direkt von der Suchseite — drei Suchbegriffe brauchen rund 4 Sekunden statt über 30 — und nutzt die
+  Volltextsuche. Fällt eine Quelle trotzdem aus, nennt die Quellen-Diagnose den Grund in Worten, und die Quelle steht im Auftrag für die Suche im Browser,
+  bis sie wieder liefert. Ein eigenes Suchprofil für freelancermap gilt jetzt auch für die interne Suche. Projekte von dort sind immer Freelance.
+- **Eine Farbe je Anstellungsform** (#1301): Festanstellung blau, Freelance grün, Zeitarbeit violett, Praktikum orange, Werkstudent gelb, Ausbildung braun,
+  grau heißt „unbekannt“ — auf der Stellenkarte, in den Stellendetails, auf der Bewerbungskarte und in der Stellenliste für Claude. Bisher war Freelance je
+  nach Ansicht grün, violett oder smaragd, und Festanstellungen waren auf der Karte gar nicht markiert. Jede Karte nennt die Form auch beim Namen. In den
+  Details einer Bewerbung lassen sich alle Formen wählen, ohne Angabe steht „Nicht angegeben“ statt still „Festanstellung“.
+- **Ablehnungsgründe entstanden still neu** (#1297): Der erste Gebrauch eines fehlenden Grundes legte ihn an, und ein Freitext wie „Zertifikats-Nachweis
+  fehlt“ wurde zu „Kein Hochschulabschluss“. Beides passiert nicht mehr. Nennt Claude einen abgeschalteten oder unbekannten Grund, wird nichts aussortiert,
+  und Claude bekommt die Liste der eingeschalteten Gründe (bisher wurde er still zu „Sonstiges“).
+- **Skill-Stand überall** (#1264): Lebenslauf-Bewertung („Experte“ heißt heute Stufe 4 oder 5), angepasster Lebenslauf und Begriffs-Vorschläge rechneten
+  noch mit der früheren Spitze eines Skills; ein ruhender Skill galt als Expertenwissen. Jetzt zählt der heutige Stand, und die Zeiträume eines Skills
+  nennen ihn mit.
+- **Erstauswahl der Quellen** (#1280): Nach „Passt so“ stand die Karte bis zur Antwort des Servers ohne Reaktion da. Sie verschwindet jetzt beim Klick.
+
+### Changed
+
+- Neues Modul `services/stellen_notizen.py`, neue Tabelle `job_notes` (additiv, Löschbereich „stellen“). `services/ablehnungsgruende.py`:
+  `waehlbare_gruende(db)` ist die eine Liste der zulässigen Gründe. `services/profile_service.py`: `stufe_heute()`.
+- Die Suchlauf-Zeitgrenzen gelten jetzt für alle Quellen, die im Browser laufen (freelancermap und Indeed 120 s statt 90 s).
+- Browser-Tests warten auf Zustände statt einmal zu zählen (#1271).
+
+*Schema v52 (unverändert, neue Tabelle `job_notes` als Safety-Net), 282 MCP-Werkzeuge, 10319 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.3.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.3.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.3 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.3` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.2] - 2026-11-07 — Anstellungsart und Entfernung stimmen, eigene Filter und Sprache der Anzeige
 
 <!-- anwender -->

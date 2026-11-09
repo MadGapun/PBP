@@ -134,6 +134,7 @@ def test_der_endpunkt_lehnt_falsches_mit_400_ab(client):
 pytest.importorskip("playwright.sync_api")
 import uvicorn  # noqa: E402
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 
@@ -218,8 +219,8 @@ def test_ohne_voreinstellung_gilt_der_gemerkte_zustand_und_sie_laesst_sich_speic
     try:
         feld = page.locator("[data-filter-voreinstellung]")
         assert "Ohne Voreinstellung gilt beim Öffnen, wie du die Liste verlassen hast" in feld.inner_text()
-        assert feld.get_by_role("button", name="Als Voreinstellung speichern").count() == 1
-        assert feld.get_by_role("button", name="Voreinstellung aufheben").count() == 0
+        expect(feld.get_by_role("button", name="Als Voreinstellung speichern")).to_have_count(1)
+        expect(feld.get_by_role("button", name="Voreinstellung aufheben")).to_have_count(0)
         assert _filter_state(page)["rahmenAusblenden"] is True, "der gemerkte Zustand gilt"
         feld.get_by_role("button", name="Als Voreinstellung speichern").click()
         for _ in range(50):
@@ -231,8 +232,8 @@ def test_ohne_voreinstellung_gilt_der_gemerkte_zustand_und_sie_laesst_sich_speic
         assert "query" not in gespeichert and "view" not in gespeichert
         page.get_by_text("Gemerkt: Beim Öffnen von PBP gelten diese Filter.").first.wait_for(timeout=10000)
         assert "Beim Öffnen von PBP gilt deine Voreinstellung" in feld.inner_text()
-        assert feld.get_by_role("button", name="Voreinstellung aufheben").count() == 1
-        assert feld.get_by_role("button", name="Als Voreinstellung speichern").count() == 0, "sie gilt ja gerade"
+        expect(feld.get_by_role("button", name="Voreinstellung aufheben")).to_have_count(1)
+        expect(feld.get_by_role("button", name="Als Voreinstellung speichern"), "sie gilt ja gerade").to_have_count(0)
     finally:
         ctx.close()
 
@@ -249,7 +250,7 @@ def test_mit_voreinstellung_beginnt_jedes_oeffnen_damit_nicht_mit_dem_gemerkten_
         assert zustand["minScore"] == "-5" and zustand["rahmenAusblenden"] is False and zustand["hideApplied"] is True
         feld = page.locator("[data-filter-voreinstellung]")
         assert "Beim Öffnen von PBP gilt deine Voreinstellung" in feld.inner_text()
-        assert feld.get_by_role("button", name="Zur Voreinstellung").count() == 0, "es gilt ja gerade die Voreinstellung"
+        expect(feld.get_by_role("button", name="Zur Voreinstellung"), "es gilt ja gerade die Voreinstellung").to_have_count(0)
     finally:
         ctx.close()
 

@@ -168,3 +168,64 @@ def test_null_ist_kein_jahr_weder_im_ende_noch_im_letzten_einsatz():
     r = skill_stand({"level": 4, "end_year": 0, "last_used_year": 0, "start_year": 0})
     assert r["bis"] is None and r["zuletzt_genutzt"] is None and r["seit"] is None
     assert "ruht" not in r["stand"] and "0" not in r["stand"].replace("Lv.", ""), r["stand"]
+
+
+# ── #1264: die übrigen Stellen rechnen mit dem heutigen Stand ─────────────────
+
+from bewerbungs_assistent.services.profile_service import stufe_heute  # noqa: E402
+
+
+@pytest.mark.parametrize("skill, erwartet", [
+    ({"level": 5}, 5),                                        # läuft noch: die Spitze ist der Stand
+    ({"level": 5, "level_current": 2}, 2),                    # abgesenkt
+    ({"level": 5, "end_year": 2004}, 0),                      # ruht, heutiges Niveau unbekannt: zählt nicht
+    ({"level": 5, "end_year": 2004, "level_current": 3}, 3),  # ruht, heutiges Niveau eingetragen
+    ({}, 0),
+])
+def test_1264_stufe_heute(skill, erwartet):
+    assert stufe_heute(skill) == erwartet
+
+
+def _ruhend(name):
+    return {"name": name, "category": "tool", "level": 5, "end_year": 2004}
+
+
+def test_1264_lebenslauf_bewertung_zaehlt_ruhende_skills_nicht_als_experte():
+    from bewerbungs_assistent.export import analyse_cv_perspectives
+    ruhend = {"skills": [_ruhend(f"Altwerkzeug{i}") for i in range(6)]}
+    aktiv = {"skills": [{"name": f"Werkzeug{i}", "category": "tool", "level": 5} for i in range(6)]}
+
+    def faktoren(profil):
+        erg = analyse_cv_perspectives(profil, "Ingenieur", "Werkzeug")
+        return " ".join(str(f) for p in erg["perspektiven"].values() for f in p.get("faktoren", []))
+
+    assert "Expert-Skills" not in faktoren(ruhend)
+    assert "Expert-Skills" in faktoren(aktiv)
+
+
+def test_1264_skill_zeitraeume_nennen_den_heutigen_stand(umgebung):
+    db, mcp = umgebung
+    sid = _skill(db, "Altwerkzeug", end_year=2004)
+    erg = _call(mcp, "skill_zeitraeume_anzeigen", {"skill_id": sid})
+    assert erg["ruht"] is True
+    assert erg["level_aktuell"] is None and erg["level_spitze"] == 5
+    assert "ruht seit 2004" in erg["stand"]
+
+
+def test_1264_begriffs_vorschlaege_ordnen_nach_dem_heutigen_stand(umgebung, monkeypatch):
+    db, mcp = umgebung
+    monkeypatch.setattr(type(db), "is_ki_feature_enabled", lambda self, *a, **k: False)
+    _skill(db, "Altwerkzeug", end_year=2004)           # Spitze 5, ruht
+    _skill(db, "Neuwerkzeug", level=3)                 # heute 3
+    erg = _call(mcp, "keyword_vorschlaege")
+    plus = erg["profil_vorschlaege"]["plus"]
+    assert plus.index("Neuwerkzeug") < plus.index("Altwerkzeug")
+
+
+def test_1264_keine_stelle_rechnet_mehr_mit_der_spitze():
+    """Wächter: Sortieren und „Experte“ über `level` (die Spitze) kommen in den drei Modulen nicht mehr vor."""
+    src = _repo() / "src" / "bewerbungs_assistent"
+    for rel in ("export.py", "tools/analyse.py"):
+        text = (src / rel).read_text(encoding="utf-8")
+        assert '-(s.get("level"' not in text, rel
+        assert 'get("level") or 0) >= 4' not in text, rel

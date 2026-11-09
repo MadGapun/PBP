@@ -149,6 +149,34 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "html",
         None,
     ),
+    # #1302: freelancermap hatte keine Probe - der Health-Check sagte "no_probe_defined", der Lauf nur
+    # "timeout". Probe == Suchadresse des Scrapers; der Inhalt wird mit dessen Leser gezaehlt.
+    "freelancermap": (
+        "GET",
+        "https://www.freelancermap.de/projekte?query=Projektmanagement",
+        "html",
+        None,
+    ),
+}
+
+
+def _inhalt_freelancermap(resp) -> tuple[str, Optional[int], str]:
+    """Traegt die Suchseite die eingebettete Ergebnisliste, die der Scraper liest (#1302)?"""
+    from .freelancermap import projekte_aus_suchseite
+    projekte = projekte_aus_suchseite(resp.text)
+    if projekte is None:
+        return ("verdaechtig", None,
+                "Die Suchseite antwortet, trägt aber keine Ergebnisliste mehr – der Seitenaufbau hat sich "
+                "geändert, der interne Suchlauf findet so nichts. Bis zur Reparatur im Browser suchen: "
+                "quelle_handoff('freelancermap', <Suchbegriff>).")
+    if not projekte:
+        return ("leer", 0, "Die Suchseite antwortet und trägt die Ergebnisliste, für den Probebegriff aber leer.")
+    return ("ok", len(projekte), "")
+
+
+#: #1302: Quellen, deren Antwort ein eigener Leser bewertet (HTML mit eingebetteter Liste) - derselbe wie im Scraper.
+_INHALT_JE_QUELLE = {
+    "freelancermap": _inhalt_freelancermap,
 }
 
 # B13.4 (#748): Quellen, deren Production-Adapter besondere Header senden,
@@ -243,6 +271,10 @@ _PROBE_EXTRA_HEADERS: dict[str, dict] = {
     },
 }
 
+# #1302 (#748): die Probe sendet die Header des Scrapers - sonst prueft sie etwas anderes als die Suche.
+from .freelancermap import _HEADERS as _FREELANCERMAP_HEADERS  # noqa: E402
+_PROBE_EXTRA_HEADERS["freelancermap"] = dict(_FREELANCERMAP_HEADERS)
+
 _TIMEOUT = 10.0  # Health-Check ist nur Ping — keine 30s-Wartezeit
 
 
@@ -306,7 +338,9 @@ def check_source(source_key: str, timeout: float = _TIMEOUT) -> dict[str, Any]:
         inhalt, treffer, grund = ("ok", None, "")
         if erreichbar:
             try:
-                inhalt, treffer, grund = bewerte_inhalt(resp, content_type)
+                pruefer = _INHALT_JE_QUELLE.get(source_key)
+                inhalt, treffer, grund = (pruefer(resp) if pruefer
+                                          else bewerte_inhalt(resp, content_type))
             except Exception:
                 inhalt, treffer, grund = ("ok", None, "")
         ergebnis = {

@@ -109,3 +109,29 @@ def classify_from_status(status: str, exc=None) -> Optional[str]:
     if status in ("error", "fail"):
         return classify_scraper_error(exc) if exc is not None else None
     return None
+
+
+def lauf_grund(fortschritt: dict | None, zeitgrenze_s: int | None = None) -> str:
+    """Der Grund in Worten, den der Suchlauf an die Quelle schreibt (#1302). Leer, wenn nichts auffiel.
+
+    Liest den Fortschritt, den ein Scraper in `params["_fortschritt"]` fuehrt (freelancermap): Suchbegriffe,
+    fertig, gesperrte Antworten, Seiten ohne Ergebnisliste, langsamste Antwort. Vorher stand an einer Quelle
+    nach einem Abbruch nur "timeout" und `server_weg` - auch wenn der Server in 0,5 s antwortete und nur
+    der Lauf zu lang war.
+    """
+    f = fortschritt or {}
+    begriffe, fertig = int(f.get("begriffe") or 0), int(f.get("fertig") or 0)
+    langsam = f.get("langsamste_s") or 0
+    teile = []
+    if zeitgrenze_s:
+        teile.append(f"Zeitgrenze {zeitgrenze_s}s erreicht nach {fertig} von {begriffe} Suchbegriffen"
+                     if begriffe else f"Zeitgrenze {zeitgrenze_s}s erreicht, bevor eine Suchseite fertig war")
+    elif f.get("grund") == "zeitbudget":
+        teile.append(f"teilweise: {fertig} von {begriffe} Suchbegriffen im Zeitbudget")
+    if f.get("gesperrt"):
+        teile.append(f"gesperrt: {f['gesperrt']} Antwort(en) HTTP {f.get('letzter_http')}")
+    if f.get("ohne_daten"):
+        teile.append(f"{f['ohne_daten']} Suchseite(n) ohne Ergebnisliste – Seitenaufbau geändert?")
+    if teile and langsam:
+        teile.append(f"langsamste Antwort {langsam}s")
+    return "; ".join(teile)

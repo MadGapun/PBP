@@ -14,6 +14,7 @@ import pytest
 pytest.importorskip("playwright.sync_api")
 import uvicorn  # noqa: E402
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 from bewerbungs_assistent.services import gespeicherte_filter as gf  # noqa: E402
@@ -100,7 +101,7 @@ def test_sprachfilter_ansicht_und_abzeichen_im_stellen_tab(browser, umgebung):
         _titel_sichtbar(page, "Design Engineer")
         # das Abzeichen steht nur an der englischen Stelle
         page.locator("[data-sprache=en]").first.wait_for(timeout=10000)
-        assert page.locator("[data-sprache]").count() == 1
+        expect(page.locator("[data-sprache]")).to_have_count(1)
         if knopf.get_attribute("aria-expanded") != "true":
             knopf.click()
         _waehle(page, page, "Sprache der Anzeige", "Ohne rein englische")
