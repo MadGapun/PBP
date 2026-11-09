@@ -99,8 +99,15 @@ def test_auswahl_setzt_art_und_remote_von_hand(browser, server):
         auswahl.nth(2).click()
         page.get_by_role("option", name="Remote", exact=True).click()
         page.get_by_role("button", name="Speichern", exact=True).click()
-        page.get_by_text("kein Suchlauf überschreibt").first.wait_for(timeout=10000)
+        # Der Satz "kein Suchlauf überschreibt" steht dauerhaft im Formular;
+        # auf ihn zu warten wartete auf nichts. Gewartet wird auf die Bestaetigung
+        # und dann auf den Wert in der Datenbank (wackelte in der CI, PR #1322).
+        page.get_by_text("Stelle aktualisiert").first.wait_for(timeout=10000)
+        frist = time.monotonic() + 10
         z = _zeile(db)
+        while (z["employment_type"], z["remote_level"]) != ("freelance", "remote")                 and time.monotonic() < frist:
+            time.sleep(0.1)
+            z = _zeile(db)
         assert (z["employment_type"], z["remote_level"]) == ("freelance", "remote")
         assert (z["art_quelle"], z["remote_quelle"], z["umfang_quelle"]) == ("mensch", "mensch", None)
     finally:
