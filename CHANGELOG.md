@@ -42,7 +42,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.3] - 2026-11-08 — Notizen an Stellen, eine Farbe je Anstellungsform, Ablehnungsgründe abschaltbar
+## [1.8.3] - 2026-11-09 — Notizen an Stellen, eine Farbe je Anstellungsform, Ablehnungsgründe abschaltbar
 
 <!-- anwender -->
 Zu jeder Stelle lassen sich eigene Notizen festhalten, getrennt vom Anzeigentext; sie gehen in die Bewerbung mit.
