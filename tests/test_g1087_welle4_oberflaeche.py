@@ -18,6 +18,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 TEXT = ("Wir suchen eine Sachbearbeitung im Einkauf. Aufgaben: Disposition, "
@@ -95,7 +96,7 @@ def test_g62_karte_eine_kernaussage_und_ein_menue(browser, server):
     try:
         karte = page.locator("[data-stellenkarte]").first
         text = karte.inner_text()
-        assert page.locator("[data-kernaussage]").count() == 1
+        expect(page.locator("[data-kernaussage]")).to_have_count(1)
         # Keine Kennung und kein Quellenschluessel als Abzeichen.
         assert voll.split(":")[-1][:8] not in text
         assert "manuell" not in text
@@ -107,7 +108,7 @@ def test_g62_karte_eine_kernaussage_und_ein_menue(browser, server):
         page.locator("[data-fuer-claude]").first.click()
         menue = page.get_by_role("menu").first
         assert "Quelle: manuell" in menue.inner_text()
-        assert menue.get_by_role("menuitem", name="Kennung kopieren").count() == 1
+        expect(menue.get_by_role("menuitem", name="Kennung kopieren")).to_have_count(1)
     finally:
         page.close()
 
@@ -140,7 +141,7 @@ def test_1113_zwei_direkte_knoepfe(browser, server):
     url, _db, _voll = server
     page = _stellen(browser, url)
     try:
-        assert page.locator("[data-genauer-pruefen]").count() == 0
+        expect(page.locator("[data-genauer-pruefen]")).to_have_count(0)
         lokal = page.locator("[data-punkte-ansehen]").first
         claude = page.locator("[data-mit-claude-bewerten]").first
         assert lokal.inner_text().strip() == "Punkte ansehen"
@@ -211,12 +212,12 @@ def test_g62_filterleiste_suche_plus_filter_n(browser, server):
         assert knopf.inner_text().strip().startswith("Filter (")
         assert "(0)" not in knopf.inner_text()
         assert "ausgeblendet" in page.locator("[data-filter-zusammenfassung]").inner_text()
-        assert page.locator("[data-filter-feld]").count() == 0
+        expect(page.locator("[data-filter-feld]")).to_have_count(0)
         assert "pro Seite" not in page.inner_text("body")
         knopf.click()
         page.locator("[data-filter-feld]").wait_for(timeout=5000)
         assert "Rahmen passt nicht ausblenden" in page.locator("[data-filter-feld]").inner_text()
-        assert page.get_by_role("button", name="Aussortiert").count() >= 1
+        expect(page.get_by_role("button", name="Aussortiert").first).to_be_attached()
     finally:
         page.close()
 

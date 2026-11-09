@@ -31,6 +31,11 @@ export default {
         amber: "rgb(var(--color-amber) / <alpha-value>)",
         coral: "rgb(var(--color-coral) / <alpha-value>)",
         sky: "rgb(var(--color-sky) / <alpha-value>)",
+        // #1301: Farben der Anstellungsformen (Tabelle in lib/stellenAngaben.js)
+        violett: "rgb(var(--color-violett) / <alpha-value>)",
+        mandarine: "rgb(var(--color-mandarine) / <alpha-value>)",
+        gelb: "rgb(var(--color-gelb) / <alpha-value>)",
+        braun: "rgb(var(--color-braun) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["Inter", "Aptos", "Segoe UI Variable", "system-ui", "sans-serif"],

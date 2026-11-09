@@ -137,6 +137,14 @@ def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = N
     # `manuelle_quellen` (die Oberflaeche zeigt sie), zusaetzlich aber in `nur_auf_wunsch` - und die Anleitung nimmt sie aus.
     from .quellen_auflagen import nur_auf_wunsch as _nur_auf_wunsch
     auf_wunsch = [q for q in manuelle if _nur_auf_wunsch(q)]
+    # #1302: eine interne Quelle, deren letzter Lauf scheiterte (freelancermap), steht zusaetzlich bei den Browser-Quellen -
+    # sonst fiel sie zweimal durch: intern ausgefallen, im Browser nicht vorgesehen.
+    from .browser_handoff import intern_ausgefallen
+    from ..job_scraper import SOURCE_REGISTRY as _registry
+    for q, grund in intern_ausgefallen(db, auto).items():
+        name = (_registry.get(q) or {}).get("name") or q
+        manuelle_info[q] = (f"{name} — interner Suchlauf zuletzt ausgefallen" + (f" ({grund})" if grund else "")
+                            + f"; läuft intern weiter, zusätzlich im Browser: quelle_handoff('{q}', <Suchbegriff>)")
     schritte.append("browser_quellen")
     if not auto:
         return {"status": "nur_manuelle_quellen", "manuelle_quellen": manuelle_info,

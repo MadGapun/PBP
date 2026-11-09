@@ -375,7 +375,10 @@ def test_beide_merkmale_stehen_als_kennzeichen_auf_der_karte():
     # als eine Faktenzeile statt als drei Abzeichen — die Absicht (beide
     # Merkmale sind auf der Karte zu sehen) gilt weiter.
     assert "{kartenFakten(job)}" in quelle
-    assert "form: anstellungsform(job)?.text" in quelle and "umfang: umfangText(job)" in quelle
+    # #1301: die Form steht als farbiges Abzeichen (eine Farbtabelle),
+    # der Umfang weiter in der Faktenzeile.
+    assert "anstellungsformMarke(job.employment_type)" in quelle and "<Badge tone={form.ton}>{form.text}</Badge>" in quelle
+    assert "umfang: umfangText(job)" in quelle
     karte = (JOBS_PAGE.parent.parent / "lib" / "stellenKarte.js").read_text(encoding="utf-8")
     assert 'if (job?.befristet) teile.push("Befristet")' in karte
     # `unbekannt` bekommt bewusst KEIN Abzeichen — ein Etikett

@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 pw = pytest.importorskip("playwright")  # noqa: E402
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 from browser_hilfen import einstellungen_reiter  # noqa: E402
 
@@ -615,7 +616,7 @@ def test_applications_archive_toggle_reveals_archived_entries(live_dashboard, br
         page.locator("h1").filter(has_text="Bewerbungen").wait_for(state="visible")
 
         page.get_by_role("heading", name="Aktive Bewerbung").wait_for(state="visible")
-        assert page.get_by_text("Archivierte Bewerbung", exact=True).count() == 0
+        expect(page.get_by_text("Archivierte Bewerbung", exact=True)).to_have_count(0)
 
         page.get_by_role("button", name="Archivierte anzeigen").click()
         page.get_by_text("Archivierte Bewerbung", exact=True).wait_for(state="visible")
@@ -711,11 +712,11 @@ def test_dashboard_zeigt_offenes_statt_es_zu_wiederholen(live_dashboard, browser
         # noch einmal, nur unschärfer.
         page.get_by_text("Offen", exact=True).first.wait_for(state="visible")
         page.get_by_text("Nachfassen:", exact=False).first.wait_for(state="visible")
-        assert page.get_by_text(
-            "Es gibt überfällige Nachfassaktionen.", exact=False).count() == 0
-        assert page.get_by_text(
+        expect(page.get_by_text(
+            "Es gibt überfällige Nachfassaktionen.", exact=False)).to_have_count(0)
+        expect(page.get_by_text(
             "Einige Bewerbungen warten auf deine Rückmeldung",
-            exact=False).count() == 0
+            exact=False)).to_have_count(0)
     finally:
         context.close()
 
@@ -850,7 +851,7 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
         # Im Dialog selbst — die Karte darunter traegt denselben Knopf.
         einstieg = page.get_by_role("dialog").get_by_role("button", name="Neu bewerten mit Claude")
         einstieg.wait_for(state="visible")
-        assert einstieg.count() == 1, "Der Einstieg steht doppelt im Dialog."
+        expect(einstieg, "Der Einstieg steht doppelt im Dialog.").to_have_count(1)
     finally:
         context.close()
 
@@ -1061,8 +1062,8 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         page.get_by_role("heading", name="Daten löschen").first.wait_for(
             state="visible", timeout=8000)
         for weg in ("Factory Reset", "Alle Daten loeschen (DSGVO)", "Alle Daten löschen (DSGVO)"):
-            assert page.get_by_role("heading", name=weg).count() == 0, (
-                f"Alte Karte rendert noch: {weg}")
+            expect(page.get_by_role("heading", name=weg),
+                   f"Alte Karte rendert noch: {weg}").to_have_count(0)
 
         # AK 5 + #1024: die Zahlen stehen VOR dem Ausfuehren da,
         # aufgeteilt nach aktiv und aussortiert.
@@ -1084,7 +1085,7 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         # G71 (#1087 H5): Rolle combobox, Eintraege als option.
         auswahl = page.get_by_role(
             "combobox", name="Welches Profil? Alle Profile", exact=True)
-        assert auswahl.count() == 1, "Name nennt nicht Frage UND Antwort"
+        expect(auswahl, "Name nennt nicht Frage UND Antwort").to_have_count(1)
         assert auswahl.get_attribute("aria-expanded") == "false"
         auswahl.click()
         assert auswahl.get_attribute("aria-expanded") == "true"
@@ -1156,8 +1157,8 @@ def test_gefahrenzone_dsgvo_nennt_was_geloescht_wird(live_dashboard, browser, tm
         page.get_by_text("außerhalb des Datenordners", exact=False).first.wait_for(
             state="visible", timeout=4000)
         # Das alte Versprechen "nur Datenbank und Dokumentordner" ist weg.
-        assert page.get_by_text("Die Datenbankdatei und die Ordner",
-                                exact=False).count() == 0
+        expect(page.get_by_text("Die Datenbankdatei und die Ordner",
+                                exact=False)).to_have_count(0)
     finally:
         context.close()
 
@@ -1253,7 +1254,7 @@ def test_kontakte_untermenue_referenzen(live_dashboard, browser):
         ansicht.get_by_text("Anna Beispiel").wait_for(state="visible")
         ansicht.get_by_text("2020-2024", exact=False).first.wait_for(state="visible")
         # Nur markierte Kontakte — Bert ist keine Referenz.
-        assert ansicht.get_by_text("Bert Beispiel").count() == 0
+        expect(ansicht.get_by_text("Bert Beispiel")).to_have_count(0)
 
         docx = page.get_by_role("link", name="Referenzliste als DOCX")
         assert "mit_kontaktdaten=false" in docx.get_attribute("href")
@@ -1476,7 +1477,7 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         # Das Lesen hat die gespeicherte Auswahl geheilt.
         assert db.get_profile_setting("active_sources") == ["bundesagentur"]
         # Standardansicht ohne defekte Quellen.
-        assert page.locator('[data-source-key="heise_jobs"]').count() == 0
+        expect(page.locator('[data-source-key="heise_jobs"]')).to_have_count(0)
 
         einstellungen_reiter(page, "Quellen")
         knopf = page.get_by_role("button", name=re.compile(r"fehlende empfohlene Quelle"))
@@ -1494,7 +1495,7 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
 
         filter_.get_by_role("button", name=f"Defekte Quellen ({defekt})").click()
         page.locator('[data-source-key="heise_jobs"]').wait_for(state="visible")
-        assert page.locator("[data-source-key]").count() == defekt
+        expect(page.locator("[data-source-key]")).to_have_count(defekt)
     finally:
         context.close()
 
@@ -1548,8 +1549,8 @@ def test_jobs_page_detailbewertung_auf_der_karte_und_sperre_im_aussortieren(live
 
         # #1113: der Claude-Weg ist ein eigener Knopf auf der Karte.
         page.locator("[data-mit-claude-bewerten]").first.wait_for(state="visible")
-        assert page.get_by_role("button", name="Zur Blacklist").count() == 0, (
-            "Der Blacklist-Knopf steht noch auf der Karte.")
+        expect(page.get_by_role("button", name="Zur Blacklist"),
+               "Der Blacklist-Knopf steht noch auf der Karte.").to_have_count(0)
 
         # `exact=True`: Playwright sucht sonst als TEILSTRING, und seit
         # #1052 steht in der Filterzeile "Rahmen passt nicht ausblenden".
@@ -1773,7 +1774,7 @@ def test_stellen_zeigen_schon_beworben_bei_laufender_bewerbung(live_dashboard, b
         assert hinweis.get_attribute("data-laeuft") == "ja"
         text = hinweis.locator("[data-schon-beworben-text]").inner_text()
         assert "07.09.2026" in text and "läuft noch" in text, text
-        assert andere.locator("[data-schon-beworben]").count() == 0
+        expect(andere.locator("[data-schon-beworben]")).to_have_count(0)
 
         # Der naechste Schritt steht daneben und fuehrt zur Bewerbung.
         hinweis.get_by_role("button", name="Zur Bewerbung").click()

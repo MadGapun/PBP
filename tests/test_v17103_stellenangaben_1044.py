@@ -19,7 +19,9 @@ SEITE = WURZEL / "frontend" / "src" / "pages" / "JobsPage.jsx"
 LIB = WURZEL / "frontend" / "src" / "lib" / "stellenAngaben.js"
 WORKFLOW = WURZEL / ".github" / "workflows" / "tests.yml"
 
-HELFER = ("firmaText", "anstellungsform", "umfangText", "gehaltText", "entfernungText")
+# #1301: die Anstellungsform kommt aus `anstellungsformMarke` (Farbtabelle,
+# auch fuer "unbekannt") und steht als Abzeichen auf Karte und Popup.
+HELFER = ("firmaText", "anstellungsformMarke", "umfangText", "gehaltText", "entfernungText")
 
 
 def _seite() -> str:
@@ -76,12 +78,12 @@ def test_karte_und_popup_geben_das_ergebnis_auch_aus(ansicht, obj):
         ausgaben = (f"{{firmaText({obj})}}",
                     f"{{kartenFakten({obj})}}</p>",
                     f"{{gehaltText({obj}, formatCurrency)}}</p>",
-                    "form: anstellungsform(job)?.text",
+                    "<Badge tone={form.ton}>{form.text}</Badge>",
                     "umfang: umfangText(job)",
                     "entfernung: entfernungText(job)")
     else:
         ausgaben = (f"{{firmaText({obj})}}",
-                    f"{{anstellungsform({obj}).text}}",
+                    "<Badge tone={form.ton}>{form.text}</Badge>",
                     f"{{umfangText({obj})}}",
                     f"{{gehaltText({obj}, formatCurrency)}}</p>",
                     f"{{entfernungText({obj})}}</p>")

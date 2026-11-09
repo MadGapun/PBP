@@ -13,6 +13,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 def _free_port() -> int:
@@ -91,7 +92,7 @@ def test_mit_schluessel_setzt_der_klick_den_haken(browser, server):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, "test-schluessel-ohne-bedeutung-1037")
     page, haken = _suche(browser, url)
     try:
-        assert haken.get_by_test_id("fahrstrecke-schluessel-da").count() == 1
+        expect(haken.get_by_test_id("fahrstrecke-schluessel-da")).to_have_count(1)
         box = haken.get_by_role("checkbox")
         assert box.is_enabled() and not box.is_checked()
         box.click()

@@ -27,7 +27,7 @@ import uvicorn
 
 try:
     from playwright.sync_api import Error as PlaywrightError
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:  # ohne Browser-Paket entfallen nur die Browser-Tests, die Pruefer-Tests laufen weiter
     PlaywrightError = Exception
     sync_playwright = None
@@ -131,10 +131,10 @@ def test_1170_erweiterungen_ohne_installierte_komponente_zeigt_nicht_installiert
     page.wait_for_load_state("networkidle")
     _reiter_waehlen(page, "erweiterungen")
     page.wait_for_selector("text=Optionale Komponenten", timeout=15000)
-    assert page.get_by_text("Nicht installiert").count() >= 1, "die Karte muss sagen, dass die Komponente fehlt"
-    assert page.get_by_text(ABSTURZ).count() == 0
+    expect(page.get_by_text("Nicht installiert").first, "die Karte muss sagen, dass die Komponente fehlt").to_be_attached()
+    expect(page.get_by_text(ABSTURZ)).to_have_count(0)
     # und die Installation lässt sich anbieten (der Knopf steht nur bei einer fehlenden Komponente da)
-    assert page.get_by_role("button", name=re.compile("installieren", re.I)).count() >= 1
+    expect(page.get_by_role("button", name=re.compile("installieren", re.I)).first).to_be_attached()
     page.close()
     assert not fehler, f"Seitenfehler: {fehler}"
 
@@ -153,12 +153,12 @@ def test_1170_ein_absturz_in_einem_reiter_legt_die_anderen_nicht_lahm(server, br
 
     _reiter_waehlen(page, "erweiterungen")
     page.wait_for_selector(f"text={ABSTURZ}", timeout=15000)
-    assert page.locator("[data-settings-reiter]").count() == 1, "die Reiterleiste muss stehen bleiben"
+    expect(page.locator("[data-settings-reiter]"), "die Reiterleiste muss stehen bleiben").to_have_count(1)
 
     # Weg 1: ein Sprung von aussen (Elwosa, Hinweise) schickt das Ereignis, das die Einstellungsseite hört
     _reiter_waehlen(page, "erscheinungsbild")
     page.wait_for_selector("text=Was auf dem Dashboard erscheint.", timeout=15000)
-    assert page.get_by_text(ABSTURZ).count() == 0, "der Absturz darf nicht an den anderen Reitern haengen bleiben"
+    expect(page.get_by_text(ABSTURZ), "der Absturz darf nicht an den anderen Reitern haengen bleiben").to_have_count(0)
 
     # und zurück: der kaputte Reiter ist weiter kaputt (ehrlich), aber wieder nur er
     _reiter_waehlen(page, "erweiterungen")
@@ -167,7 +167,7 @@ def test_1170_ein_absturz_in_einem_reiter_legt_die_anderen_nicht_lahm(server, br
     # Weg 2: der Klick auf einen Reiter der Leiste
     page.locator("[data-settings-reiter]").get_by_role("button", name="Datenschutz", exact=True).click()
     page.wait_for_selector("text=Wo liegen deine Daten und was wird wohin gesendet.", timeout=15000)
-    assert page.get_by_text(ABSTURZ).count() == 0
+    expect(page.get_by_text(ABSTURZ)).to_have_count(0)
     page.close()
 
 

@@ -61,16 +61,18 @@ import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS,
 import { zuBewerbung } from "@/lib/wege";
 import WegLeiste from "@/components/WegLeiste";
 import ListenUebersicht from "@/components/ListenUebersicht";
+import StellenNotizen from "@/components/StellenNotizen";
 import { stelleLeiste } from "@/lib/wegleiste";
 import {
-  ANSTELLUNGSFORM_TEXT, REMOTE_STUFE_TEXT, UMFANG_AUSWAHL_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
+  ANSTELLUNGSFORM_TEXT, REMOTE_STUFE_TEXT, UMFANG_AUSWAHL_TEXT, UMFANG_TEXT, anstellungsformMarke, entfernungText, firmaText,
   gehaltText, stelleSpeichernNutzlast, umfangText,
 } from "@/lib/stellenAngaben";
 
+// #1301: die Anstellungsform steht als farbiges Abzeichen auf der Karte,
+// deshalb nicht noch einmal in der Faktenzeile.
 function kartenFakten(job) {
   return faktenZeile(job, {
     entfernung: entfernungText(job),
-    form: anstellungsform(job)?.text || "",
     umfang: umfangText(job),
   });
 }
@@ -2117,11 +2119,11 @@ export default function JobsPage() {
                   "flex flex-col rounded-xl transition-[border-color,box-shadow,background-color] duration-300",
                   highlightedJobHash === String(job.hash) && "job-card-highlight",
                   job.is_pinned && "border-amber/20 bg-amber/[0.02]",
-                  // beta.26 / User-Feedback: Freelance-/Selbstaendigen-
-                  // Projekte sichtbar von Festanstellungen unterscheiden.
-                  // Pinned hat Vorrang (amber); ansonsten lila Hauch fuer
-                  // employment_type=freelance.
-                  !job.is_pinned && job.employment_type === "freelance" && "border-violet-400/25 bg-violet-400/[0.02]"
+                  // #1301 (vorher beta.26: nur Freelance, violett): jede
+                  // Anstellungsform faerbt den Rand dezent, aus EINER Tabelle
+                  // (lib/stellenAngaben.js). Angepinnt hat Vorrang (amber);
+                  // die Form bleibt dann am Abzeichen erkennbar.
+                  !job.is_pinned && anstellungsformMarke(job.employment_type).karte
                 )}
               >
                 <div className="flex-1 space-y-3">
@@ -2150,6 +2152,11 @@ export default function JobsPage() {
                       );
                     })()}
                     <DaumenAbzeichen marke={job.rahmen_daumen} art={DAUMEN_RAHMEN} />
+                    {/* #1301: die Anstellungsform beim Namen — die Farbe des Rands steht nie allein */}
+                    {(() => {
+                      const form = anstellungsformMarke(job.employment_type);
+                      return <span data-anstellungsform={form.wert || "unbekannt"} title={form.titel}><Badge tone={form.ton}>{form.text}</Badge></span>;
+                    })()}
                     {/* #1308: die Sprache der Anzeige, nur wenn sie nicht Deutsch ist */}
                     <SpracheMarke job={job} />
                     {/* #154: Bereits-beworben aus den verknuepften Bewerbungen */}
@@ -2747,7 +2754,8 @@ export default function JobsPage() {
         <div className="grid gap-4">
           <p className="text-sm text-muted">Warum passt diese Stelle nicht? (Mehrfachauswahl möglich)</p>
           <div className="flex flex-wrap gap-2">
-            {(dismissReasons.length ? dismissReasons : [
+            {/* #1297: abgeschaltete Gruende stehen nicht zur Auswahl */}
+            {(dismissReasons.length ? dismissReasons.filter((r) => r.is_active === undefined || Boolean(r.is_active)) : [
               { label: "zu_weit_entfernt" }, { label: "gehalt_zu_niedrig" }, { label: "falsches_fachgebiet" },
               { label: "zu_junior" }, { label: "zu_senior" }, { label: "unpassendes_arbeitsmodell" },
               { label: "firma_uninteressant" }, { label: "zeitarbeit" }, { label: "befristet" }, { label: "sonstiges" },
@@ -2946,7 +2954,11 @@ export default function JobsPage() {
                   onClick={async () => { try { await navigator.clipboard.writeText(detailDialog.job.hash); pushToast("ID kopiert.", "success", { duration: 2000 }); } catch {} }}
                 >#{String(detailDialog.job.hash).slice(0, 12)}</button>
                 <Badge tone="sky">{detailDialog.job.source || "Quelle"}</Badge>
-                {anstellungsform(detailDialog.job) ? <Badge tone={anstellungsform(detailDialog.job).ton}>{anstellungsform(detailDialog.job).text}</Badge> : null}
+                {(() => {
+                  // #1301: dieselbe Marke wie auf der Karte, auch fuer "unbekannt"
+                  const form = anstellungsformMarke(detailDialog.job.employment_type);
+                  return <span data-anstellungsform={form.wert || "unbekannt"} title={form.titel}><Badge tone={form.ton}>{form.text}</Badge></span>;
+                })()}
                 {umfangText(detailDialog.job) ? <Badge tone="neutral">{umfangText(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{klartext(detailDialog.job.remote_level)}</Badge> : null}
                 <Badge tone="amber">{punkteText(detailDialog.job)}</Badge>
@@ -3062,6 +3074,15 @@ export default function JobsPage() {
                   <p className="text-sm text-muted whitespace-pre-wrap">{detailDialog.job.description}</p>
                 </div>
               ) : null}
+              {/* #1316: eigene Notizen, getrennt vom Anzeigentext */}
+              <StellenNotizen
+                jobHash={detailDialog.job.hash}
+                onBeschreibungGeaendert={async () => {
+                  const frisch = await api(`/api/jobs/${detailDialog.job.hash}`);
+                  if (frisch) setDetailDialog((d) => ({ ...d, job: frisch }));
+                  loadPage({ silent: true });
+                }}
+              />
               {/* #1032 AK 3: dieselbe Zeile wie auf der Karte — Fund- und,
                   wo es eins gibt, Veroeffentlichungsdatum. */}
               {stellenDaten(detailDialog.job).text ? (

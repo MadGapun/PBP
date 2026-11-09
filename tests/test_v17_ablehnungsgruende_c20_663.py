@@ -151,7 +151,11 @@ def test_custom_grund_in_stelle_bewerten_akzeptiert(tmp_db):
     assert "kein_homeoffice" in result.get("gruende", [])
 
 
-def test_deaktivierter_custom_grund_faellt_auf_sonstiges_zurueck(tmp_db):
+def test_deaktivierter_custom_grund_wird_abgewiesen(tmp_db):
+    """#1297 (angepasst): bis 1.8.2 wurde ein deaktivierter Grund still zu
+    'sonstiges' - das verfaelscht Statistik und Lerneffekt (#648). Jetzt wird
+    der Aufruf abgewiesen, mit der Liste der eingeschalteten Gruende, und die
+    Stelle bleibt aktiv."""
     tmp_db.create_profile("Test", "test@example.com")
     pid = tmp_db.get_active_profile_id() or ""
     rid = tmp_db.add_dismiss_reason("temporaerer_grund")
@@ -169,10 +173,10 @@ def test_deaktivierter_custom_grund_faellt_auf_sonstiges_zurueck(tmp_db):
 
     result = fn(job_hash=full_hash, bewertung="passt_nicht",
                 gruende=["temporaerer_grund"])
-    assert result.get("status") == "aussortiert"
-    # Deaktiviert -> 'sonstiges'
-    assert "temporaerer_grund" not in result.get("gruende", [])
-    assert "sonstiges" in result.get("gruende", [])
+    assert "fehler" in result and "temporaerer_grund" in result["fehler"]
+    assert "temporaerer_grund" not in result["verfuegbare_gruende"]
+    assert "sonstiges" in result["verfuegbare_gruende"]
+    assert tmp_db.get_job(full_hash)["is_active"]
 
 
 # ── ablehnungsgruende_anzeigen ───────────────────────────────────────────

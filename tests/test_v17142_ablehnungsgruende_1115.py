@@ -12,7 +12,6 @@ import asyncio
 import importlib
 import logging
 import os
-import re
 import shutil
 import sys
 import tempfile
@@ -51,22 +50,25 @@ def _tool(db, name):
 
 # ══ Die Kopien folgen der Quelle ═════════════════════════════════════
 
-def test_1115_die_beschreibung_von_stelle_einordnen_nennt_jeden_standardgrund(db):
+def test_1115_die_beschreibung_von_stelle_einordnen_verweist_auf_die_antwort(db):
+    """#1297 (angepasst): die Parameterbeschreibung nennt KEINE feste Liste mehr.
+
+    #1115 hatte die Liste aus `STANDARD_GRUENDE` eingesetzt. Seit #1297 schaltet
+    der Mensch auch Standardgruende ab; eine statische Beschreibung haette einen
+    abgeschalteten Grund weiter als zulaessig angeboten. Massgeblich ist
+    `verfuegbare_gruende` der Antwort."""
     t = _tool(db, "stelle_einordnen")
     text = t.parameters["properties"]["gruende"].get("description", "")
-    fehlt = [g for g in STANDARD_GRUENDE if g not in text]
-    assert not fehlt, f"in der Parameterbeschreibung fehlen: {fehlt}"
+    assert "verfuegbare_gruende" in text
     assert "{ERLAUBTE_GRUENDE}" not in text
-    assert "falsches_system" in text and "falsche_branche" in text
 
 
-def test_1115_die_beschreibung_nennt_nichts_ausserhalb_der_quelle(db):
-    """Die Gegenrichtung: kein veralteter oder erfundener Wert."""
+def test_1115_die_beschreibung_nennt_keinen_einzelnen_grund(db):
+    """Die Gegenrichtung: kein Grund steht fest in der Beschreibung (#1297)."""
     t = _tool(db, "stelle_einordnen")
     text = t.parameters["properties"]["gruende"].get("description", "")
-    liste = text.split("NUR diese Werte:", 1)[1]
-    kandidaten = set(re.findall(r"[a-z]+(?:_[a-z]+)*", liste))
-    assert kandidaten == set(STANDARD_GRUENDE), kandidaten ^ set(STANDARD_GRUENDE)
+    drin = [g for g in STANDARD_GRUENDE if g != "sonstiges" and g in text]
+    assert not drin, drin
 
 
 def test_1115_die_schreibweisen_whitelist_ist_die_quelle():

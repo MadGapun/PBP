@@ -39,6 +39,7 @@ import {
 } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
 import { punkteText, scoreText } from "@/lib/score";
+import { ANSTELLUNGSFORM_TEXT, anstellungsformMarke } from "@/lib/stellenAngaben";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import MitClaude from "@/components/MitClaude";
@@ -1057,7 +1058,7 @@ export default function ApplicationsPage() {
             <div className="grid gap-4">
               {sortedApplications.length ? (
                 sortedApplications.map((application) => (
-                  <Card key={application.id} data-bewerbungskarte={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
+                  <Card key={application.id} data-bewerbungskarte={application.id} className={cn("glass-card-soft flex flex-col rounded-xl shadow-none", anstellungsformMarke(application.job_employment_type).karte)}>
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
@@ -1081,9 +1082,11 @@ export default function ApplicationsPage() {
                         {application.bewerbungsart && application.bewerbungsart !== "mit_dokumenten" && (
                           <Badge tone="neutral">{bewerbungsartText(application.bewerbungsart)}</Badge>
                         )}
-                        {application.job_employment_type && application.job_employment_type !== "festanstellung" && (
-                          <Badge tone="success">Freelance</Badge>
-                        )}
+                        {/* #1301: jede Form beim Namen, in der Farbe aus EINER Tabelle */}
+                        {(() => {
+                          const form = anstellungsformMarke(application.job_employment_type);
+                          return <span data-anstellungsform={form.wert || "unbekannt"} title={form.titel}><Badge tone={form.ton}>{form.text}</Badge></span>;
+                        })()}
                       </div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors" onClick={() => openTimeline(application)}>{application.title}</h3>
@@ -1456,7 +1459,7 @@ export default function ApplicationsPage() {
                   ))}
                   <Field label="Stellenart">
                     <SelectInput
-                      value={app.job_employment_type || "festanstellung"}
+                      value={app.job_employment_type || ""}
                       onChange={async (e) => {
                         const newVal = e.target.value;
                         try {
@@ -1468,10 +1471,9 @@ export default function ApplicationsPage() {
                         }
                       }}
                     >
-                      <option value="festanstellung">Festanstellung</option>
-                      <option value="freelance">Freelance</option>
-                      <option value="praktikum">Praktikum</option>
-                      <option value="werkstudent">Werkstudent</option>
+                      {/* #1301: alle Formen aus derselben Liste wie die Stelle; ohne Angabe kein stilles "Festanstellung" */}
+                      {!app.job_employment_type ? <option value="">Nicht angegeben</option> : null}
+                      {Object.entries(ANSTELLUNGSFORM_TEXT).map(([wert, text]) => <option key={wert} value={wert}>{text}</option>)}
                     </SelectInput>
                   </Field>
                   <Field label="Bewerbungsdatum">

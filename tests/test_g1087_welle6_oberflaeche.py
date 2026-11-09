@@ -14,6 +14,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 TEXT = ("Wir suchen eine Sachbearbeitung im Einkauf. Aufgaben: Disposition, "
@@ -181,10 +182,10 @@ def test_g69_suche_und_bewertung(browser, server):
     page = _seite(browser, url, "profil")
     try:
         page.locator("#profil-persoenlich").wait_for(timeout=15000)
-        assert page.locator("#suche-begriffe").count() == 0
+        expect(page.locator("#suche-begriffe")).to_have_count(0)
         page.goto(f"{url}/#suche", wait_until="networkidle", timeout=30000)
         page.locator("#suche-begriffe").wait_for(timeout=15000)
-        assert page.locator("#profil-persoenlich").count() == 0
+        expect(page.locator("#profil-persoenlich")).to_have_count(0)
         fein = page.locator("#suche-feinabstimmung")
         assert fein.get_attribute("open") is None
         assert not page.locator(".weight-slider").first.is_visible()
@@ -206,7 +207,7 @@ def test_g70_grundlagen_und_erweitert(browser, server):
         reiter = page.locator("[data-settings-reiter]")
         reiter.wait_for(timeout=15000)
         assert reiter.get_by_role("button", name="Ordner", exact=True).is_visible()
-        assert page.locator("[data-erweitert-reiter]").count() == 0
+        expect(page.locator("[data-erweitert-reiter]")).to_have_count(0)
         liste = page.locator("[data-empfehlung-liste]")
         # Die Empfehlung fragt beim ersten Mal das Berufe-Register ab; je nach
         # Netz dauert das. Gewartet wird auf den Zustand, grosszuegig.
@@ -228,6 +229,6 @@ def test_g70_grundlagen_und_erweitert(browser, server):
         # warten, nicht sofort zaehlen (auf dem Linux-Runner war sie noch leer).
         frist = page.get_by_text("Nachfass-Erinnerungen", exact=True)
         frist.first.wait_for(timeout=30000)
-        assert frist.count() == 1
+        expect(frist).to_have_count(1)
     finally:
         page.close()

@@ -286,6 +286,7 @@ def anlegen(db, daten: dict, force: bool = False) -> dict:
                                f"für „{dub['bestehend_titel']}“.")}
 
     job_hash = str(daten.get("job_hash") or "") or None
+    aus_stelle = bool(job_hash)
     if not job_hash:
         # Ohne gefundene Stelle entsteht eine manuelle, damit sie in der
         # Stellenliste steht (#588: Notizen sind KEINE Beschreibung).
@@ -338,13 +339,22 @@ def anlegen(db, daten: dict, force: bool = False) -> dict:
                      (aid, datetime.now().isoformat(), notes))
         conn.commit()
 
+    stellen_notizen_uebernommen = 0
+    if aus_stelle:  # #1316: die Notizen der Stelle gehen mit (die Eintraege an der Stelle bleiben)
+        try:
+            from . import stellen_notizen
+            stellen_notizen_uebernommen = stellen_notizen.in_bewerbung_uebernehmen(db, aid, job_hash)
+        except Exception as exc:  # pragma: no cover - eine Zugabe kippt nie die Bewerbung
+            logger.warning("Stellennotizen nicht uebernommen (#1316): %s", exc)
+
     auto_fid, tage = (None, _nachfass_tage(db))
     if status == "beworben" and daten.get("auto_follow_up", True):
         auto_fid, tage = _erinnerung_anlegen(db, aid)
 
     return {"ok": True, "id": aid, "job_hash": job_hash, "status": status,
             "kontakt": kontakt, "stelle_aussortiert": stelle,
-            "auto_follow_up_id": auto_fid, "nachfass_tage": tage}
+            "auto_follow_up_id": auto_fid, "nachfass_tage": tage,
+            "stellen_notizen_uebernommen": stellen_notizen_uebernommen}
 
 
 # ── Nachfassungen ────────────────────────────────────────────────────

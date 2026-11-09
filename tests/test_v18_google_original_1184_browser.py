@@ -19,6 +19,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 from bewerbungs_assistent.services import stellen_hinweise  # noqa: E402
@@ -97,7 +98,7 @@ def test_ohne_hinweise_steht_nichts_da(browser, umgebung):
         page.goto(f"{umgebung['url']}/#stellen", wait_until="load", timeout=30000)
         page.locator("#page-stellen").wait_for(timeout=20000)
         page.wait_for_timeout(800)
-        assert page.locator("[data-stellen-hinweise]").count() == 0
+        expect(page.locator("[data-stellen-hinweise]")).to_have_count(0)
     finally:
         ctx.close()
 

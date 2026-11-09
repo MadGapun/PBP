@@ -27,13 +27,11 @@ def test_926_freelancermap_fallback_sind_echte_urls():
             "Quelle laeuft still in die Auto-Deaktivierung")
 
 
-def test_926_freelancermap_fallback_nutzt_slug_seiten():
-    """Die Slug-Seiten liefern thematisch; der Query-Parameter wird
-    von der Plattform ignoriert (live geprueft 18.08.2026)."""
+def test_926_freelancermap_fallback_nutzt_die_suche():
+    """#1302 (gemessen 08.11.2026): die Volltextsuche `?query=` wirkt wieder und findet mehr als die
+    Schlagwort-Seiten (`/projekte/sap-mdm` 2 Projekte, `?query=SAP MDM` 16). Am 18.08.2026 war es umgekehrt."""
     from bewerbungs_assistent.job_scraper.freelancermap import SEARCH_URLS
-    assert all("/projekte/" in u for u in SEARCH_URLS), SEARCH_URLS
-    assert not any("?" in u for u in SEARCH_URLS), \
-        "Query-Parameter wirken bei dieser Plattform nicht"
+    assert all(u.startswith("https://www.freelancermap.de/projekte?query=") for u in SEARCH_URLS), SEARCH_URLS
 
 
 @pytest.mark.parametrize("modul,konstante", [

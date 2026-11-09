@@ -24,6 +24,7 @@ import uvicorn
 
 pytest.importorskip("playwright.sync_api")
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 TEXT = ("Ihre Aufgaben: Sie betreuen die Engineering-Systeme unseres Werks, pflegen Stuecklisten und Freigabeprozesse "
@@ -236,7 +237,7 @@ def test_der_hauptknopf_folgt_dem_status(browser, umgebung):
         db.connect().commit()
         ctx, page = _timeline(browser, umgebung)
         try:
-            assert page.locator("[data-weg-haupt]").count() == 0
+            expect(page.locator("[data-weg-haupt]")).to_have_count(0)
         finally:
             ctx.close()
     finally:
@@ -324,7 +325,7 @@ def test_die_firma_traegt_dieselbe_leiste_mit_ihren_faellen(browser, umgebung):
         assert {"bewerbungen", "stellen", "kontakte"} <= set(faelle), faelle
         assert "2" in leiste.locator("[data-weg-fall='kontakte']").inner_text(), "die Zahl der Personen steht dabei"
         # die Firma erfindet keinen Hauptknopf: ihre Pflege steht im Kopf der Ansicht
-        assert leiste.locator("[data-weg-haupt]").count() == 0
+        expect(leiste.locator("[data-weg-haupt]")).to_have_count(0)
     finally:
         ctx.close()
 
