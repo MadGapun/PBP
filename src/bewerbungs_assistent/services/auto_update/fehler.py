@@ -12,8 +12,10 @@ TEXTE = {
     "nicht_verfuegbar": "Das automatische Aktualisieren steht in dieser Installation nicht zur Verfügung.",
     "gesperrt": "Ein anderes Update läuft gerade. Es wurde nichts verändert.",
     "schon_aktuell": "Du hast bereits die neueste Version.",
-    "gescheitert": ("Diese Version ließ sich bei dir schon einmal nicht starten und wird nicht noch einmal "
-                    "automatisch installiert. Eine neuere Version wird wieder angeboten."),
+    "gescheitert": ("Diese Version ließ sich bei dir schon einmal nicht starten. Das kann am Update liegen oder an "
+                    "etwas auf deinem Rechner, zum Beispiel einer gesperrten Datenbank oder zu wenig Platz. PBP "
+                    "installiert sie deshalb nicht von selbst noch einmal; unter Einstellungen › Updates kannst du "
+                    "es erneut versuchen. Eine neuere Version wird wieder angeboten."),
     "quelle_nicht_erlaubt": "Die Adresse gehört nicht zu den festen Quellen von PBP. Es wurde nichts geladen.",
     "netz": "Die Verbindung zu GitHub hat nicht geklappt. PBP versucht es später noch einmal.",
     "zu_gross": "Die Datei ist größer als erlaubt. Es wurde nichts installiert.",
@@ -32,6 +34,13 @@ TEXTE = {
                    "starten. Deine Daten bleiben erhalten."),
     "unerwartet": "Beim Update ist etwas Unerwartetes passiert. Es wurde nichts installiert.",
 }
+
+
+#: Die Rueckfrage vor „erneut versuchen“ (Dashboard und Werkzeug sagen dasselbe, #1358).
+ERNEUT_VERSUCHEN_FRAGE = (
+    "Diese Version ließ sich bei dir schon einmal nicht starten. Das kann am Update liegen oder an etwas auf deinem "
+    "Rechner, zum Beispiel einer gesperrten Datenbank oder zu wenig Platz. Beim nächsten Start versucht PBP sie noch "
+    "einmal; scheitert sie wieder, läuft PBP von selbst mit der bisherigen Version weiter. Deine Daten bleiben erhalten.")
 
 
 class UpdateFehler(Exception):

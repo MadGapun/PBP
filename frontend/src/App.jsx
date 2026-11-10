@@ -66,6 +66,7 @@ import StatsPage from "@/pages/StatsPage";
 import { dialogRegistrieren } from "@/lib/bestaetigung";
 import { naechsteFrageMs, neueLinieHinweis, unbekanntTitel } from "@/lib/updateStand";
 import {
+  ERNEUT_VERSUCHEN_TEXT,
   istSchonInstalliert,
   naechsteFrageMs as autoUpdateFrageMs,
   seitenleisteFuehrtZuEinstellungen,
@@ -898,6 +899,11 @@ export default function App() {
         }[a.antwort];
         if (gemerkt) pushToast(gemerkt, "success");
       } else if (a.art === "update-installieren") {
+        if (a.erneut) {
+          // #1358: eine Fassung, die schon einmal nicht startete – erst fragen, dann versuchen
+          const ok = await bestaetigen({ titel: "Erneut versuchen?", text: ERNEUT_VERSUCHEN_TEXT, ja: "Erneut versuchen", gefahr: false });
+          if (!ok) return;
+        }
         await postJson("/api/auto-update/installieren", { version: a.version });
       } else if (a.art === "update-gesehen") {
         await postJson("/api/auto-update/rueckgang-gesehen", {});
