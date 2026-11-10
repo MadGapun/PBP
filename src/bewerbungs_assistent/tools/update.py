@@ -90,9 +90,15 @@ def register(mcp, db, logger: logging.Logger):
         """
         from ..services.auto_update import lauf
         if not bestaetigt:
-            return {"status": "bestaetigung_noetig",
-                    "text": "Frage den Menschen, ob die neue Version jetzt installiert werden soll, und rufe das Werkzeug "
-                            "dann mit bestaetigt=True auf.", **lauf.uebersicht(db)}
+            frage = ("Frage den Menschen, ob die neue Version jetzt installiert werden soll, und rufe das Werkzeug "
+                     "dann mit bestaetigt=True auf.")
+            antwort = lauf.uebersicht(db)
+            gesucht = version or (antwort.get("neu") or {}).get("version") or ""
+            if gesucht and gesucht in (antwort.get("gescheitert") or []):
+                from ..services.auto_update.fehler import ERNEUT_VERSUCHEN_FRAGE
+                frage = (f"Version {gesucht} ist schon einmal gescheitert. {ERNEUT_VERSUCHEN_FRAGE} Frage den Menschen, "
+                         "ob PBP es erneut versuchen soll, und rufe das Werkzeug dann mit bestaetigt=True auf.")
+            return {"status": "bestaetigung_noetig", "text": frage, **antwort}
         if not version:
             letzte = lauf.pruefen(db, frisch=True)
             version = letzte.get("version") if letzte.get("status") == "neu" else ""
