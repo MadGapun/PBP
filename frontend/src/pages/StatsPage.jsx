@@ -7,10 +7,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,6 +18,7 @@ import { api, apiUrl, optionalApi } from "@/api";
 import { useApp } from "@/app-context";
 import LearningInsightsCard from "@/components/LearningInsightsCard";
 import { grundText, quelleText } from "@/lib/anzeige";
+import { farben, phasenImVerlauf, phasenSumme, prozent, rangliste, zahl } from "@/lib/diagramm";
 import MitClaude from "@/components/MitClaude";
 import {
   Badge,
@@ -34,40 +32,107 @@ import {
 } from "@/components/ui";
 import { formatDate, formatDateTime, statusLabel } from "@/utils";
 
-const STATUS_COLORS = {
-  beworben: "#38bdf8",
-  eingangsbestaetigung: "#38bdf8",
-  interview: "#fbbf24",
-  zweitgespraech: "#fbbf24",
-  interview_abgeschlossen: "#14b8a6",
-  angebot: "#34d399",
-  abgelehnt: "#f87171",
-  entwurf: "#94a3b8",
-  zurueckgezogen: "#a78bfa",
-  abgelaufen: "#94a3b8",
-};
-
-const SOURCE_COLORS = [
-  "#38bdf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa",
-  "#fb923c", "#2dd4bf", "#e879f9", "#60a5fa", "#facc15",
-];
-
-const DISMISS_COLORS = [
-  "#f87171", "#fb923c", "#fbbf24", "#a78bfa", "#38bdf8",
-  "#34d399", "#e879f9", "#94a3b8", "#2dd4bf", "#60a5fa",
-];
-
-const CHART_STYLE = {
-  fontSize: 11,
-  fill: "rgb(var(--color-muted))",
-};
-
 const TOOLTIP_STYLE = {
   background: "rgb(var(--color-panel) / 0.97)",
-  border: "1px solid rgb(var(--surface-overlay-soft) / 0.1)",
+  border: "1px solid rgb(var(--color-line) / 0.6)",
   borderRadius: 12,
   fontSize: 12,
+  padding: "8px 10px",
+  boxShadow: "0 8px 24px rgb(0 0 0 / 0.18)",
 };
+
+// #1345 (G117): das Farbschema der Seite. Achsen und Raster sind SVG; dort
+// greifen CSS-Variablen nicht verlaesslich, deshalb kommen die Farben als
+// feste Werte aus lib/diagramm.js und folgen dem Umschalter.
+function leseFarbschema() {
+  if (typeof document === "undefined") return "dark";
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+
+function useFarbschema() {
+  const [schema, setSchema] = useState(leseFarbschema);
+  useEffect(() => {
+    const beobachter = new MutationObserver(() => setSchema(leseFarbschema()));
+    beobachter.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => beobachter.disconnect();
+  }, []);
+  return schema;
+}
+
+// Wer im System "Bewegung reduzieren" eingestellt hat, bekommt stehende Diagramme.
+function useOhneBewegung() {
+  const [ohne, setOhne] = useState(() =>
+    typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return undefined;
+    const hoeren = () => setOhne(mq.matches);
+    mq.addEventListener?.("change", hoeren);
+    return () => mq.removeEventListener?.("change", hoeren);
+  }, []);
+  return ohne;
+}
+
+// Hinweisfeld der Diagramme: Text in Textfarbe, die Reihe traegt ein Farbfeld.
+function DiagrammHinweis({ active, payload, label, titel, einheit }) {
+  if (!active || !payload?.length) return null;
+  const zeilen = payload.filter((p) => Number(p.value) > 0);
+  return (
+    <div style={TOOLTIP_STYLE}>
+      <p className="mb-1 font-semibold text-ink">{titel ? titel(label) : label}</p>
+      {zeilen.length === 0 ? <p className="text-muted">Keine Einträge</p> : null}
+      {zeilen.map((p) => (
+        <p key={p.dataKey} className="flex items-center gap-2 text-ink">
+          <span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-sm" style={{ background: p.color || p.fill }} />
+          <span className="text-muted">{einheit || p.name}</span>
+          <span className="ml-auto pl-3 font-semibold tabular-nums">{zahl(p.value)}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// Rangliste statt Kreisdiagramm: Name, Wert und Anteil stehen als Text da,
+// der Balken zeigt nur die Groessenordnung. Eine Farbe fuer alle Zeilen —
+// die Zeile ist durch ihren Namen bestimmt, nicht durch einen Farbton.
+function RangListe({ eintraege, farbe, restFarbe, einheit, onZeile, max = 8 }) {
+  const zeilen = rangliste(eintraege, { max });
+  return (
+    <ul className="grid gap-3">
+      {zeilen.map((z) => {
+        const name = z.gefaltet ? `Sonstige (${z.gefaltet})` : z.name;
+        const hinweis = `${name}: ${zahl(z.wert)} ${einheit} (${prozent(Math.round(z.anteil * 10) / 10)})`;
+        const inhalt = (
+          <>
+            <span className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate text-ink">{name}</span>
+              <span className="shrink-0 tabular-nums text-muted">
+                <span className="font-semibold text-ink">{zahl(z.wert)}</span>
+                {" · "}
+                {prozent(Math.round(z.anteil))}
+              </span>
+            </span>
+            <span className="rangbalken-spur mt-1.5 block h-1.5 rounded-full">
+              <span
+                className="rangbalken block h-1.5 rounded-full"
+                style={{ width: `${Math.max(z.breite, 1.5)}%`, background: z.gefaltet ? restFarbe : farbe }}
+              />
+            </span>
+          </>
+        );
+        return (
+          <li key={name} title={hinweis}>
+            {onZeile && !z.gefaltet ? (
+              <button type="button" onClick={() => onZeile(z)} className="block w-full rounded-md text-left transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky">
+                {inhalt}
+              </button>
+            ) : inhalt}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function resolveTimeRangeDates(range) {
   if (!range) return { from: "", to: "" };
@@ -257,6 +322,10 @@ export default function StatsPage() {
 
   // Combined key for "all" view: granularity=all means show everything grouped monthly
   const interval = granularity === "all" ? "all" : granularity;
+  const f = farben(useFarbschema());
+  const bewegt = !useOhneBewegung();
+  const achse = { fontSize: 11, fill: f.text };
+  const legendenText = (wert) => <span style={{ color: f.text }}>{wert}</span>;
 
   const loadData = useEffectEvent(async (g, r) => {
     try {
@@ -295,7 +364,11 @@ export default function StatsPage() {
     loadData(granularity, timeRange);
   }, [reloadKey, granularity, timeRange, heatmapDays]);
 
-  if (loading) return <LoadingPanel label="Statistiken werden geladen..." />;
+  // Nur beim ersten Laden die Ladeanzeige; ein Wechsel des Zeitraums haelt
+  // die vorige Ansicht, bis die neue da ist (kein Springen der Seite).
+  if (loading && !timeline && !scores && !extended) {
+    return <LoadingPanel label="Statistiken werden geladen …" />;
+  }
 
   // --- Timeline chart data ---
   // beta.33 / User-Feedback: laufende Periode NICHT mehr wegfiltern
@@ -326,20 +399,13 @@ export default function StatsPage() {
     "Neue Stellen": timeline?.jobs_found?.[period] || 0,
   }));
 
-  // --- Status breakdown chart data ---
-  const allStatuses = new Set();
-  for (const period of timelinePeriods) {
-    for (const status of Object.keys(timeline?.by_status?.[period] || {})) {
-      allStatuses.add(status);
-    }
-  }
-  const statusKeys = [...allStatuses];
-  const statusLabels = statusKeys.map((s) => statusLabel(s));
-  const statusChartData = timelinePeriods.map((period) => {
+  // --- Stand der Bewerbungen je Zeitraum, gefaltet in Phasen ---
+  const statusJeZeitraum = timelinePeriods.map((period) => timeline?.by_status?.[period] || {});
+  const phasen = phasenImVerlauf(statusJeZeitraum);
+  const phasenChartData = timelinePeriods.map((period, i) => {
+    const summe = phasenSumme(statusJeZeitraum[i]);
     const entry = { name: formatPeriodLabel(period) };
-    for (let i = 0; i < statusKeys.length; i++) {
-      entry[statusLabels[i]] = timeline?.by_status?.[period]?.[statusKeys[i]] || 0;
-    }
+    for (const phase of phasen) entry[phase.label] = summe[phase.key] || 0;
     return entry;
   });
 
@@ -348,7 +414,11 @@ export default function StatsPage() {
   // G65 (#1087 D2): Namen statt Schluessel an Achse und Legende.
   const sourcePieData = sources.map((s) => ({
     name: quelleText(s),
-    value: s.count,
+    wert: s.count,
+  }));
+  const bewerbungsQuellen = (scores?.application_sources || []).map((s) => ({
+    name: quelleText(s),
+    wert: s.count,
   }));
 
   // --- Score distribution bar data ---
@@ -370,7 +440,7 @@ export default function StatsPage() {
   // --- Dismiss reasons chart data ---
   const dismissData = (extended?.dismiss_reasons || []).slice(0, 10).map(([reason, count]) => ({
     name: grundText(reason),
-    count,
+    wert: count,
   }));
 
   const hasData = timelineChartData.length > 0 || sourcePieData.length > 0 || scoreBarData.length > 0;
@@ -381,7 +451,11 @@ export default function StatsPage() {
   const response = extended?.response_times || {};
 
   return (
-    <div id="page-statistiken" className="page active">
+    <div
+      id="page-statistiken"
+      className={`page active transition-opacity duration-200 ${loading ? "opacity-60" : ""}`}
+      aria-busy={loading}
+    >
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Statistiken</h1>
       <div className="mb-6 flex flex-wrap items-baseline justify-end gap-4">
@@ -481,10 +555,10 @@ export default function StatsPage() {
           description="Die Statistik füllt sich, sobald PBP Stellen gefunden hat und du Bewerbungen angelegt hast. Dann siehst du, wie viele Treffer zu Bewerbungen wurden, wie lange Antworten dauern und was bei dir funktioniert."
         />
       ) : (
-        <div className="grid gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Row 0: Activity overview — Today + Week + Totals */}
           {extended && (
-            <div className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
               <Card className="rounded-2xl">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar size={14} className="text-sky" />
@@ -519,8 +593,8 @@ export default function StatsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <StatBox label="Stellen gesamt" value={totals.jobs_ever || 0} tone="neutral" />
                   <StatBox label="Aktiv" value={totals.jobs_active || 0} tone="success" />
-                  <StatBox label="Beworben" value={totals.jobs_applied || 0} sub={totals.hit_rate ? `${totals.hit_rate}% Trefferquote` : ""} tone="sky" />
-                  <StatBox label="Aussortiert" value={totals.jobs_dismissed || 0} sub={totals.dismiss_rate ? `${totals.dismiss_rate}%` : ""} tone="danger" />
+                  <StatBox label="Beworben" value={totals.jobs_applied || 0} sub={totals.hit_rate ? `${prozent(totals.hit_rate)} Trefferquote` : ""} tone="sky" />
+                  <StatBox label="Aussortiert" value={totals.jobs_dismissed || 0} sub={totals.dismiss_rate ? prozent(totals.dismiss_rate) : ""} tone="danger" />
                   <StatBox label="Gepinnt" value={totals.jobs_pinned || 0} tone="amber" />
                 </div>
               </Card>
@@ -529,7 +603,7 @@ export default function StatsPage() {
 
           {/* Row 0b: Applications + Response times */}
           {extended && (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
               <MetricCard label="Bewerbungen gesamt" value={appStats.total || 0} note={appStats.imported ? `${appStats.imported} importiert, ${appStats.new || 0} neu` : "Alle im Tool erstellt"} tone="sky" />
               <MetricCard label="Importiert" value={appStats.imported || 0} note="Vor Tool-Nutzung" tone="neutral" />
               <MetricCard label="Neu erstellt" value={appStats.new || 0} note="Seit Tool-Nutzung" tone="success" />
@@ -671,11 +745,11 @@ export default function StatsPage() {
                 {seg.basis > 0 ? (
                   <>
                     <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                      <StatBox label="Abgelaufen" value={`${seg.expired_rate}%`} sub={`${seg.abgelaufen} Bew.`} tone="danger" />
-                      <StatBox label="Abgelehnt" value={`${seg.rejection_rate}%`} sub={`${seg.abgelehnt} Bew.`} tone="amber" />
-                      <StatBox label="Zurückgezogen" value={`${seg.withdrawal_rate}%`} sub={`${seg.zurueckgezogen} Bew.`} tone="neutral" />
-                      <StatBox label="Interview erreicht" value={`${seg.interview_rate}%`} sub={`${seg.interview} Bew.`} tone="sky" />
-                      <StatBox label="Angebot" value={`${seg.offer_rate}%`} sub={`${seg.angebot} Bew.`} tone="success" />
+                      <StatBox label="Abgelaufen" value={prozent(seg.expired_rate)} sub={`${seg.abgelaufen} Bew.`} tone="danger" />
+                      <StatBox label="Abgelehnt" value={prozent(seg.rejection_rate)} sub={`${seg.abgelehnt} Bew.`} tone="amber" />
+                      <StatBox label="Zurückgezogen" value={prozent(seg.withdrawal_rate)} sub={`${seg.zurueckgezogen} Bew.`} tone="neutral" />
+                      <StatBox label="Interview erreicht" value={prozent(seg.interview_rate)} sub={`${seg.interview} Bew.`} tone="sky" />
+                      <StatBox label="Angebot" value={prozent(seg.offer_rate)} sub={`${seg.angebot} Bew.`} tone="success" />
                     </div>
                     <p className="mt-2 text-xs text-muted">
                       Basis: {seg.basis} abgeschickte Bewerbungen ({segLabel}, nach
@@ -740,18 +814,18 @@ export default function StatsPage() {
           </Card>
 
           {/* Row 1: Timeline + Status */}
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <ChartCard title="Bewerbungen & Stellen im Zeitverlauf">
               {timelineChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={timelineChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
-                    <XAxis dataKey="name" tick={CHART_STYLE} />
-                    <YAxis tick={CHART_STYLE} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Area type="monotone" dataKey="Bewerbungen" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.15} strokeWidth={2} />
-                    <Area type="monotone" dataKey="Neue Stellen" stroke="#34d399" fill="#34d399" fillOpacity={0.1} strokeWidth={2} />
+                    <CartesianGrid vertical={false} stroke={f.raster} />
+                    <XAxis dataKey="name" tick={achse} axisLine={{ stroke: f.raster }} tickLine={false} />
+                    <YAxis tick={achse} allowDecimals={false} axisLine={false} tickLine={false} width={36} tickFormatter={zahl} />
+                    <Tooltip content={<DiagrammHinweis />} cursor={{ stroke: f.text, strokeWidth: 1 }} />
+                    <Legend itemSorter={null} iconType="plainline" wrapperStyle={{ fontSize: 12 }} formatter={legendenText} />
+                    <Area type="monotone" dataKey="Bewerbungen" stroke={f.paar[0]} fill={f.paar[0]} fillOpacity={0.14} strokeWidth={2} activeDot={{ r: 4, stroke: f.flaeche, strokeWidth: 2 }} isAnimationActive={bewegt} />
+                    <Area type="monotone" dataKey="Neue Stellen" stroke={f.paar[1]} fill={f.paar[1]} fillOpacity={0.1} strokeWidth={2} activeDot={{ r: 4, stroke: f.flaeche, strokeWidth: 2 }} isAnimationActive={bewegt} />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -759,17 +833,17 @@ export default function StatsPage() {
               )}
             </ChartCard>
 
-            <ChartCard title="Status-Verteilung im Zeitverlauf">
-              {statusChartData.length > 0 && statusKeys.length > 0 ? (
+            <ChartCard title="Stand der Bewerbungen im Zeitverlauf">
+              {phasenChartData.length > 0 && phasen.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={statusChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
-                    <XAxis dataKey="name" tick={CHART_STYLE} />
-                    <YAxis tick={CHART_STYLE} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    {statusKeys.map((status, i) => (
-                      <Bar key={status} dataKey={statusLabels[i]} stackId="status" fill={STATUS_COLORS[status] || "#94a3b8"} radius={[2, 2, 0, 0]} />
+                  <BarChart data={phasenChartData}>
+                    <CartesianGrid vertical={false} stroke={f.raster} />
+                    <XAxis dataKey="name" tick={achse} axisLine={{ stroke: f.raster }} tickLine={false} />
+                    <YAxis tick={achse} allowDecimals={false} axisLine={false} tickLine={false} width={36} tickFormatter={zahl} />
+                    <Tooltip content={<DiagrammHinweis />} cursor={{ fill: f.raster, fillOpacity: 0.5 }} />
+                    <Legend itemSorter={null} iconType="square" iconSize={9} wrapperStyle={{ fontSize: 12 }} formatter={legendenText} />
+                    {phasen.map((phase) => (
+                      <Bar key={phase.key} dataKey={phase.label} stackId="phase" fill={f.phasen[phase.key]} stroke={f.flaeche} strokeWidth={1.5} maxBarSize={30} isAnimationActive={bewegt} />
                     ))}
                   </BarChart>
                 </ResponsiveContainer>
@@ -779,31 +853,17 @@ export default function StatsPage() {
             </ChartCard>
           </div>
 
-          {/* Row 2: Sources pie + Score distribution */}
-          <div className="grid gap-6 xl:grid-cols-2">
-            <ChartCard title="Quellen-Verteilung">
+          {/* Row 2: Quellen (Rangliste) + Verteilung der Punkte */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <ChartCard title="Woher die Stellen kommen">
               {sourcePieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie
-                      data={sourcePieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      innerRadius={50}
-                      paddingAngle={2}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      labelLine={{ stroke: "rgb(var(--surface-overlay-soft) / 0.2)" }}
-                    >
-                      {sourcePieData.map((entry, i) => (
-                        <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} cursor="pointer" onClick={() => navigateTo("stellen")} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <RangListe
+                  eintraege={sourcePieData}
+                  farbe={f.eine}
+                  restFarbe={f.neutral}
+                  einheit="Stellen"
+                  onZeile={() => navigateTo("stellen")}
+                />
               ) : (
                 <p className="py-8 text-center text-sm text-muted">Keine Quellendaten vorhanden.</p>
               )}
@@ -812,21 +872,15 @@ export default function StatsPage() {
             <ChartCard title="Verteilung der Punkte">
               {scoreBarData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={scoreBarData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
-                    <XAxis dataKey="bucket" tick={CHART_STYLE} label={{ value: "Punkte", position: "insideBottom", offset: -2, style: CHART_STYLE }} />
-                    <YAxis tick={CHART_STYLE} allowDecimals={false} />
+                  <BarChart data={scoreBarData} margin={{ bottom: 14 }}>
+                    <CartesianGrid vertical={false} stroke={f.raster} />
+                    <XAxis dataKey="bucket" tick={achse} axisLine={{ stroke: f.raster }} tickLine={false} label={{ value: "Punkte", position: "insideBottom", offset: -8, style: achse }} />
+                    <YAxis tick={achse} allowDecimals={false} axisLine={false} tickLine={false} width={36} tickFormatter={zahl} />
                     <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      labelStyle={{ color: "rgb(var(--color-ink))" }}
-                      formatter={(value) => [value, "Stellen"]}
-                      labelFormatter={(label) => `Punkte ${label}`}
+                      content={<DiagrammHinweis titel={(label) => `Punkte ${label}`} einheit="Stellen" />}
+                      cursor={{ fill: f.raster, fillOpacity: 0.5 }}
                     />
-                    <Bar dataKey="count" fill="#fbbf24" radius={[4, 4, 0, 0]}>
-                      {scoreBarData.map((_, i) => (
-                        <Cell key={i} fill={`hsl(${40 + i * 8}, 90%, 60%)`} />
-                      ))}
-                    </Bar>
+                    <Bar dataKey="count" fill={f.eine} radius={[4, 4, 0, 0]} maxBarSize={44} isAnimationActive={bewegt} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -835,65 +889,33 @@ export default function StatsPage() {
             </ChartCard>
           </div>
 
-          {/* Row 2b: Application Sources + Dismiss Reasons */}
-          <div className="grid gap-6 xl:grid-cols-2">
-            {(scores?.application_sources || []).length > 0 && (
-              <ChartCard title="Bewerbungs-Quellen">
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie
-                      data={scores.application_sources.map((s) => ({ name: quelleText(s), value: s.count }))}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      innerRadius={50}
-                      paddingAngle={2}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      labelLine={{ stroke: "rgb(var(--surface-overlay-soft) / 0.2)" }}
-                    >
-                      {scores.application_sources.map((_, i) => (
-                        <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  </PieChart>
-                </ResponsiveContainer>
+          {/* Row 2b: Bewerbungs-Quellen + Aussortier-Gruende (Ranglisten) */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {bewerbungsQuellen.length > 0 && (
+              <ChartCard title="Woher die Bewerbungen kommen">
+                <RangListe eintraege={bewerbungsQuellen} farbe={f.eine} restFarbe={f.neutral} einheit="Bewerbungen" />
               </ChartCard>
             )}
 
             {dismissData.length > 0 && (
-              <ChartCard title="Ablehnungsgründe (Top 10)">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={dismissData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
-                    <XAxis type="number" tick={CHART_STYLE} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tick={CHART_STYLE} width={140} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                      {dismissData.map((_, i) => (
-                        <Cell key={i} fill={DISMISS_COLORS[i % DISMISS_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <ChartCard title="Warum Stellen aussortiert wurden">
+                <RangListe eintraege={dismissData} farbe={f.eine} restFarbe={f.neutral} einheit="Stellen" max={10} />
               </ChartCard>
             )}
           </div>
 
           {/* Row 3: Source-Score comparison */}
           {sourceScoreData.length > 0 ? (
-            <ChartCard title="Durchschnittsscore nach Quelle">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={sourceScoreData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
-                  <XAxis type="number" tick={CHART_STYLE} />
-                  <YAxis type="category" dataKey="name" tick={CHART_STYLE} width={100} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey={"Ø Punkte"} fill="#38bdf8" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="Max Punkte" fill="#34d399" radius={[0, 4, 4, 0]} />
+            <ChartCard title="Punkte nach Quelle">
+              <ResponsiveContainer width="100%" height={Math.max(180, sourceScoreData.length * 44 + 70)}>
+                <BarChart data={sourceScoreData} layout="vertical" barGap={3}>
+                  <CartesianGrid horizontal={false} stroke={f.raster} />
+                  <XAxis type="number" tick={achse} axisLine={false} tickLine={false} tickFormatter={zahl} />
+                  <YAxis type="category" dataKey="name" tick={achse} width={120} axisLine={{ stroke: f.raster }} tickLine={false} />
+                  <Tooltip content={<DiagrammHinweis />} cursor={{ fill: f.raster, fillOpacity: 0.5 }} />
+                  <Legend itemSorter={null} iconType="square" iconSize={9} wrapperStyle={{ fontSize: 12 }} formatter={legendenText} />
+                  <Bar dataKey={"Ø Punkte"} fill={f.paar[0]} radius={[0, 4, 4, 0]} barSize={8} isAnimationActive={bewegt} />
+                  <Bar dataKey="Max Punkte" fill={f.paar[1]} radius={[0, 4, 4, 0]} barSize={8} isAnimationActive={bewegt} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -909,7 +931,7 @@ export default function StatsPage() {
                 </div>
                 <Badge tone="danger">{rejection.anzahl} Absagen</Badge>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted mb-2">Häufigste Gründe</p>
                   <div className="grid gap-1.5">
@@ -971,9 +993,9 @@ export default function StatsPage() {
                       </div>
                       {hasQuoten ? (
                         <div className="mt-1.5 flex items-center gap-3 text-xs text-muted">
-                          <span>Interview-Quote: <span className="text-ink font-medium">{bucket.interview_quote}%</span></span>
-                          <span>Angebote: <span className="text-ink font-medium">{bucket.angebots_quote}%</span></span>
-                          <span>Absagen: <span className="text-ink font-medium">{bucket.absage_quote}%</span></span>
+                          <span>Interview-Quote: <span className="text-ink font-medium">{prozent(bucket.interview_quote)}</span></span>
+                          <span>Angebote: <span className="text-ink font-medium">{prozent(bucket.angebots_quote)}</span></span>
+                          <span>Absagen: <span className="text-ink font-medium">{prozent(bucket.absage_quote)}</span></span>
                         </div>
                       ) : (
                         <p className="mt-1 text-xs text-muted">{bucket.hinweis || `Mindestens ${styleStats.min_samples_fuer_quoten} Bewerbungen pro Stil nötig.`}</p>
@@ -1000,7 +1022,7 @@ export default function StatsPage() {
                   <div key={i} className="flex items-center gap-3 rounded-lg border border-white/[0.04] px-3 py-2 text-sm">
                     <span className="shrink-0 text-xs text-muted tabular-nums w-28">{formatDateTime(event.event_date)}</span>
                     <Badge tone={event.status === "notiz" ? "neutral" : event.status === "abgelehnt" ? "danger" : event.status === "interview" ? "amber" : "sky"}>
-                      {event.status || "Event"}
+                      {event.status ? statusLabel(event.status) : "Ereignis"}
                     </Badge>
                     <span className="flex-1 truncate text-ink font-medium">{event.title} — {event.company}</span>
                     {event.notes && <span className="shrink-0 max-w-48 truncate text-xs text-muted">{event.notes}</span>}

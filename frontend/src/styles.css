@@ -389,3 +389,38 @@
 .job-card-highlight {
   animation: job-card-highlight-pulse 1.8s ease-out 1;
 }
+
+/* #1345 (G117): Ranglisten der Statistik-Seite. Die Spur ist die volle
+   Breite, der Balken waechst beim Erscheinen einmal von links. */
+.rangbalken-spur {
+  background: rgb(var(--color-line) / 0.45);
+  overflow: hidden;
+}
+
+.rangbalken {
+  transform-origin: left center;
+  animation: rangbalken-wachsen 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 1 both;
+  transition: width 0.35s ease;
+}
+
+@keyframes rangbalken-wachsen {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* #1345 (G117): wer im System "Bewegung reduzieren" eingestellt hat,
+   bekommt keine Animationen und keine weichen Uebergaenge. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
