@@ -177,3 +177,38 @@ def aktionen_zeitbewusst(aktionen: dict, status: str, naechster: dict | None,
         a["prioritaet"] = i
     aus["aktionen"] = neu
     return aus
+
+
+def aktionen_zum_status(db, app_id: str, status: str, aktionen: dict,
+                        termine: dict | None = None) -> dict:
+    """Die Vorschläge zu einem Status, passend zur Zeit (#1342).
+
+    EINE Stelle für beide Wege, auf denen Claude die Vorschläge bekommt:
+    `bewerbung_details` und die Antwort von `bewerbung_status_aendern`. Bei
+    der Status-Antwort stand bisher der feste Text "Du hattest ein
+    Interview!", auch wenn die Einladung gerade erst kam und der Termin vor
+    uns lag. `termine` kann übergeben werden, wenn der Aufrufer sie schon
+    eingeteilt hat.
+
+    Lassen sich die Termine nicht lesen, wird das gesagt: weder "es gab ein
+    Gespräch" noch "es ist keines eingetragen" ist dann belegt.
+    """
+    if status not in GESPRAECHS_STATUS:
+        return aktionen
+    try:
+        t = termine if termine is not None else termine_einteilen(
+            db.get_meetings_for_application(app_id))
+    except Exception:
+        neutral = dict(aktionen)
+        neutral["beschreibung"] = (
+            "Die Termine dieser Bewerbung konnten nicht gelesen werden. Prüfe sie "
+            "mit meetings_anzeigen, bevor du von einem Gespräch sprichst, das war "
+            "oder noch kommt.")
+        neutral["aktionen"] = [
+            {"label": "Termine ansehen", "tool": "meetings_anzeigen", "prioritaet": 1}
+        ] + [dict(a, prioritaet=i) for i, a in enumerate(
+            (a for a in aktionen.get("aktionen", [])
+             if a.get("label") != "Gesprächsnotizen erfassen"), start=2)]
+        return neutral
+    return aktionen_zeitbewusst(aktionen, status, _erster_echter(t["kommend"]),
+                                _erster_echter(t["vergangen"]))
