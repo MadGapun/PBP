@@ -87,7 +87,7 @@ def test_dashboard_und_server_fragen_mit_demselben_text():
     """Eine Frage, eine Antwort: die Rueckfrage im Dashboard ist die des Servers (Werkzeug)."""
     js = (ROOT / "frontend" / "src" / "lib" / "autoUpdate.js").read_text(encoding="utf-8")
     teil = js[js.index("export const ERNEUT_VERSUCHEN_TEXT"):]
-    teil = teil[:teil.index(";")]
+    teil = teil[:teil.index('erhalten."') + len('erhalten."')]
     import re
     text = "".join(re.findall(r'"([^"]*)"', teil))
     assert text == fehler.ERNEUT_VERSUCHEN_FRAGE
