@@ -366,9 +366,26 @@ def test_zurueckschalten_im_werkzeug(werkzeuge, umgebung):
     tools, _ = werkzeuge
     fassung_anlegen(umgebung, "1.8.1")
     (umgebung / "aktuell.txt").write_text("1.8.1\n", encoding="utf-8")
-    assert tools["update_zurueckschalten"]("1.8.0")["status"] == "ok"
-    assert tools["update_zurueckschalten"]("1.8.0")["status"] == "nichts_zu_tun"
-    assert tools["update_zurueckschalten"]("0.0.1")["status"] == "nicht_moeglich"
+    assert tools["update_zurueckschalten"]("1.8.0", bestaetigt=True)["status"] == "ok"
+    assert tools["update_zurueckschalten"]("1.8.0", bestaetigt=True)["status"] == "nichts_zu_tun"
+    assert tools["update_zurueckschalten"]("0.0.1", bestaetigt=True)["status"] == "nicht_moeglich"
+
+
+def test_zurueckschalten_ohne_bestaetigung_aendert_nichts(werkzeuge, umgebung):
+    """#1355: wie update_jetzt_installieren - erst fragen, dann umschalten."""
+    tools, db = werkzeuge
+    fassung_anlegen(umgebung, "1.8.1")
+    (umgebung / "aktuell.txt").write_text("1.8.1\n", encoding="utf-8")
+    for aufruf in (lambda: tools["update_zurueckschalten"]("1.8.0"),
+                   lambda: tools["update_zurueckschalten"]("1.8.0", bestaetigt=False)):
+        r = aufruf()
+        assert r["status"] == "bestaetigung_noetig" and "bestaetigt=True" in r["text"]
+    assert (umgebung / "aktuell.txt").read_text(encoding="utf-8").strip() == "1.8.1"
+    from bewerbungs_assistent.services.auto_update import lauf
+    assert "1.8.1" not in lauf.abgelehnt(db)  # nichts als zurueckgenommen gemerkt
+    # erst die Bestaetigung wirkt
+    assert tools["update_zurueckschalten"]("1.8.0", bestaetigt=True)["status"] == "ok"
+    assert (umgebung / "aktuell.txt").read_text(encoding="utf-8").strip() == "1.8.0"
 
 
 def test_die_werkzeuge_sind_als_einstellung_eingeordnet_und_status_ist_nur_lesend():
