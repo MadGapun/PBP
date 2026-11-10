@@ -107,6 +107,12 @@ export function verbindungsAbweichung(au, mcp) {
   return { claude, dashboard, claudeAelter: istNeuer(dashboard, claude) };
 }
 
+/** Die Rückfrage vor „Erneut versuchen“ (#1358) – derselbe Sinn wie `ERNEUT_VERSUCHEN_FRAGE` im Server. */
+export const ERNEUT_VERSUCHEN_TEXT =
+  "Diese Version ließ sich bei dir schon einmal nicht starten. Das kann am Update liegen oder an etwas auf deinem Rechner, "
+  + "zum Beispiel einer gesperrten Datenbank oder zu wenig Platz. Beim nächsten Start versucht PBP sie noch einmal; scheitert sie "
+  + "wieder, läuft PBP von selbst mit der bisherigen Version weiter. Deine Daten bleiben erhalten.";
+
 /**
  * Der Hinweis zum Auto-Update für die Hinweiszone — oder null.
  *
@@ -130,7 +136,7 @@ export function updateHinweis(au, extra = {}) {
     return {
       id: "update-rueckgang", ton: "amber", dringend: true,
       titel: `Version ${au.rueckgang.von} ließ sich nicht starten`,
-      text: `PBP läuft wieder mit Version ${au.rueckgang.nach}. Du musst nichts tun; die neue Version wird nicht noch einmal automatisch installiert.`,
+      text: `PBP läuft wieder mit Version ${au.rueckgang.nach}. Du musst nichts tun. Das kann am Update liegen oder an etwas auf deinem Rechner; PBP versucht die neue Version nicht von selbst noch einmal, du kannst es unter Einstellungen › Updates erneut versuchen.`,
       aktionen: [{ art: "update-gesehen", label: "Verstanden" }, OPTIONEN],
     };
   }
@@ -194,6 +200,15 @@ export function updateHinweis(au, extra = {}) {
       text: `${auszug}Ohne Antwort bleibt alles beim Alten. Du kannst das jederzeit unter Einstellungen › Updates ändern.`,
       beiVersion: neu.version,
       aktionen: ANTWORTEN.map((a) => ({ art: "update-antwort", antwort: a.id, label: a.label, titel: a.titel, version: neu.version })),
+    };
+  }
+  if (neu.gescheitert) {
+    // #1358: ein Start, der scheiterte, ist nicht zwingend die Schuld des Updates.
+    return {
+      id: "update", ton: "amber", dringend: false,
+      titel: `Version ${neu.version} ließ sich bei dir schon einmal nicht starten`,
+      text: "Das kann am Update liegen oder an etwas auf deinem Rechner, zum Beispiel einer gesperrten Datenbank. PBP installiert sie nicht von selbst noch einmal; du kannst es erneut versuchen.",
+      aktionen: [{ art: "update-installieren", label: "Erneut versuchen", version: neu.version, erneut: true }, anleitung, OPTIONEN],
     };
   }
   if (au.blockiert && au.blockiert.dauerhaft) {

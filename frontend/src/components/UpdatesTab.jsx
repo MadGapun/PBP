@@ -188,6 +188,12 @@ export default function UpdatesTab() {
             {neu.status === "unvollstaendig" ? (
               <p className="mt-2 text-sm text-muted">{neu.text}</p>
             ) : null}
+            {neu.gescheitert ? (
+              <p className="mt-2 text-sm text-amber" data-updates-gescheitert>
+                Diese Version ließ sich bei dir schon einmal nicht starten. Das kann am Update liegen oder an etwas auf deinem Rechner,
+                zum Beispiel einer gesperrten Datenbank. PBP versucht sie nicht von selbst noch einmal.
+              </p>
+            ) : null}
             {dauerhaft ? (
               <p className="mt-2 text-sm text-amber">{dauerhaft.text} Die Version wird nicht noch einmal von selbst versucht.</p>
             ) : null}
@@ -201,9 +207,9 @@ export default function UpdatesTab() {
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {neu.status === "neu" && !lauf ? (
-                <Button size="sm" disabled={busy !== ""} onClick={() => autoUpdateAktion({ art: "update-installieren", version: neu.version })}
+                <Button size="sm" disabled={busy !== ""} onClick={() => autoUpdateAktion({ art: "update-installieren", version: neu.version, erneut: Boolean(neu.gescheitert) })}
                   title="Lädt die Version von den offiziellen GitHub-Veröffentlichungen, prüft sie und legt sie neben die bisherige. Nichts wird beendet.">
-                  <Download size={14} className="mr-1 inline" /> {neu.zurueckgenommen ? "Trotzdem installieren" : "Jetzt installieren"}
+                  <Download size={14} className="mr-1 inline" /> {neu.gescheitert ? "Erneut versuchen" : neu.zurueckgenommen ? "Trotzdem installieren" : "Jetzt installieren"}
                 </Button>
               ) : null}
               <Button size="sm" variant="ghost" onClick={() => oeffneAdresse(RELEASES)}>Veröffentlichung ansehen</Button>

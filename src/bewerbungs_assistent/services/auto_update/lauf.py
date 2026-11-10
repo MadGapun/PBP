@@ -374,6 +374,8 @@ def starte_installation(db, version: str, *, ausloeser: str = "klick", oeffner=N
             blockade_loeschen(db)          # ein ausdruecklicher Klick darf es noch einmal versuchen
             rest = [v for v in abgelehnt(db) if v != version]
             db.set_setting(K_ABGELEHNT, rest)     # und eine zurueckgenommene Fassung ausdruecklich wieder wollen
+            if zustand.gescheitert_freigeben(version):    # #1358: und eine gescheiterte Fassung noch einmal versuchen
+                logger.info("Fassung %s aus der Liste 'gescheitert' genommen (ausdrueckliche Installation, %s)", version, ausloeser)
         except Exception:
             pass
     _JOB.update(id=job_id, status="laeuft", phase="start", anteil=0.0, text="Update wird vorbereitet …",
@@ -558,6 +560,7 @@ def uebersicht(db) -> dict:
     antwort["fassungen"] = _fassungen_im_detail(app, antwort["installiert"], laufend, aktuell)
     antwort["neustart_noetig"] = bool(aktuell and laufend and aktuell != laufend)
     antwort["rueckgang"] = zustand.rueckgang_offen(app)
+    antwort["gescheitert"] = zustand.gescheiterte_fassungen(app)       # #1358: die Oberflaeche bietet „erneut versuchen“ an
     p = antwort["pruefung"]
     # #1226: eine Vorabversion, die mit eingeschaltetem Schalter gefunden wurde, steht nach dem Ausschalten nicht mehr als
     # „neu“ da, bis neu geprueft ist (die Installation wuerde sie ohnehin ablehnen).
@@ -565,6 +568,7 @@ def uebersicht(db) -> dict:
         p = None
     if p and p.get("status") in ("neu", "unvollstaendig") and p.get("version") and _fassung.ist_neuer(p["version"], _bezugsfassung(app, laufend or "0.0.0")):
         antwort["neu"] = {**p, "frage_faellig": zustand.frage_faellig(db, p["version"]),
-                          "zurueckgenommen": p["version"] in abgelehnt(db)}
+                          "zurueckgenommen": p["version"] in abgelehnt(db),
+                          "gescheitert": p["version"] in antwort["gescheitert"]}
         antwort["blockiert"] = blockiert(db, p["version"])
     return antwort
