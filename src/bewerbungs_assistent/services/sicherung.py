@@ -117,6 +117,40 @@ def _altbestand_uebernehmen(basis: Path) -> None:
         pass  # dort liegt noch etwas Fremdes — nicht anfassen
 
 
+def _datenbankkopie_pruefen(datei: Path) -> str:
+    """Oeffnet die Kopie und prueft sie (#1350). Leer = in Ordnung, sonst der Mangel."""
+    try:
+        con = sqlite3.connect(f"file:{datei.as_posix()}?mode=ro", uri=True)
+        try:
+            ergebnis = [str(z[0]) for z in con.execute("PRAGMA quick_check").fetchall()]
+            tabellen = con.execute(
+                "SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+        finally:
+            con.close()
+    except sqlite3.Error as exc:
+        return f"nicht zu öffnen: {exc}"
+    if ergebnis != ["ok"]:
+        return "Integritätsprüfung: " + "; ".join(ergebnis[:3])
+    if not tabellen:
+        return "die Kopie enthält keine Tabellen"
+    return ""
+
+
+def _zip_pruefen(zip_pfad: Path, erwartet: int) -> str:
+    """Prueft ein Dokumenten-ZIP: Pruefsummen und Zahl der Dateien (#1350)."""
+    try:
+        with zipfile.ZipFile(zip_pfad) as z:
+            kaputt = z.testzip()
+            if kaputt is not None:
+                return f"Datei {kaputt} ist beschädigt"
+            vorhanden = sum(1 for i in z.infolist() if not i.is_dir())
+    except (zipfile.BadZipFile, OSError) as exc:
+        return f"nicht zu öffnen: {exc}"
+    if vorhanden != erwartet:
+        return f"{vorhanden} Dateien statt {erwartet}"
+    return ""
+
+
 def sichern(db, anlass: str = "manuell", mit_dokumenten: bool = True,
             jetzt: datetime | None = None) -> dict:
     """Legt eine Sicherung an. Rueckgabe mit `status`:
@@ -164,6 +198,19 @@ def sichern(db, anlass: str = "manuell", mit_dokumenten: bool = True,
             pass
         logger.warning("Sicherung fehlgeschlagen: %s", exc)
         return {"status": "fehler", "fehler": f"Sicherung fehlgeschlagen: {exc}"}
+    # v1.8.5 (#1350): "gesichert" steht erst nach einer Probe des INHALTS
+    # (Regel 8g): die Kopie wird geoeffnet und geprueft. Eine Kopie, die sich
+    # nicht lesen laesst, ist keine Sicherung und wird nicht behalten.
+    mangel = _datenbankkopie_pruefen(ziel)
+    if mangel:
+        try:
+            ziel.unlink()
+        except OSError:
+            pass
+        logger.warning("Sicherung verworfen, Leseprobe gescheitert: %s", mangel)
+        return {"status": "fehler",
+                "fehler": f"Die Sicherung wurde angelegt, ließ sich aber nicht lesen "
+                          f"und wurde verworfen ({mangel}). Es gibt keine neue Sicherung."}
     # v1.7.146 (#1142): die Datenbank ist das Wichtige und ist jetzt gesichert.
     # Eine gesperrte Datei im Dokumentenordner (Virenscanner, Office) kippte
     # bisher die ganze Sicherung samt Datenbankkopie, und nirgends stand es.
@@ -173,15 +220,22 @@ def sichern(db, anlass: str = "manuell", mit_dokumenten: bool = True,
     if mit_dokumenten and dokumente.is_dir() and any(dokumente.rglob("*")):
         zip_pfad = _dokumente_zip(ziel)
         try:
+            geschrieben = 0
             with zipfile.ZipFile(zip_pfad, "w", zipfile.ZIP_DEFLATED) as z:
                 for f in dokumente.rglob("*"):
                     if not f.is_file():
                         continue
                     try:
                         z.write(f, f.relative_to(dokumente).as_posix())
+                        geschrieben += 1
                     except OSError as exc:  # gesperrt oder ohne Zugriff
                         uebersprungen.append(f.relative_to(dokumente).as_posix())
                         logger.warning("Sicherung: %s uebersprungen (%s)", f.name, exc)
+            # v1.8.5 (#1350): Leseprobe auch fuer das ZIP - Zahl der Dateien
+            # und Pruefsummen, nicht nur "das Packen warf keinen Fehler".
+            mangel = _zip_pruefen(zip_pfad, geschrieben)
+            if mangel:
+                raise OSError(f"Leseprobe des Dokumenten-ZIP gescheitert: {mangel}")
             mit_zip = True
             if uebersprungen:
                 beispiele = ", ".join(uebersprungen[:3]) + (" …" if len(uebersprungen) > 3 else "")
@@ -565,29 +619,125 @@ def vorgemerkt_einspielen(db_path: Path) -> dict | None:
         marke.unlink()
         logger.warning("Vorgemerkte Sicherung %s fehlt — nichts eingespielt.", name)
         return {"status": "fehlt", "name": name}
+    # v1.8.5 (#1350): erst in eine Nebendatei kopieren, dann tauschen. Scheitert
+    # das Kopieren, ist die Datenbank unberuehrt; und die Vormerkung wird
+    # geloescht, SOBALD die Datenbank getauscht ist. Vorher blieb sie stehen,
+    # wenn der zweite Teil (Dokumente) scheiterte, und jeder weitere Start
+    # ueberschrieb die Datenbank erneut aus der Sicherung - alles, was dazwischen
+    # eingetragen wurde, war weg.
+    zwischen = db_path.with_name(db_path.name + ".einspielen")
+    try:
+        shutil.copy2(quelle, zwischen)
+    except OSError as exc:
+        _loeschen_still(zwischen)
+        marke.unlink(missing_ok=True)  # kein zweiter Versuch, der dasselbe tut
+        return _einspielen_melden(basis, "gescheitert", name, False,
+                                  f"Die Sicherung ließ sich nicht kopieren ({exc}). "
+                                  "Deine Daten sind unverändert.")
     # Die WAL-Dateien des alten Stands muessen weg, sonst mischt SQLite
     # beide Staende (A27/#768).
-    for rest in (db_path.with_name(db_path.name + "-wal"),
-                 db_path.with_name(db_path.name + "-shm")):
-        try:
-            rest.unlink()
-        except FileNotFoundError:
-            pass
-    shutil.copy2(quelle, db_path)
+    try:
+        for rest in (db_path.with_name(db_path.name + "-wal"),
+                     db_path.with_name(db_path.name + "-shm")):
+            try:
+                rest.unlink()
+            except FileNotFoundError:
+                pass
+        os.replace(zwischen, db_path)
+    except PermissionError:
+        # Windows sperrt die offene Datenbank: die Vormerkung wartet von selbst.
+        _loeschen_still(zwischen)
+        logger.warning("Sicherung nicht eingespielt: Datenbank ist in Benutzung. Vormerkung bleibt.")
+        return {"status": "wartet", "pid": None}
+    marke.unlink(missing_ok=True)
+    dokumente, hinweis = True, ""
     zip_datei = _dokumente_zip(quelle)
-    dokumente = False
     if zip_datei.exists():
-        ziel = basis / "dokumente"
-        if ziel.exists():
-            shutil.rmtree(ziel)  # der vorherige Stand liegt als Sicherung vor
-        ziel.mkdir(parents=True)
+        try:
+            _dokumente_einspielen(zip_datei, basis / "dokumente")
+        except Exception as exc:  # noqa: BLE001 - die Datenbank ist schon getauscht
+            dokumente = False
+            hinweis = (f"Die Dokumente konnten nicht eingespielt werden ({exc}). Die "
+                       "Datenbank ist eingespielt, deine bisherigen Dokumente sind "
+                       "unverändert. Spiel die Sicherung bei Bedarf noch einmal ein.")
+            logger.warning("Dokumente der Sicherung nicht eingespielt: %s", exc)
+    elif (basis / "dokumente").is_dir() and any((basis / "dokumente").rglob("*")):
+        dokumente = False
+        hinweis = ("Diese Sicherung enthält nur die Datenbank, keine Dokumente. "
+                   "Deine Dokumente im Ordner bleiben unverändert.")
+    ergebnis = "ganz" if dokumente else "teilweise"
+    logger.info("Sicherung %s eingespielt (Dokumente: %s).", name, dokumente)
+    return _einspielen_melden(basis, ergebnis, name, dokumente, hinweis)
+
+
+EINSPIELEN_ERGEBNIS = "einspielen_ergebnis.json"
+
+
+def _loeschen_still(pfad: Path) -> None:
+    try:
+        if pfad.is_dir():
+            shutil.rmtree(pfad, ignore_errors=True)
+        else:
+            pfad.unlink()
+    except OSError:
+        pass
+
+
+def _dokumente_einspielen(zip_datei: Path, ziel: Path) -> None:
+    """Entpackt in einen Nebenordner und tauscht erst danach (#1350). Scheitert
+    das Entpacken, bleibt der bisherige Dokumentenordner, wie er war."""
+    neu = ziel.with_name(ziel.name + ".einspielen")
+    alt = ziel.with_name(ziel.name + ".alt")
+    for rest in (neu, alt):
+        _loeschen_still(rest)
+    neu.mkdir(parents=True)
+    try:
         with zipfile.ZipFile(zip_datei) as z:
             for info in z.infolist():
-                pfad = (ziel / info.filename).resolve()
-                if ziel.resolve() not in pfad.parents and pfad != ziel.resolve():
+                pfad = (neu / info.filename).resolve()
+                if neu.resolve() not in pfad.parents and pfad != neu.resolve():
                     continue  # kein Pfad ausserhalb des Ordners (Zip-Slip)
-                z.extract(info, ziel)
-        dokumente = True
-    marke.unlink()
-    logger.info("Sicherung %s eingespielt (Dokumente: %s).", name, dokumente)
-    return {"status": "eingespielt", "name": name, "dokumente": dokumente}
+                z.extract(info, neu)
+    except Exception:
+        _loeschen_still(neu)
+        raise
+    if ziel.exists():
+        os.replace(ziel, alt)
+    try:
+        os.replace(neu, ziel)
+    except OSError:
+        if alt.exists():
+            os.replace(alt, ziel)  # der bisherige Stand kommt zurueck
+        _loeschen_still(neu)
+        raise
+    _loeschen_still(alt)  # der vorherige Stand liegt als Sicherung vor
+
+
+def _einspielen_melden(basis: Path, ergebnis: str, name: str, dokumente: bool, hinweis: str) -> dict:
+    """Haelt den Ausgang fest, damit das Dashboard ihn nennen kann (ganz,
+    teilweise, gescheitert) - beim Start sieht niemand ins Protokoll."""
+    erg = {"status": "gescheitert" if ergebnis == "gescheitert" else "eingespielt",
+           "ergebnis": ergebnis, "name": name, "dokumente": dokumente, "hinweis": hinweis,
+           "zeit": datetime.now().isoformat(timespec="seconds")}
+    try:
+        (basis / EINSPIELEN_ERGEBNIS).write_text(
+            json.dumps(erg, ensure_ascii=False), encoding="utf-8")
+    except OSError as exc:  # pragma: no cover
+        logger.warning("Ausgang des Einspielens nicht festgehalten: %s", exc)
+    return erg
+
+
+def einspielen_ergebnis(db) -> dict | None:
+    """Der Ausgang des letzten Einspielens, bis der Mensch ihn gesehen hat."""
+    try:
+        return json.loads((Path(db.db_path).parent / EINSPIELEN_ERGEBNIS).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def einspielen_ergebnis_quittieren(db) -> bool:
+    try:
+        (Path(db.db_path).parent / EINSPIELEN_ERGEBNIS).unlink()
+        return True
+    except FileNotFoundError:
+        return False

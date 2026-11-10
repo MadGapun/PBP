@@ -86,6 +86,15 @@ export default function SicherungKarte({ pushToast }) {
     }
   }
 
+  async function einspielenQuittieren() {
+    try {
+      await deleteRequest("/api/sicherungen/einspielen-ergebnis");
+      await laden();
+    } catch (error) {
+      pushToast(`Konnte die Meldung nicht ausblenden: ${error.message}`, "danger");
+    }
+  }
+
   async function wiederherstellen(name) {
     setLaeuft(true);
     try {
@@ -160,6 +169,21 @@ export default function SicherungKarte({ pushToast }) {
            data-testid="sicherung-versuch">
           {versuch.text}
         </p>
+      ) : null}
+
+      {stand.letztes_einspielen ? (
+        <div className={`rounded-xl border p-3 text-sm ${stand.letztes_einspielen.ergebnis === "ganz" ? "border-amber/40 text-ink" : "border-coral/40 text-coral"}`}
+             data-testid="sicherung-einspielen-ergebnis">
+          <p>
+            {stand.letztes_einspielen.ergebnis === "ganz"
+              ? `Die Sicherung ${stand.letztes_einspielen.name} wurde vollständig eingespielt (Datenbank und Dokumente).`
+              : stand.letztes_einspielen.ergebnis === "teilweise"
+                ? `Die Sicherung ${stand.letztes_einspielen.name} wurde nur teilweise eingespielt.`
+                : `Die Sicherung ${stand.letztes_einspielen.name} konnte nicht eingespielt werden.`}
+            {stand.letztes_einspielen.hinweis ? ` ${stand.letztes_einspielen.hinweis}` : ""}
+          </p>
+          <Button variant="ghost" size="sm" onClick={einspielenQuittieren}>Verstanden</Button>
+        </div>
       ) : null}
 
       {stand.vorgemerkt ? (

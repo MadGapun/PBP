@@ -7630,6 +7630,9 @@ async def api_sicherungen():
             "dokumente_taeglich": _sicherung.dokumente_taeglich(_db),
             "dokumente_groesse": _sicherung.dokumente_groesse(_db),
             "vorgemerkt": _sicherung.vormerkung(_db),
+            # v1.8.5 (#1350): wie das Einspielen beim Start ausgegangen ist
+            # (ganz, teilweise, gescheitert) - bis der Mensch es quittiert.
+            "letztes_einspielen": _sicherung.einspielen_ergebnis(_db),
             "regel": (f"Behalten werden alle Sicherungen der letzten "
                       f"{_sicherung.TAGE_BEHALTEN} Tage und je eine der "
                       f"{_sicherung.WOCHEN_BEHALTEN} Wochen davor.")}
@@ -7677,6 +7680,13 @@ async def api_sicherung_wiederherstellen(payload: dict = Body(default={})):
 async def api_sicherung_vormerkung_aufheben():
     from .services import sicherung as _sicherung
     return {"aufgehoben": _sicherung.vormerkung_aufheben(_db)}
+
+
+@app.delete("/api/sicherungen/einspielen-ergebnis")
+async def api_sicherung_einspielen_quittieren():
+    """Der Mensch hat den Ausgang des Einspielens gesehen (#1350)."""
+    from .services import sicherung as _sicherung
+    return {"quittiert": _sicherung.einspielen_ergebnis_quittieren(_db)}
 
 
 # === User Preferences (PBP v0.10.0) ===
@@ -13100,24 +13110,58 @@ def api_export_package():
             src.close()
             zf.write(backup_path, "pbp.db")
 
-            # Documents
+            # Documents - v1.8.5 (#1350): auch die Unterordner. Die Dokumente
+            # liegen in dokumente/<Profil>/; die Schleife ueber die oberste
+            # Ebene packte sie nie, Lebenslaeufe, Zeugnisse und Anschreiben
+            # fehlten im "Komplett"-Export.
             doc_dir = data_dir / "dokumente"
+            gepackt, uebersprungen = 0, []
             if doc_dir.exists():
-                for f in doc_dir.iterdir():
-                    if f.is_file():
-                        zf.write(f, f"dokumente/{f.name}")
+                for f in sorted(doc_dir.rglob("*")):
+                    if not f.is_file():
+                        continue
+                    rel = f.relative_to(doc_dir).as_posix()
+                    try:
+                        zf.write(f, f"dokumente/{rel}")
+                        gepackt += 1
+                    except OSError as exc:  # gesperrt oder ohne Zugriff
+                        uebersprungen.append(rel)
+                        logger.warning("Export: %s uebersprungen (%s)", rel, exc)
 
-            # README
-            zf.writestr("README.txt",
-                "PBP Export-Paket\n"
-                "================\n\n"
-                "Inhalt:\n"
-                "  - pbp.db: Deine Datenbank (Profil, Stellen, Bewerbungen)\n"
-                "  - dokumente/: Deine hochgeladenen Dokumente\n\n"
-                "Import:\n"
-                "  1. PBP installieren (INSTALLIEREN.command / install.bat)\n"
-                "  2. Dateien nach ~/.bewerbungs-assistent/ kopieren\n"
-                "  3. Dashboard starten\n")
+            # README - Anleitung wie in der Installationsanleitung der Releases
+            zeilen = [
+                "PBP Export-Paket",
+                "================",
+                "",
+                "Inhalt:",
+                "  - pbp.db: Deine Datenbank (Profile, Stellen, Bewerbungen)",
+                f"  - dokumente/: Deine Dokumente ({gepackt} Dateien, samt Unterordnern je Profil)",
+                "",
+                "Auf einem neuen Rechner einspielen:",
+                "  1. PBP installieren: Windows INSTALLIEREN.bat, macOS INSTALLIEREN.command,",
+                "     Linux installer/install.sh (Anleitung: Wiki > Installation).",
+                "  2. PBP und Claude Desktop ganz beenden.",
+                "  3. Deinen Datenordner suchen:",
+                "       Windows:       %LOCALAPPDATA%\\BewerbungsAssistent\\data",
+                "       macOS / Linux: ~/.bewerbungs-assistent",
+                "  4. Dort pbp.db durch die Datei aus diesem Paket ersetzen und den Ordner",
+                "     dokumente samt Unterordnern hineinkopieren.",
+                "  5. PBP starten.",
+            ]
+            if uebersprungen:
+                zeilen += ["", f"ACHTUNG: {len(uebersprungen)} Datei(en) waren gesperrt und fehlen in diesem Paket:"]
+                zeilen += [f"  - {n}" for n in uebersprungen[:20]]
+                zeilen += ["  Schließe Programme, die sie offen halten, und exportiere noch einmal."]
+            zf.writestr("README.txt", "\n".join(zeilen) + "\n")
+
+        # Leseprobe (Regel 8g): das Paket wird geoeffnet und gezaehlt, bevor es
+        # angeboten wird.
+        with zipfile.ZipFile(zip_path) as probe:
+            if probe.testzip() is not None:
+                raise OSError("Das Export-Paket ist beschaedigt.")
+            im_paket = sum(1 for n in probe.namelist() if n.startswith("dokumente/"))
+        if im_paket != gepackt:
+            raise OSError(f"Im Export-Paket fehlen Dokumente ({im_paket} statt {gepackt}).")
 
         # v1.7.145: der Ordner mit der vollstaendigen Datenbankkopie wurde nie
         # geloescht und blieb bei jedem Export im Temp-Ordner liegen. Die Datei
