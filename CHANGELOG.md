@@ -42,7 +42,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.4] - 2026-11-09 — Standardgründe zurückholen, Wiedergänger behalten ihren Grund, Stellenart-Filter vollständig
+## [1.8.4] - 2026-11-10 — Standardgründe zurückholen, Wiedergänger behalten ihren Grund, Stellenart-Filter vollständig
 
 <!-- anwender -->
 Alle Standard-Ablehnungsgründe lassen sich mit einem Knopf zurückholen, mit Vorschau vor dem Ändern.

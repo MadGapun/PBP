@@ -10,7 +10,7 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.8.4 (`--latest`, 2026-11-09), Linie 1.8; Hotfix-Branches
+- **Stable:** v1.8.4 (`--latest`, 2026-11-10), Linie 1.8; Hotfix-Branches
   `hotfix/v1.8.N` vom letzten 1.8-Tag. Die Linie 1.7 endet mit v1.7.159.
 - **Beta:** keine offene; die naechste Linie als GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
