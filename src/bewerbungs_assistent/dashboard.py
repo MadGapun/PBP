@@ -13158,7 +13158,7 @@ def api_export_package():
         # angeboten wird.
         with zipfile.ZipFile(zip_path) as probe:
             if probe.testzip() is not None:
-                raise OSError("Das Export-Paket ist beschaedigt.")
+                raise OSError("Das Export-Paket ist beschädigt.")
             im_paket = sum(1 for n in probe.namelist() if n.startswith("dokumente/"))
         if im_paket != gepackt:
             raise OSError(f"Im Export-Paket fehlen Dokumente ({im_paket} statt {gepackt}).")

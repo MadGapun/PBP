@@ -177,7 +177,8 @@ M = [
     ("st03", "Automatik ignoriert bewusst Zurueckgeschaltetes", AU + "lauf.py", "    if version in abgelehnt(db):", "    if False:", T_L),
     ("st04", "Automatik wartet nicht auf ruhige Zeit", AU + "lauf.py", "    if not frei:", "    if False:", T_L),
     ("st05", "Automatische Stufe ohne Zustimmung setzbar", "src/bewerbungs_assistent/tools/update.py", "                if stufe in zustand.AUTOMATISCHE_STUFEN and not bestaetigt:", "                if False:", T_S),
-    ("st06", "Installation ohne Zustimmung ueber Claude", "src/bewerbungs_assistent/tools/update.py", "        if not bestaetigt:", "        if False:", T_S),
+    ("st06", "Installation ohne Zustimmung ueber Claude", "src/bewerbungs_assistent/tools/update.py", "        if not bestaetigt:\n            frage = (", "        if False:\n            frage = (", T_S),
+    ("st07", "Zurueckschalten ohne Zustimmung ueber Claude (#1355)", "src/bewerbungs_assistent/tools/update.py", "        if not bestaetigt:\n            return {\"status\": \"bestaetigung_noetig\",", "        if False:\n            return {\"status\": \"bestaetigung_noetig\",", T_S),
     # ── Versionsnummern ──
     ("fa01", "Versionsnummer: Zeilenende/Anhang erlaubt (match statt fullmatch)", AU + "fassung.py",
      '''def schluessel(fassung):
