@@ -247,7 +247,7 @@ def test_u8_statistiken_ohne_daten_erklaeren_sich_statt_nullen_zu_zeigen(browser
 def test_u14_die_beschriftung_der_kacheln_laeuft_nicht_in_die_nachbarkachel():
     quelle = (FRONTEND / "pages" / "StatsPage.jsx").read_text(encoding="utf-8-sig")
     assert 'className="break-words text-xs uppercase tracking-[0.06em] text-muted">{label}</p>' in quelle
-    assert 'className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3"' in quelle
+    assert 'className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3"' in quelle
 
 
 # ══ U9: mitgelieferte Vorgaben sind keine Daten des Menschen ═══════════════════════════════════════════════════
