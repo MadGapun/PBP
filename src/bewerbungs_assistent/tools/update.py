@@ -102,7 +102,7 @@ def register(mcp, db, logger: logging.Logger):
         return {**lauf.starte_installation(db, version, ausloeser="mcp"), "version": version}
 
     @mcp.tool()
-    def update_zurueckschalten(version: str) -> dict:
+    def update_zurueckschalten(version: str, bestaetigt: bool = False) -> dict:
         """Lässt PBP beim nächsten Start auf eine andere, noch installierte Version laufen (Auto-Update, #1093).
 
         Meist der Rückweg auf eine ältere; ebenso möglich ist der Schritt auf eine neuere, schon installierte Version.
@@ -111,6 +111,12 @@ def register(mcp, db, logger: logging.Logger):
 
         Args:
             version: die gewünschte, installierte Version, z. B. 1.8.0.
+            bestaetigt: Pflicht, erst NACH dem Ja des Menschen. Ohne sie ändert sich nichts.
         """
         from ..services.auto_update import lauf
+        if not bestaetigt:
+            return {"status": "bestaetigung_noetig",
+                    "text": "Frage den Menschen, ob PBP beim nächsten Start auf Version "
+                            f"{version or '…'} laufen soll, und rufe das Werkzeug dann mit bestaetigt=True auf. "
+                            "Bis dahin ist nichts geändert.", **lauf.uebersicht(db)}
         return lauf.zurueckschalten(db, version)
