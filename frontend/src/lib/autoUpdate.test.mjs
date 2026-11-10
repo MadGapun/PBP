@@ -106,6 +106,19 @@ assert.equal(h.aktionen[0].label, "Erneut versuchen");
 // ein vorübergehender Fehler (Netz) ist kein Hinweis: PBP versucht es später von selbst
 assert.equal(updateHinweis({ ...basis, stufe: "auto_still", neu, blockiert: { dauerhaft: false } }).id, "update");
 
+// #1358: eine Fassung, die schon einmal nicht startete, wird neutral gemeldet und laesst sich nach Rueckfrage erneut versuchen
+h = updateHinweis({ ...basis, stufe: "auto_still", neu: { ...neu, gescheitert: true } });
+assert.equal(h.ton, "amber");
+assert.match(h.titel, /schon einmal nicht starten/);
+assert.match(h.text, /am Update liegen oder an etwas auf deinem Rechner/);
+assert.doesNotMatch(h.text, /wird nicht noch einmal automatisch installiert/);
+assert.equal(h.aktionen[0].label, "Erneut versuchen");
+assert.equal(h.aktionen[0].art, "update-installieren");
+assert.equal(h.aktionen[0].erneut, true, "der Klick fragt vorher nach");
+// ohne den Merker bleibt der Hinweis, wie er war
+assert.notEqual(updateHinweis({ ...basis, stufe: "auto_still", neu }).aktionen[0].erneut, true);
+assert.match(updateHinweis({ ...basis, rueckgang: { von: "1.8.1", nach: "1.8.0" } }).text, /am Update liegen oder an etwas auf deinem Rechner/);
+
 // Etwas, das gerade passiert, geht vor dem Rest und ist dringend.
 h = updateHinweis({ ...basis, neu, job: { status: "laeuft", version: "1.8.1", anteil: 0.5, text: "Lade pbp-update-1.8.1.zip …" } });
 assert.equal(h.id, "update-laeuft");
