@@ -916,7 +916,7 @@ def register(mcp, db, logger):
                 Grund als Wiedergänger gilt (Default 2).
             auto_aussortieren: Wenn True UND ein job_hash gegeben UND ein klares
                 Muster: die Stelle direkt mit dem Top-Grund aussortieren
-                (dismiss_reason = 'wiedergaenger:<grund>'). Default False
+                (gespeichert wird der Grund selbst). Default False
                 (nur melden).
         """
         from ..services.wiedergaenger import find_wiedergaenger_pattern
@@ -996,13 +996,20 @@ def register(mcp, db, logger):
                 if _gesperrt or not db.dismiss_job(
                         resolved_hash,
                         f"wiedergaenger:{pattern['top_grund']}",
-                        herkunft="automatik"):
+                        herkunft="automatik",
+                        # #1321: die Spur, dass es die Pruefung war - der
+                        # Grund selbst bleibt der fachliche.
+                        notiz=(f"Wiedergänger-Prüfung: gleicht {pattern['anzahl']} "
+                               "früher aussortierten Stellen derselben Firma")):
                     result["aktion"] = "geschuetzt" if _gesperrt else "nicht_aussortiert"
                     if _gesperrt:
                         result["schutz"] = _schutz.KLARTEXT[_gesperrt]
                     return result
                 result["aktion"] = "auto_aussortiert"
-                result["dismiss_reason"] = f"wiedergaenger:{pattern['top_grund']}"
+                # #1321: gemeldet wird, was gespeichert ist.
+                _gespeichert = db.get_job(resolved_hash) or {}
+                result["dismiss_reason"] = _gespeichert.get(
+                    "dismiss_reason") or pattern["top_grund"]
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Wiedergaenger-Auto-Aussortieren fehlgeschlagen: %s", exc)
                 result["aktion"] = "aussortieren_fehlgeschlagen"

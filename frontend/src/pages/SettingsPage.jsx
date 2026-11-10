@@ -3646,6 +3646,8 @@ export default function SettingsPage() {
   const [editReasonId, setEditReasonId] = useState(null);
   const [editReasonLabel, setEditReasonLabel] = useState("");
   const [deleteReasonDialog, setDeleteReasonDialog] = useState({ open: false, reason: null, reassignTo: "" });
+  // #1323: "Standardgründe wiederherstellen" - erst Vorschau, dann Bestätigung.
+  const [restoreDialog, setRestoreDialog] = useState({ open: false, vorschau: null });
   const loginPollersRef = useRef(new Map());
 
   // Handle incoming tab intent from navigateTo (#420)
@@ -4048,6 +4050,43 @@ export default function SettingsPage() {
     }
   }
 
+  // #1323: zwei Schritte wie überall - die Vorschau kommt vom Server (dieselbe
+  // Funktion wie das Werkzeug ablehnungsgruende_wiederherstellen).
+  async function askRestoreReasons() {
+    setReasonBusy(true);
+    try {
+      const vorschau = await postJson("/api/dismiss-reasons/standard-wiederherstellen", {});
+      if (vorschau?.status === "nichts_zu_tun") {
+        pushToast("Alle Standardgründe sind da und eingeschaltet. Nichts zu tun.", "success");
+        return;
+      }
+      setRestoreDialog({ open: true, vorschau });
+    } catch (error) {
+      pushToast(error?.message || "Konnte die Vorschau nicht laden.", "danger");
+    } finally {
+      setReasonBusy(false);
+    }
+  }
+
+  async function confirmRestoreReasons() {
+    setReasonBusy(true);
+    try {
+      const res = await postJson("/api/dismiss-reasons/standard-wiederherstellen", { bestaetigt: true });
+      setRestoreDialog({ open: false, vorschau: null });
+      await reloadDismissReasons();
+      const neu = (res?.anlegen || []).length;
+      const an = (res?.einschalten || []).length;
+      pushToast(
+        `Standardgründe wiederhergestellt: ${neu} angelegt, ${an} wieder eingeschaltet. Eigene Gründe sind unverändert.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(error?.message || "Konnte die Standardgründe nicht wiederherstellen.", "danger");
+    } finally {
+      setReasonBusy(false);
+    }
+  }
+
   function askDeleteReason(reason) {
     // Default-Ziel fuer die Neuzuordnung: 'sonstiges', sonst der erste andere
     // aktive Grund.
@@ -4417,7 +4456,85 @@ export default function SettingsPage() {
                 Hinzufügen
               </Button>
             </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-4">
+              <p className="text-xs text-muted">
+                Standardgründe abgeschaltet oder gelöscht? Hier kommen alle auf einmal zurück. Du siehst vorher, was sich ändert; eigene Gründe bleiben, wie sie sind.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={askRestoreReasons}
+                disabled={reasonBusy}
+                data-standardgruende-wiederherstellen
+                title="Zeigt zuerst, welche Standardgründe zurückkommen und welche wieder eingeschaltet werden"
+              >
+                <RotateCcw size={15} /> Standardgründe wiederherstellen
+              </Button>
+            </div>
           </Card>
+
+          <Modal
+            open={restoreDialog.open}
+            onClose={() => setRestoreDialog({ open: false, vorschau: null })}
+            title="Standardgründe wiederherstellen"
+            size="sm"
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setRestoreDialog({ open: false, vorschau: null })}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  type="button"
+                  onClick={confirmRestoreReasons}
+                  disabled={reasonBusy}
+                  data-standardgruende-bestaetigen
+                >
+                  Wiederherstellen
+                </Button>
+              </div>
+            }
+          >
+            {restoreDialog.vorschau && (
+              <div className="space-y-3 text-sm text-muted" data-standardgruende-vorschau>
+                {(restoreDialog.vorschau.anlegen || []).length > 0 && (
+                  <div>
+                    <p className="font-semibold text-ink">Kommen zurück:</p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {restoreDialog.vorschau.anlegen.map((g) => (
+                        <li key={`neu-${g}`} data-wiederherstellen-neu={g}>{grundText(g, dismissReasons)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(restoreDialog.vorschau.einschalten || []).length > 0 && (
+                  <div>
+                    <p className="font-semibold text-ink">Werden wieder eingeschaltet (du hattest sie abgeschaltet):</p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {restoreDialog.vorschau.einschalten.map((e) => (
+                        <li key={`an-${e.grund}`} data-wiederherstellen-an={e.grund}>
+                          {grundText(e.label, dismissReasons)}
+                          {e.stellen ? <span className="text-xs"> — {e.stellen} Stelle(n) tragen ihn schon</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(restoreDialog.vorschau.vorhanden_als || []).length > 0 && (
+                  <p className="text-xs">
+                    Schon da unter anderer Schreibweise, wird nicht doppelt angelegt:{" "}
+                    {restoreDialog.vorschau.vorhanden_als.map((v) => `„${v.label}“`).join(", ")}.
+                  </p>
+                )}
+                <p className="text-xs">
+                  Danach stehen diese Gründe wieder in jeder Auswahl, auch für Claude und die Automatik. Eigene Gründe bleiben unverändert.
+                </p>
+              </div>
+            )}
+          </Modal>
 
           <Modal
             open={deleteReasonDialog.open}

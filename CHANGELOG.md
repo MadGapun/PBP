@@ -42,6 +42,97 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.4] - 2026-11-10 — Standardgründe zurückholen, Wiedergänger behalten ihren Grund, Stellenart-Filter vollständig
+
+<!-- anwender -->
+Alle Standard-Ablehnungsgründe lassen sich mit einem Knopf zurückholen, mit Vorschau vor dem Ändern.
+Stellen, die die Wiedergänger-Prüfung aussortiert, tragen wieder ihren fachlichen Grund statt „Sonstiges“.
+Der Filter „Stellenart“ auf der Bewerbungsseite kennt alle Anstellungsformen.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Stellen, die die Wiedergänger-Prüfung bis 1.8.3 mit „Sonstiges“ aussortiert hat, bekommen ihren Grund beim ersten Start von selbst zurück.
+
+**Neu und behoben (kurz)**
+
+- Knopf „Standardgründe wiederherstellen“ unter Einstellungen › Ablehnungsgründe.
+- Aussortieren über die Wiedergänger-Prüfung speichert den fachlichen Grund.
+- Filter „Stellenart“ auf der Bewerbungsseite mit allen Formen und „Form unbekannt“.
+
+### Added
+
+- **Standardgründe wiederherstellen** (#1323): Unter Einstellungen › Ablehnungsgründe holt **„Standardgründe wiederherstellen“** alle
+  Standardgründe zurück: fehlende werden angelegt, abgeschaltete eingeschaltet. Zuerst zeigt PBP, was sich ändert; geschrieben wird erst nach
+  „Wiederherstellen“. Eigene Gründe bleiben unverändert, und ein Grund, der schon in anderer Schreibweise da ist, kommt nicht doppelt. Claude kann
+  dasselbe mit `ablehnungsgruende_wiederherstellen` (Vorschau, dann `bestaetigung=True`).
+
+### Fixed
+
+- **Wiedergänger-Aussortierung verlor ihren Grund** (#1321): Sortierte `stelle_wiedergaenger_pruefen` mit `auto_aussortieren=True` eine Stelle aus,
+  stand dort „Sonstiges“ statt des Grundes der früheren Stellen — schon beim Speichern, nicht erst beim Neustart. Statistik, Lerneffekt und spätere
+  Wiedergänger-Muster sahen damit den falschen Grund. Jetzt wird der fachliche Grund gespeichert, die Notiz nennt die Wiedergänger-Prüfung, und
+  bestehende Einträge bekommen ihren Grund beim Start zurück.
+- **Filter „Stellenart“ auf der Bewerbungsseite** (#1326): Er kannte nur Festanstellung und Freelance. „Freelance“ zeigte alles außer
+  Festanstellung (auch Zeitarbeit, Praktikum, Werkstudent, Ausbildung), „Festanstellung“ zusätzlich alle Bewerbungen ohne Angabe. Jetzt stehen alle
+  Formen zur Wahl, dazu „Form unbekannt“ — genau die Bewerbungen, deren Karte grau ist.
+
+### Changed
+
+- `services/ablehnungsgruende.py`: `standardgruende_wiederherstellen(db, bestaetigt)` speist Dashboard (`POST /api/dismiss-reasons/standard-wiederherstellen`),
+  Werkzeug und Vorschau; die Normalisierung kennt die Vorsilbe `wiedergaenger:`.
+- Neues Folge-Issue #1330: ein über Claude umbenannter Standardgrund kommt beim Start unter altem Namen zurück.
+
+*Schema v52 (unverändert), 283 MCP-Werkzeuge, 10342 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.4.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.4.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.4 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.4` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.3] - 2026-11-09 — Notizen an Stellen, eine Farbe je Anstellungsform, Ablehnungsgründe abschaltbar
 
 <!-- anwender -->

@@ -44,6 +44,8 @@ ZWEISTUFIG: dict[str, str] = {
     "email_loeschen": "bestaetigung",
     "interview_reflexion_loeschen": "bestaetigung",
     "ablehnungsgrund_loeschen": "bestaetigung",
+    # #1323: legt fehlende Standardgruende an und schaltet abgeschaltete wieder ein - der Mensch hat sie bewusst abgeschaltet.
+    "ablehnungsgruende_wiederherstellen": "bestaetigung",
     "daten_bereiche_leeren": "bestaetigung",
     "speicher_bereinigen": "bestaetigung",
     # Werkzeug mit mehreren Aktionen: vorschlaege_anwenden, zusammenfuehren und loeschen zeigen ohne Bestaetigung nur die Vorschau.

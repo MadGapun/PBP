@@ -2956,6 +2956,7 @@ def register(mcp, db, logger):
                     "blacklist_verwalten",
                     "jobtitel_speichern / jobtitel_verwalten",
                     "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgründe verwalten",
+                    "ablehnungsgruende_wiederherstellen — alle Standardgründe zurückholen (mit Vorschau)",
                     "ollama_autostart — lokale KI (Ollama) mit PBP starten",
                     "fahrstrecken_verwalten — Fahrstrecke und Fahrzeit (nur Auto): Stand, einschalten/ausschalten, nachziehen (#1037)",
                     "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknüpfung anlegen",

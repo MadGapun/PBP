@@ -209,6 +209,145 @@ def standardgrund_geloescht(conn, label: str) -> bool:
     return False
 
 
+# ------------------------------------------------ Standardgruende zurueck
+# #1323 (Rest aus #1297): wer mehrere Standardgruende abgeschaltet oder
+# geloescht hat, kam nur Grund fuer Grund zurueck. EINE Funktion fuer das
+# Dashboard (POST /api/dismiss-reasons/standard-wiederherstellen) und das
+# Werkzeug `ablehnungsgruende_wiederherstellen` (Lehre 1).
+#
+# Was "bereits vorhanden" heisst - die Entscheidung und ihr Grund:
+#
+# * Ein Standardgrund ist vorhanden, wenn eine Zeile seinen Namen traegt
+#   (gross/klein und Raender egal). Das ist dieselbe Identitaet wie ueberall
+#   sonst: Seed beim Start, `abgeschaltete_gruende`, `waehlbare_gruende`,
+#   `set_dismiss_reason_active` vergleichen genau so.
+# * Fehlt diese Zeile, gilt er AUCH als vorhanden, wenn eine Zeile mit
+#   demselben Vergleichsschluessel existiert (`gruende_schreibweise.schluessel`:
+#   klein, Leerzeichen/Unterstrich/Bindestrich gleich): `Zu Junior` ist
+#   `zu_junior`, nur anders geschrieben. Das ist die eine Regel, die PBP fuer
+#   "gleichbedeutend" schon hat (#1115, #663 C66). So entsteht neben einem
+#   umbenannten Standardgrund kein zweiter. (Umbenennen kann ein Standardgrund
+#   nur ueber `ablehnungsgrund_umbenennen` oder aus der Zeit vor 1.8.3; das
+#   Dashboard bietet es seit #1297 nicht mehr an. Die Zeile behaelt dabei
+#   `is_custom=0`.)
+# * Ein Name mit anderem INHALT (`Zu wenig Erfahrung`) ist ein anderer Grund.
+#   PBP raet nicht, welcher Standardgrund das einmal war; der Standardgrund
+#   wird angelegt, wie es der Start ohnehin taete.
+#
+# Was eingeschaltet wird: jede abgeschaltete Zeile, die den Standardgrund
+# traegt - unter seinem Namen oder als umbenannter Standardgrund
+# (`is_custom=0`). Eine EIGENE Zeile (`is_custom=1`, kein Standardname)
+# bleibt, wie sie ist, auch wenn sie gleich heisst: die Funktion legt dann
+# nichts an und schaltet nichts um, sie nennt sie nur. Eigene Gruende werden
+# nie angelegt, umbenannt, zusammengefuehrt oder geschaltet.
+#
+# Systemgruende (`SYSTEM_GRUENDE`) sind keine Standardgruende und bleiben
+# aussen vor. `sonstiges` ist ein Standardgrund und kommt mit zurueck, falls
+# seine Zeile fehlt.
+
+
+def standardgruende_wiederherstellen(db, bestaetigt: bool = False) -> dict:
+    """Holt alle Standardgruende zurueck: fehlende anlegen, abgeschaltete einschalten (#1323).
+
+    Ohne `bestaetigt` nur die Vorschau (nichts wird geschrieben), mit
+    `bestaetigt=True` die Ausfuehrung. Ein zweiter Aufruf findet nichts mehr.
+
+    Rueckgabe:
+        status: "vorschau" | "wiederhergestellt" | "nichts_zu_tun"
+        anlegen: Standardgruende, deren Zeile fehlt (kommen eingeschaltet)
+        einschalten: abgeschaltete Standardgruende, je {"grund", "label",
+            "stellen"} (label = so heisst die Zeile; bei einem umbenannten
+            Standardgrund weicht er ab)
+        vorhanden_als: Standardgruende, die unter anderer Schreibweise
+            vorhanden sind, je {"grund", "label", "eigen", "aktiv"}; sie
+            werden nicht angelegt
+        unveraendert: Zahl der Standardgruende, die schon an sind
+    """
+    from .gruende_schreibweise import schluessel
+
+    zeilen = _zeilen(db)
+    nach_label: dict = {}
+    nach_schluessel: dict = {}
+    for r in zeilen:
+        label = str(r.get("label") or "").strip()
+        if not label:
+            continue
+        nach_label.setdefault(label.lower(), []).append(r)
+        nach_schluessel.setdefault(schluessel(label), []).append(r)
+
+    anlegen, einschalten, vorhanden_als = [], [], []
+    unveraendert = 0
+    for grund in STANDARD_GRUENDE:
+        namens_zeilen = nach_label.get(grund)
+        if namens_zeilen:
+            aus = [r for r in namens_zeilen if not r.get("is_active", 1)]
+            if aus:
+                einschalten.append({"grund": grund, "label": grund, "_id": aus[0]["id"]})
+            else:
+                unveraendert += 1
+            continue
+        varianten = nach_schluessel.get(schluessel(grund)) or []
+        if not varianten:
+            anlegen.append(grund)
+            continue
+        standard_varianten = [r for r in varianten if not r.get("is_custom")]
+        for r in varianten:
+            vorhanden_als.append({"grund": grund, "label": r.get("label"),
+                                  "eigen": bool(r.get("is_custom")),
+                                  "aktiv": bool(r.get("is_active", 1))})
+        aus = [r for r in standard_varianten if not r.get("is_active", 1)]
+        if aus:
+            einschalten.append({"grund": grund, "label": aus[0].get("label"),
+                                "_id": aus[0]["id"]})
+        else:
+            unveraendert += 1
+
+    for eintrag in einschalten:
+        try:
+            eintrag["stellen"] = int(db.dismiss_reason_bestand(eintrag["label"]).get("stellen", 0))
+        except Exception:  # pragma: no cover - Zahl ist Beiwerk
+            eintrag["stellen"] = 0
+
+    def _sichtbar(liste):
+        return [{k: v for k, v in e.items() if not k.startswith("_")} for e in liste]
+
+    antwort = {
+        "anlegen": list(anlegen),
+        "einschalten": _sichtbar(einschalten),
+        "vorhanden_als": vorhanden_als,
+        "unveraendert": unveraendert,
+        "eigene_gruende": "bleiben unverändert",
+    }
+    if not anlegen and not einschalten:
+        return {"status": "nichts_zu_tun", **antwort,
+                "hinweis": "Alle Standardgründe sind da und eingeschaltet. Nichts zu tun."}
+    if not bestaetigt:
+        teile = []
+        if anlegen:
+            teile.append(f"{len(anlegen)} kommen zurück ({', '.join(anlegen)})")
+        if einschalten:
+            teile.append(f"{len(einschalten)} werden wieder eingeschaltet ("
+                         + ", ".join(e["label"] for e in einschalten) + ")")
+        return {"status": "vorschau", **antwort,
+                "hinweis": ("Noch nichts geändert. " + "; ".join(teile) + ". Eigene Gründe "
+                            "bleiben, wie sie sind. Zum Ausführen erneut mit Bestätigung.")}
+
+    conn = db.connect()
+    from datetime import datetime, timezone
+    jetzt = datetime.now(timezone.utc).isoformat()  # wie `database._now`
+    for grund in anlegen:
+        conn.execute(
+            "INSERT INTO dismiss_reasons (label, is_custom, profile_id, created_at, is_active) "
+            "VALUES (?, 0, '', ?, 1)", (grund, jetzt))
+    conn.commit()
+    for eintrag in einschalten:
+        db.set_dismiss_reason_active(eintrag["_id"], True)
+    return {"status": "wiederhergestellt", **antwort,
+            "hinweis": (f"{len(anlegen)} Standardgrund/-gründe angelegt, {len(einschalten)} wieder "
+                        "eingeschaltet. Sie stehen ab sofort wieder in jeder Auswahl, auch für "
+                        "Claude und die Automatik. Eigene Gründe sind unverändert.")}
+
+
 def belege_ohne_abgeschaltete(dismissed, aus: set):
     """Aussortierte Stellen ohne die abgeschalteten Gruende (#1297).
 
@@ -333,6 +472,18 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
         rest = (m.group(2) or "").strip()
         if grund in erlaubt:
             return grund, (rest or None)
+        return "sonstiges", text
+
+    # #1321: 'wiedergaenger:<grund>' schreibt die Wiedergaenger-Pruefung
+    # (`stelle_wiedergaenger_pruefen` mit aussortieren=True). Bis 1.8.3 fiel der
+    # Wert hier durch und wurde schon beim Speichern zu 'sonstiges' - der
+    # fachliche Grund ging verloren. Gespeichert wird der Kern wie bei 'auto:';
+    # dass es die Pruefung war, steht in dismissed_by und in der Notiz.
+    m = re.match(r"^wiedergaenger:([a-z_]+)$", text, re.IGNORECASE)
+    if m:
+        grund = m.group(1).lower()
+        if grund in erlaubt:
+            return grund, None
         return "sonstiges", text
 
     # 'Duplikat von <hash>: ...' u. ae.

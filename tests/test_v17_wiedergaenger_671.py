@@ -189,7 +189,8 @@ def test_tool_auto_aussortieren(tmp_db):
     result = fn(job_hash=new_hash, auto_aussortieren=True)
     assert result["status"] == "wiedergaenger"
     assert result["aktion"] == "auto_aussortiert"
-    assert result["dismiss_reason"] == "wiedergaenger:falsches_fachgebiet"
+    # #1321: gespeichert und gemeldet wird der Grund selbst.
+    assert result["dismiss_reason"] == "falsches_fachgebiet"
 
     job = tmp_db.get_job(new_hash)
     assert job["is_active"] == 0
