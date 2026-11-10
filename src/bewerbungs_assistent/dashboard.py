@@ -5504,6 +5504,23 @@ async def api_add_dismiss_reason(request: Request):
     return {"status": "ok", "id": rid}
 
 
+@app.post("/api/dismiss-reasons/standard-wiederherstellen")
+async def api_standardgruende_wiederherstellen(request: Request):
+    """Alle Standardgruende zurueck (#1323), zwei Schritte.
+
+    Ohne ``{"bestaetigt": true}`` nur die Vorschau (was angelegt, was wieder
+    eingeschaltet wird), mit ``bestaetigt: true`` die Ausfuehrung. Dieselbe
+    Funktion wie das Werkzeug `ablehnungsgruende_wiederherstellen`.
+    """
+    from .services.ablehnungsgruende import standardgruende_wiederherstellen
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    return standardgruende_wiederherstellen(
+        _db, bestaetigt=isinstance(data, dict) and data.get("bestaetigt") is True)
+
+
 # v45 (#663 C20, beta.85): Ablehnungsgruende-Verwaltung
 @app.patch("/api/dismiss-reasons/{reason_id}")
 async def api_update_dismiss_reason(reason_id: int, request: Request):

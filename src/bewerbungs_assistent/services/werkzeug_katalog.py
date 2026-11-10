@@ -70,6 +70,7 @@ ENTWICKLER = frozenset({
 EINSTELLUNG = frozenset({
     "ablehnungsgrund_aktivieren_setzen", "ablehnungsgrund_anlegen",
     "ablehnungsgrund_loeschen", "ablehnungsgrund_umbenennen",
+    "ablehnungsgruende_wiederherstellen",
     "ablage_ordner", "ats_firmen_verwalten", "automatik_setzen",
     "automatik_status", "custom_quelle_hinzufuegen", "custom_quelle_loeschen",
     "custom_quellen_anzeigen", "daten_bereiche_anzeigen",
