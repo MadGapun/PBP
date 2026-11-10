@@ -237,8 +237,8 @@ export default function TasksPage() {
             {e.faellig_am ? (
               <span className={e.ueberfaellig_seit_tagen ? "font-semibold text-coral" : ""}>
                 {e.ueberfaellig_seit_tagen
-                  ? `überfällig seit ${e.ueberfaellig_seit_tagen} Tagen`
-                  : `fällig ${e.faellig_am}`}
+                  ? (e.ueberfaellig_seit_tagen === 1 ? "überfällig seit 1 Tag" : `überfällig seit ${e.ueberfaellig_seit_tagen} Tagen`)
+                  : `fällig ${datumText(e.faellig_am)}`}
               </span>
             ) : null}
           </p>

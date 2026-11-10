@@ -1062,7 +1062,7 @@ M_ERSTE = [
      'className="break-words text-xs uppercase tracking-[0.06em] text-muted">{label}</p>',
      'className="text-xs uppercase tracking-[0.12em] text-muted">{label}</p>', T_ES),
     ("es12", "Statistiken: drei Kacheln nebeneinander schon ab xl", FE + "pages/StatsPage.jsx",
-     'className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3"', 'className="grid gap-6 xl:grid-cols-3"', T_ES),
+     'className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3"', 'className="grid grid-cols-1 gap-6 xl:grid-cols-3"', T_ES),
     ("es13", "Gefahrenzone: mitgelieferte Vorgaben werden nie erkannt", LB,
      '    if not eintrag or eintrag[0] not in _spalten(db, tabelle):\n        return None\n', '    return None\n', T_ES),
     ("es14", "Leeren: das Ergebnis zählt die Vorgaben wieder mit", LB,
