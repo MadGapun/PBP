@@ -477,7 +477,7 @@ export default function DocumentsPage() {
             }`}
           >
             <Unlink size={12} />
-            Nicht verknuepft ({data.unlinked_count})
+            Nicht verknüpft ({data.unlinked_count})
           </button>
         )}
 
