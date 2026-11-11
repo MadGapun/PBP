@@ -84,7 +84,7 @@ export const HILFE = {
   },
   stellen: {
     abschnitte: [
-      { titel: "Stellen finden", text: "Wähle die Quellen in den Einstellungen und starte die Suche mit „Jobsuche mit Claude“ oder mit „Interne Jobsuche starten“. Jede Stelle bekommt Punkte." },
+      { titel: "Stellen finden", text: "Wähle die Quellen in den Einstellungen und starte die Suche mit „Jobsuche mit Claude“ oder mit „Jobsuche in PBP starten“. Jede Stelle bekommt Punkte." },
       { titel: "Punkte und Urteil", text: "Die Punkte zeigen, wie gut die Anzeige deine Suchbegriffe trifft. Ob die Stelle zu dir passt, sagt erst die Detailbewertung: sie liest Anzeige und Profil und bleibt an der Stelle stehen." },
       { titel: "Aussortieren", text: "„Passt nicht“ nimmt eine Stelle mit Grund aus der Liste. Das Aussortier-Protokoll zeigt, was weg ist, und holt es zurück. Eine Firma, die du nie sehen willst, kommt auf die Blacklist." },
       { titel: "Der Kopf der Liste", text: "Die erste Zeile nennt die Zahlen und den einen Hinweis, der jetzt dran ist, mit seinem Knopf. Ein Klick auf die Zeile klappt die Kennzahlen und die Erklärung auf; PBP merkt sich, wie du es zuletzt gelassen hast. So beginnt die Liste ohne Scrollen." },

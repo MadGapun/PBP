@@ -97,7 +97,7 @@ export function hinweisFuer(lage, jetzt = new Date()) {
       titel: nie ? "Noch keine Jobsuche gelaufen" : `Letzte Jobsuche ${tage === 1 ? "gestern" : `vor ${tage} Tagen`}`,
       text: "Eine neue Suche findet Stellen, die seitdem erschienen sind.",
       aktionen: [
-        { art: "jobsuche", label: "Interne Jobsuche starten" },
+        { art: "jobsuche", label: "Jobsuche in PBP starten" },
         { art: "prompt", prompt: "/jobsuche_workflow", label: "Jobsuche mit Claude" },
       ],
     };

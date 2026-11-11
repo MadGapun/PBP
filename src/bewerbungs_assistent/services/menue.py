@@ -37,7 +37,7 @@ EINSTELLUNGEN_REITER = {
 MENUE = {
     **{k: "Einstellungen" + TRENNER + v for k, v in EINSTELLUNGEN_REITER.items()},
     "stellen": "Stellen",
-    "interne_suche": "Stellen" + TRENNER + "Interne Jobsuche starten",
+    "interne_suche": "Stellen" + TRENNER + "Jobsuche in PBP starten",
     "bewerbungen": "Bewerbungen",
     "profil": "Profil",
     "suche": "Suche & Bewertung",
