@@ -2418,7 +2418,7 @@ def register(mcp, db, logger):
 
         Args:
             bereich: Name des Bereichs (persoenliche_daten, berufserfahrung, ausbildung, kompetenzen, praeferenzen, review_abgeschlossen). Hat der Mensch keine Berufserfahrung oder keine Ausbildung, bestätige den Bereich mit abgeschlossen=True — dann gilt er als erledigt.
-            abgeschlossen: Ob der Bereich fertig ist
+            abgeschlossen: Ob der Bereich fertig ist. False hält ihn offen, auch wenn er schon Einträge hat, bis er mit True bestätigt wird.
             notizen: Optionale Notizen zum Fortschritt
         """
         from ..services import ersterfassung_phasen as _phasen
@@ -2447,8 +2447,15 @@ def register(mcp, db, logger):
         from ..services import ersterfassung_phasen as _phasen
         stand = _phasen.stand(db.get_profile(), fortschritt)
         phase, anleitung = _phasen.anleitung(stand)
-        return {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen,
-                "phase": phase, "anleitung": anleitung}
+        antwort = {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen,
+                   "phase": phase, "anleitung": anleitung}
+        if abgeschlossen is False:
+            # #1375: ein Setter braucht einen Leser, und der Mensch den Weg zurueck.
+            antwort["hinweis"] = (
+                f"Der Bereich '{bereich}' bleibt offen, auch wenn er schon Einträge hat, "
+                f"bis du ihn mit erfassung_fortschritt_speichern(bereich='{bereich}', "
+                "abgeschlossen=True) bestätigst.")
+        return antwort
 
     @mcp.tool()
     def kennlerngespraech_abschliessen() -> dict:

@@ -155,7 +155,7 @@ def _build_profile_checks(profile: dict | None) -> dict:
     education = profile.get("education", [])
     skills = profile.get("skills", [])
     from .ersterfassung_phasen import stand as _phasen_stand
-    _stand = _phasen_stand(profile)
+    _stand = _phasen_stand(profile, offen_beachten=False)
 
     return {
         "name": bool(profile.get("name")),
