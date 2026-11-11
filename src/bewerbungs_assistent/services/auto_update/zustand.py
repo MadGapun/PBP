@@ -204,3 +204,21 @@ def rueckgang_gesehen(app=None) -> bool:
 def gescheiterte_fassungen(app=None) -> list:
     g = status_lesen(app).get("gescheitert")
     return [v for v in g if isinstance(v, str)] if isinstance(g, list) else []
+
+
+def gescheitert_freigeben(version: str, app=None) -> bool:
+    """Nimmt `version` aus der Liste `gescheitert` (#1358): der Mensch will es noch einmal versuchen.
+
+    Die Liste schreibt der Startbaustein (eingefroren); hier wird nur ein Eintrag entfernt, mit denselben Funktionen.
+    Gibt zurueck, ob die Fassung dort stand.
+    """
+    app = app if app is not None else layout.programmordner()
+    if app is None:
+        return False
+    s = _boot.lese_status(app)
+    g = s.get("gescheitert")
+    if not isinstance(g, list) or version not in g:
+        return False
+    s["gescheitert"] = [v for v in g if v != version]
+    _boot.schreibe_status(app, s)
+    return True

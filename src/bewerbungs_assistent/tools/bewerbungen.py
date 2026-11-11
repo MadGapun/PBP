@@ -880,6 +880,7 @@ def register(mcp, db, logger):
         # Dokumente) laufen ueber den Lebenszyklus-Dienst — derselbe Weg
         # wie das Auswahlfeld im Dashboard.
         from ..services import bewerbung_lebenszyklus as _lz
+        from ..services import bewerbung_stand as _stand_modul
         erg = _lz.status_wechseln(db, bewerbung_id, neuer_status, notizen,
                                   ablehnungsgrund, auto_follow_up=auto_follow_up)
         if not erg["ok"]:
@@ -897,7 +898,10 @@ def register(mcp, db, logger):
         result = {
             "status": "aktualisiert",
             "neuer_status": neuer_status,
-            "nächste_aktionen": _get_context_actions(neuer_status),
+            # #1342: zeitbewusst — bei "Interview" liegt der Termin oft noch
+            # vor uns (Einladung gemeldet); "Du hattest ein Interview" waere falsch.
+            "nächste_aktionen": _stand_modul.aktionen_zum_status(
+                db, bewerbung_id, neuer_status, _get_context_actions(neuer_status)),
         }
         if applied_at_nachgetragen:
             result["applied_at_nachgetragen"] = applied_at_nachgetragen
@@ -1586,7 +1590,6 @@ def register(mcp, db, logger):
                 "hinweis": "Der aktuelle Stand konnte nicht berechnet werden; "
                            "Termine mit meetings_anzeigen prüfen."}
         _naechster = _stand._erster_echter(_termine["kommend"])
-        _letzter = _stand._erster_echter(_termine["vergangen"])
         result["termine"] = _termine
         if app.get("events"):
             # Neueste zuerst; aeltere "offen"-Hinweise kennzeichnen (#1153).
@@ -1633,9 +1636,9 @@ def register(mcp, db, logger):
             pass
 
         # #170: Kontextabhängige Aktionen basierend auf aktuellem Status
-        actions = _stand.aktionen_zeitbewusst(
-            _get_context_actions(app.get("status", "")),
-            app.get("status", ""), _naechster, _letzter)
+        actions = _stand.aktionen_zum_status(
+            db, app["id"], app.get("status", ""),
+            _get_context_actions(app.get("status", "")), _termine)
 
         # D15 (#650, beta.76): Bei staleness >=7d einen prioritaeren Nachfass-
         # Eintrag voranstellen. Liest das letzte Event und vergleicht mit jetzt.

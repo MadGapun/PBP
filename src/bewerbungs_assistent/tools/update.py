@@ -90,9 +90,15 @@ def register(mcp, db, logger: logging.Logger):
         """
         from ..services.auto_update import lauf
         if not bestaetigt:
-            return {"status": "bestaetigung_noetig",
-                    "text": "Frage den Menschen, ob die neue Version jetzt installiert werden soll, und rufe das Werkzeug "
-                            "dann mit bestaetigt=True auf.", **lauf.uebersicht(db)}
+            frage = ("Frage den Menschen, ob die neue Version jetzt installiert werden soll, und rufe das Werkzeug "
+                     "dann mit bestaetigt=True auf.")
+            antwort = lauf.uebersicht(db)
+            gesucht = version or (antwort.get("neu") or {}).get("version") or ""
+            if gesucht and gesucht in (antwort.get("gescheitert") or []):
+                from ..services.auto_update.fehler import ERNEUT_VERSUCHEN_FRAGE
+                frage = (f"Version {gesucht} ist schon einmal gescheitert. {ERNEUT_VERSUCHEN_FRAGE} Frage den Menschen, "
+                         "ob PBP es erneut versuchen soll, und rufe das Werkzeug dann mit bestaetigt=True auf.")
+            return {"status": "bestaetigung_noetig", "text": frage, **antwort}
         if not version:
             letzte = lauf.pruefen(db, frisch=True)
             version = letzte.get("version") if letzte.get("status") == "neu" else ""
@@ -102,7 +108,7 @@ def register(mcp, db, logger: logging.Logger):
         return {**lauf.starte_installation(db, version, ausloeser="mcp"), "version": version}
 
     @mcp.tool()
-    def update_zurueckschalten(version: str) -> dict:
+    def update_zurueckschalten(version: str, bestaetigt: bool = False) -> dict:
         """Lässt PBP beim nächsten Start auf eine andere, noch installierte Version laufen (Auto-Update, #1093).
 
         Meist der Rückweg auf eine ältere; ebenso möglich ist der Schritt auf eine neuere, schon installierte Version.
@@ -111,6 +117,12 @@ def register(mcp, db, logger: logging.Logger):
 
         Args:
             version: die gewünschte, installierte Version, z. B. 1.8.0.
+            bestaetigt: Pflicht, erst NACH dem Ja des Menschen. Ohne sie ändert sich nichts.
         """
         from ..services.auto_update import lauf
+        if not bestaetigt:
+            return {"status": "bestaetigung_noetig",
+                    "text": "Frage den Menschen, ob PBP beim nächsten Start auf Version "
+                            f"{version or '…'} laufen soll, und rufe das Werkzeug dann mit bestaetigt=True auf. "
+                            "Bis dahin ist nichts geändert.", **lauf.uebersicht(db)}
         return lauf.zurueckschalten(db, version)
