@@ -199,7 +199,9 @@ def build_workspace_summary(
             readiness = readiness_stufe("profil_aufbauen")
         elif source_summary["active"] == 0:
             readiness = readiness_stufe("quellen_aktivieren")
-        elif search_status["status"] in {"nie", "veraltet", "dringend"}:
+        # #1371: dieselbe Grenze wie der Banner und die Zaehlung unten —
+        # eine Suche von gestern ("veraltet") ist noch keine Erneuerung.
+        elif search_status["status"] in {"nie", "dringend"}:
             readiness = readiness_stufe(
                 "jobsuche_erneuern",
                 tone="blue" if search_status["status"] == "nie" else "yellow",
@@ -357,9 +359,13 @@ def naechster_schritt(db, summary: dict | None = None) -> dict:
             "Es ist keine Jobbörse ausgewählt. Das geht im Dashboard unter "
             f"Einstellungen › Quellen: {dashboard_link('einstellungen')}")}
     if stufe == "jobsuche_erneuern":
-        nie = (s.get("search") or {}).get("status") == "nie"
+        from .search_service import alter_der_suche_text
+        such = s.get("search") or {}
+        nie = such.get("status") == "nie"
+        # #1371: das wirkliche Alter aus dem Suchstatus, keine Annahme.
         return {"stufe": stufe, "text": (
-            ("Es lief noch keine Suche. " if nie else "Die letzte Suche ist älter als eine Woche. ")
+            ("Es lief noch keine Suche. " if nie
+             else f"Die letzte Suche {alter_der_suche_text(such.get('days_ago'))}. ")
             + "Starte sie mit jobsuche_starten(); den Stand fragt jobsuche_status().")}
     if stufe == "bewerben":
         return {"stufe": stufe, "text": (

@@ -116,3 +116,16 @@ assert.equal(hinweisFuer({ ...ohneAuB, vorab: vorabV }, jetzt).aktionen.length, 
 assert.equal(hinweisFuer(ohneAuB, jetzt).id, "update", "ohne Vorabversion bleibt der bisherige Hinweis");
 
 console.log("hinweisZone: ok");
+
+// 6. #1371: der Banner liest die Fälligkeit vom Server (`sucheStatus`), nicht von einer eigenen Zahl.
+for (const [tage, status, banner] of [[1, "veraltet", false], [3, "veraltet", false], [7, "dringend", true], [30, "dringend", true]]) {
+  const h = hinweisFuer({ ...basis, letzteSucheAm: vorTagen(tage), sucheStatus: status, sucheTage: tage }, jetzt);
+  assert.equal(h?.id === "suche", banner, `${tage} Tage`);
+  if (banner) {
+    assert.equal(h.titel, `Letzte Jobsuche vor ${tage} Tagen`);
+    // Hauptknopf wie die Karte (Suche in PBP), der Weg über Claude daneben.
+    assert.deepEqual(h.aktionen.map((a) => a.art), ["jobsuche", "prompt"]);
+  }
+}
+// Der Server gewinnt: meldet er „nie“/„dringend“, zählt kein lokales Datum.
+assert.equal(hinweisFuer({ ...basis, letzteSucheAm: vorTagen(1), sucheStatus: "dringend", sucheTage: 9 }, jetzt).id, "suche");

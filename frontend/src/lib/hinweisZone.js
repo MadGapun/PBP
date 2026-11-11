@@ -79,17 +79,27 @@ export function hinweisFuer(lage, jetzt = new Date()) {
       aktion: { art: "navigieren", ziel: "einstellungen", label: "Jobbörsen auswählen" },
     };
   }
-  const tage = tageSeit(lage.letzteSucheAm, jetzt);
-  // Eine Suche von gestern ist kein Anlass für ein Banner — erst nach
-  // sieben Tagen (oder wenn nie gesucht wurde). Der Knopf auf dem
-  // Dashboard bleibt ohnehin da, neutral.
-  if (tage === null || tage >= SUCHE_DRINGEND_NACH_TAGEN) {
+  // #1371: die Grenze kommt vom Server (`sucheStatus` aus dem Suchstatus,
+  // dieselbe Quelle wie die Karte "Nächster Schritt"); nur ohne Status
+  // rechnet der Banner selbst (Fallback, SUCHE_DRINGEND_NACH_TAGEN).
+  const tage = Number.isFinite(lage.sucheTage) ? lage.sucheTage : tageSeit(lage.letzteSucheAm, jetzt);
+  const sucheFaellig = lage.sucheStatus
+    ? lage.sucheStatus === "nie" || lage.sucheStatus === "dringend"
+    : tage === null || tage >= SUCHE_DRINGEND_NACH_TAGEN;
+  // Eine Suche von gestern ist kein Anlass für ein Banner — erst wenn sie
+  // fällig ist (oder nie gelaufen). Hauptknopf wie auf der Karte: die
+  // Suche in PBP; der Weg über Claude steht als zweiter Knopf daneben.
+  if (sucheFaellig) {
+    const nie = tage === null || lage.sucheStatus === "nie";
     return {
       id: "suche",
       ton: "amber",
-      titel: tage === null ? "Noch keine Jobsuche gelaufen" : `Letzte Jobsuche vor ${tage} ${tage === 1 ? "Tag" : "Tagen"}`,
+      titel: nie ? "Noch keine Jobsuche gelaufen" : `Letzte Jobsuche ${tage === 1 ? "gestern" : `vor ${tage} Tagen`}`,
       text: "Eine neue Suche findet Stellen, die seitdem erschienen sind.",
-      aktion: { art: "jobsuche", label: "Jobsuche starten" },
+      aktionen: [
+        { art: "jobsuche", label: "Interne Jobsuche starten" },
+        { art: "prompt", prompt: "/jobsuche_workflow", label: "Jobsuche mit Claude" },
+      ],
     };
   }
   if (upd) return upd;

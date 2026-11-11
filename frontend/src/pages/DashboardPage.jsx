@@ -523,6 +523,8 @@ export default function DashboardPage() {
     hatProfil: Boolean(chrome.status?.has_profile),
     quellenAktiv: activeSourceCount,
     letzteSucheAm: lastSearchAt,
+    sucheStatus: chrome.searchStatus?.status,
+    sucheTage: hasSearchDays ? searchDaysAgo : undefined,
     updateBekannt: updateInfo?.update_available && !updateSchonInstalliert
       ? { version: updateInfo.latest_version, url: updateInfo.release_url }
       : null,
@@ -611,7 +613,18 @@ export default function DashboardPage() {
               <h2 className="mt-3 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
             </div>
             <div className="flex shrink-0 gap-2">
-              {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
+              {/* #1371: bei "Jobsuche erneuern" dieselbe Hauptaktion wie der Banner
+                  (Suche in PBP); der Weg über Claude steht daneben. */}
+              {workspaceReadiness.stage === "jobsuche_erneuern" ? (
+                <>
+                  <Button size="sm" variant="secondary" onClick={() => startJobsuche()}>
+                    Interne Jobsuche starten
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(workspaceReadiness)}>
+                    {workspaceReadiness.action_label}
+                  </Button>
+                </>
+              ) : workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
                 <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
                   {workspaceReadiness.action_label}
                 </Button>

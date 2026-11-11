@@ -15,12 +15,13 @@ import { Button, Card } from "@/components/ui";
 import { useApp } from "@/app-context";
 
 export default function HinweisZone({ hinweis }) {
-  const { navigateTo, startJobsuche, refreshChrome, autoUpdateAktion } = useApp();
+  const { navigateTo, startJobsuche, refreshChrome, autoUpdateAktion, copyPrompt } = useApp();
   if (!hinweis) return null;
 
   function ausfuehren(a) {
     if (!a) return undefined;
     if (a.art === "jobsuche") return startJobsuche();
+    if (a.art === "prompt" && a.prompt) return copyPrompt(a.prompt);
     if (a.art === "navigieren") return navigateTo(a.ziel, a.tab ? { tab: a.tab } : undefined);
     if (a.art === "update-optionen") return navigateTo("einstellungen", { tab: "updates" });
     if (typeof a.art === "string" && a.art.startsWith("update-")) return autoUpdateAktion(a);
