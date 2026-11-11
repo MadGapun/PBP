@@ -1,6 +1,6 @@
 // #1049 (G50): Quellen, die nur im Browser liefern — und der Weg zu Claude.
 //
-// Der Knopf "Interne Jobsuche starten" laeuft nur intern; Quellen mit
+// Der Knopf "Jobsuche in PBP starten" laeuft nur intern; Quellen mit
 // eingeloggtem Konto ueberspringt er bewusst (#488). Bis v1.7.113 fuehrte
 // von dort kein Weg zum Lauf ueber die Chrome-Erweiterung, und sechs aktive
 // Quellen trugen monatelang nichts bei, ohne dass es irgendwo stand.

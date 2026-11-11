@@ -53,7 +53,7 @@ def test_jeder_interne_start_knopf_sagt_intern():
                 funde.append(datei)
     assert not funde, f"Mehrdeutiges Etikett am internen Lauf: {funde}"
     for datei in ("JobsPage.jsx", "DashboardPage.jsx"):
-        assert "Interne Jobsuche starten" in (SEITEN / datei).read_text(encoding="utf-8-sig"), datei
+        assert "Jobsuche in PBP starten" in (SEITEN / datei).read_text(encoding="utf-8-sig"), datei
 
 
 def test_die_karte_nimmt_liste_und_prompt_vom_server():

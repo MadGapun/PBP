@@ -618,7 +618,7 @@ export default function DashboardPage() {
               {workspaceReadiness.stage === "jobsuche_erneuern" ? (
                 <>
                   <Button size="sm" variant="secondary" onClick={() => startJobsuche()}>
-                    Interne Jobsuche starten
+                    Jobsuche in PBP starten
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(workspaceReadiness)}>
                     {workspaceReadiness.action_label}
@@ -817,7 +817,7 @@ export default function DashboardPage() {
                     </p>
                     <Button onClick={() => startJobsuche()}>
                       <Search size={15} />
-                      Interne Jobsuche starten
+                      Jobsuche in PBP starten
                     </Button>
                   </div>
                 );
