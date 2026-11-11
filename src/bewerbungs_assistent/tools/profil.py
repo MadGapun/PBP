@@ -2418,7 +2418,7 @@ def register(mcp, db, logger):
 
         Args:
             bereich: Name des Bereichs (persoenliche_daten, berufserfahrung, ausbildung, kompetenzen, praeferenzen, review_abgeschlossen). Hat der Mensch keine Berufserfahrung oder keine Ausbildung, bestätige den Bereich mit abgeschlossen=True — dann gilt er als erledigt.
-            abgeschlossen: Ob der Bereich fertig ist. False hält ihn offen, auch wenn er schon Einträge hat, bis er mit True bestätigt wird.
+            abgeschlossen: Ob der Bereich fertig ist. False hält offen, True bestätigt.
             notizen: Optionale Notizen zum Fortschritt
         """
         from ..services import ersterfassung_phasen as _phasen
