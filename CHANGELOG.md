@@ -42,17 +42,6 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.6] - Entwurf, nicht veröffentlicht — Jobsuche: Karte, Hinweis und Claude sagen dasselbe
-
-*Entwurf (#1371). Datum, Versionsstellen und der Installations-Block folgen erst mit dem Veröffentlichungswort.*
-
-### Fixed
-- **Claude nannte das falsche Alter der Suche (#1371):** der Satz „Die letzte Suche ist älter als eine Woche“ stand schon, wenn gestern gesucht wurde. Er nennt jetzt das wirkliche Alter aus dem Suchstatus („war gestern“, „war vor 7 Tagen“).
-- **Karte und Hinweis widersprachen sich (#1371):** die Karte „Nächster sinnvoller Schritt“ meldete „Jobsuche erneuern“ nach einem Tag, der Hinweis erst nach sieben. Beide lesen jetzt dieselbe Grenze (7 Tage) vom Server; eine Suche von gestern ist kein Anlass mehr. Welche Zahl auf Dauer gilt, entscheidet #1364.
-- **Dieselbe Hauptaktion (#1371):** Karte und Hinweis bieten „Interne Jobsuche starten“ an; der Weg über Claude steht als zweiter Knopf daneben.
-
----
-
 ## [1.8.5] - 2026-11-10 — Einladung richtig beantwortet, Sicherung mit Leseprobe, Zurückschalten fragt nach
 
 <!-- anwender -->
