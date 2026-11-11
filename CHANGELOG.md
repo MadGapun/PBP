@@ -42,6 +42,115 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.5] - 2026-11-10 — Einladung richtig beantwortet, Sicherung mit Leseprobe, Zurückschalten fragt nach
+
+<!-- anwender -->
+Meldest du Claude eine Einladung, fragt es nicht mehr nach Eindrücken aus einem Gespräch, das noch nicht war.
+Eine Sicherung gilt erst als erstellt, wenn PBP sie geöffnet und geprüft hat, ein gescheitertes Zurückspielen wiederholt sich nicht mehr,
+und der Komplett-Export (ZIP) enthält jetzt deine Dokumente. Claude schaltet PBP nur nach deiner Bestätigung auf eine andere Version.
+Eine Version, die sich bei dir einmal nicht starten ließ, kannst du in den Einstellungen erneut versuchen – PBP gibt dem Update nicht mehr allein die Schuld.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Hast du den **Komplett-Export (ZIP)** bisher als Sicherung deiner Dokumente genutzt: er enthielt deine Dokumente nicht (sie liegen je Profil in Unterordnern). Lade ihn einmal neu herunter.
+
+**Neu und behoben (kurz)**
+
+- Status „Interview“ über Claude: der nächste Schritt hängt vom Termin ab (Termin eintragen, vorbereiten oder Gesprächsnotizen).
+- Sicherung: „erstellt“ erst nach einer Leseprobe der Kopie; ein Zurückspielen, das halb scheitert, wiederholt sich nicht und meldet seinen Ausgang im Dashboard.
+- Komplett-Export (ZIP) mit allen Dokumenten und einer stimmigen Anleitung.
+- Claude schaltet die Version nur nach deiner Bestätigung zurück.
+- Gescheiterte Version: neutraler Text und „Erneut versuchen“ (mit Rückfrage) in den Einstellungen und im Chat.
+
+### Fixed
+
+- **Status „Interview“: falscher nächster Schritt** (#1342): Meldete jemand eine Einladung und Claude setzte den Status „Interview“, antwortete
+  `bewerbung_status_aendern` mit „Du hattest ein Interview! Dokumentiere deine Eindrücke …“ — obwohl der Termin erst kommt. Die zeitbewusste
+  Auswahl aus 1.7.146 (#1153) wirkte nur in `bewerbung_details`. Jetzt gilt sie auch in der Antwort auf den Statuswechsel (eine Funktion für beide
+  Wege, `bewerbung_stand.aktionen_zum_status`): Liegt der Termin vor uns, geht es um die Vorbereitung; gibt es keinen, um das Eintragen des Termins;
+  erst nach dem Termin kommen die Gesprächsnotizen. Lassen sich die Termine nicht lesen, sagt die Antwort das, statt zu raten.
+- **Zurückspielen einer Sicherung wiederholte sich** (#1350, Punkt 1): Scheiterte beim Einspielen der zweite Teil (die Dokumente), blieb die
+  Vormerkung stehen, und bei jedem weiteren Start wurde die Datenbank erneut aus der Sicherung überschrieben — alles, was dazwischen eingetragen
+  wurde, war weg. Jetzt wird die Datenbank über eine Nebendatei getauscht und die Vormerkung gelöscht, sobald sie getauscht ist; die Dokumente
+  kommen über einen Nebenordner und ersetzen die bisherigen erst, wenn das Entpacken gelungen ist. Der Ausgang (ganz, teilweise, gescheitert)
+  steht in der Sicherungs-Karte unter Einstellungen, bis du ihn mit „Verstanden“ quittierst.
+- **Komplett-Export ohne Dokumente** (#1350, Punkt 2): Die Route packte nur Dateien der obersten Ebene, die Dokumente liegen aber in
+  `dokumente/<Profil>/`. Jetzt enthält das Paket alle Dokumente samt Unterordnern; die beigelegte Anleitung nennt die echten Installer und
+  Datenordner. Gesperrte Dateien werden in der Anleitung genannt, das Paket wird vor dem Angebot geöffnet und gezählt.
+- **„Sicherung erstellt“ ohne Leseprobe** (#1350, Punkt 3): Die Kopie wird nach dem Schreiben geöffnet (Integritätsprüfung, Tabellen) und das
+  Dokumenten-ZIP auf Prüfsummen und Dateizahl geprüft. Eine unlesbare Kopie wird verworfen und als Fehler gemeldet; ein unvollständiges ZIP
+  steht als „nur Datenbank gesichert“ mit Hinweis da.
+- **`update_zurueckschalten` ohne Rückfrage** (#1355): Als einziges der Update-Werkzeuge hatte es kein `bestaetigt`. Jetzt antwortet es ohne
+  `bestaetigt=True` nur mit der Auskunft und ändert nichts, wie `update_jetzt_installieren`. Der Knopf im Dashboard bleibt, wie er ist (der
+  Mensch klickt selbst).
+
+- **Gescheiterte Fassung: ehrlicher Text, „Erneut versuchen“ geht wirklich** (#1358, Teil von #1352): Scheitert der erste Start einer neuen Fassung aus einem
+  Grund in den Daten (gesperrte oder beschädigte Datenbank, volle Platte), steht sie in der Liste `gescheitert`, und PBP sagte, sie werde „nicht noch
+  einmal automatisch installiert“ – als läge es am Update. Der Knopf „Erneut versuchen“ lief ins Leere, denn die Installation lehnte jede Fassung
+  aus dieser Liste ab. Jetzt nennt der Text beide mögliche Ursachen und den nächsten Schritt. Eine ausdrückliche Installation (Klick nach Rückfrage,
+  oder `update_jetzt_installieren` mit `bestaetigt=True`, dessen Rückfrage den Grund nennt) nimmt die Fassung aus der Liste; die Automatik tut das nie.
+  Die Übersicht (`GET /api/auto-update`, `update_status`) nennt die Liste (`gescheitert`), die neue Version trägt den Merker `gescheitert`. Der
+  Startbaustein (`src/bewerbungs_assistent_boot/`) bleibt unverändert (`FORMAT = 1`, ein Test hält seine Prüfsumme).
+
+### Changed
+
+- Gegenprobe: je Fix wurde der Schutz einmal ausgebaut, die neuen Tests wurden rot (Interview-Antwort: 5 von 7, Vormerkung und Leseprobe: 2 bzw. 1,
+  Bestätigung beim Zurückschalten: 1, Freigabe der gescheiterten Fassung: 4).
+- Offen aus den Review-Funden und nicht in dieser Fassung: der Rest von #1352 (Fehlerklassen im Startbaustein, nächste Linie), #1350 Punkt 4 (geführter Umzug auf einen neuen Rechner) und Punkt 5 (Gegenprobe-Katalog
+  `sicherung`), #1355 Punkte 1 bis 4 (Zweck-Sätze, unsichtbare Werkzeuge in Hilfe und Wiki, Wächter, Abgrenzung zweier Werkzeug-Paare).
+  Dach-Issue: #1332.
+
+*Schema v52 (unverändert), 283 MCP-Werkzeuge, 10379 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.5.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.5.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.5 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.5` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.4] - 2026-11-10 — Standardgründe zurückholen, Wiedergänger behalten ihren Grund, Stellenart-Filter vollständig
 
 <!-- anwender -->
