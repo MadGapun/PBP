@@ -7,6 +7,26 @@ from . import quellen_texte as _quellen_texte
 logger = logging.getLogger(__name__)
 
 
+# #1371: EINE Grenze fuer "die Suche ist ueberfaellig". Karte, Banner und der
+# Satz fuer Claude lesen den Status von hier, nicht von einer eigenen Zahl.
+SUCHE_DRINGEND_NACH_TAGEN = 7
+
+
+def alter_der_suche_text(days_ago) -> str:
+    """Das wirkliche Alter der letzten Suche als Satzteil (#1371)."""
+    if days_ago is None:
+        return "ist schon länger her"
+    try:
+        tage = int(days_ago)
+    except (TypeError, ValueError):
+        return "ist schon länger her"
+    if tage <= 0:
+        return "war heute"
+    if tage == 1:
+        return "war gestern"
+    return f"war vor {tage} Tagen"
+
+
 def get_search_status(last_search_at: str | None, now: datetime | None = None) -> dict:
     """Normalize the stored last-search timestamp into a UI-friendly status."""
     if not last_search_at:
@@ -19,7 +39,7 @@ def get_search_status(last_search_at: str | None, now: datetime | None = None) -
     except (ValueError, TypeError):
         return {"last_search": last_search_at, "days_ago": None, "status": "unbekannt"}
 
-    status = "aktuell" if days == 0 else "veraltet" if days < 7 else "dringend"
+    status = "aktuell" if days == 0 else "veraltet" if days < SUCHE_DRINGEND_NACH_TAGEN else "dringend"
     return {"last_search": last_search_at, "days_ago": days, "status": status}
 
 
