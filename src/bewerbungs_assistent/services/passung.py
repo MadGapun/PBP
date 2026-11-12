@@ -168,7 +168,11 @@ def profil_stand(profil) -> str:
     kompetenzen = len(profil.get("skills") or [])
     stationen = len(profil.get("positions") or [])
     stand = str(profil.get("updated_at") or "")[:19]
-    return f"{kompetenzen}/{stationen}@{stand}"
+    # #1389: das Zaehlwerk jedes Schreibwegs ins Profil. Bei 0 (nie geaendert,
+    # oder Bestand von vor 1.8.7) bleibt die Form wie bisher - alte Bewertungen
+    # werden nicht pauschal "veraltet".
+    nr = int(profil.get("stand_nr") or 0)
+    return f"{kompetenzen}/{stationen}@{stand}" + (f"+{nr}" if nr else "")
 
 
 # -- Die drei Zustaende einer Stelle (#948) ---------------------------

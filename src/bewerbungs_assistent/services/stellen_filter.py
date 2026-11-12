@@ -124,11 +124,14 @@ def _quelle_passt(quelle: str, job_quelle: str) -> bool:
 def _alter_tage(found_at: str, jetzt: datetime) -> Optional[int]:
     if not found_at:
         return None
-    try:
-        gefunden = datetime.fromisoformat(found_at.replace("Z", "+00:00").split("+")[0])
-    except (ValueError, TypeError):
+    # #1386: found_at gibt es mit Zone (UTC) und ohne (Ortszeit); beide werden
+    # zum selben Zeitpunkt. Frueher schnitt "+00:00" die Zone einfach ab.
+    from . import uhr
+    gefunden = uhr.zeitpunkt(found_at)
+    if gefunden is None:
         return None
-    return (jetzt - gefunden).days
+    jetzt_z = jetzt if jetzt.tzinfo else jetzt.astimezone()
+    return (jetzt_z - gefunden).days
 
 
 def passt(job: dict, bedingungen: dict, *, jetzt: Optional[datetime] = None,

@@ -27,6 +27,7 @@ Was ausdruecklich KEIN Treffer ist:
 * **Platzhalter**, die bereits vergeben wurden.
 """
 from __future__ import annotations
+from . import uhr as _uhr
 
 import re
 from typing import Any, Iterable
@@ -531,7 +532,7 @@ def platzhalter_fuer(db, name: str, art: str = "firma",
     conn.execute(
         "INSERT OR REPLACE INTO anonymisierung_map "
         "(echter_name, art, platzhalter, angelegt_am) VALUES (?,?,?,?)",
-        (schluessel, art, neu, datetime.now().isoformat(timespec="seconds")))
+        (schluessel, art, neu, _uhr.jetzt()))
     conn.commit()
     return neu
 

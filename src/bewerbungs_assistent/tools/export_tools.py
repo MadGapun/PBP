@@ -548,7 +548,8 @@ def register(mcp, db, logger):
             "recruiter": gewicht_recruiter / total,
         }
 
-        analysis = analyse_cv_perspectives(profile, stelle, stellenbeschreibung or stelle, weights)
+        analysis = analyse_cv_perspectives(profile, stelle, stellenbeschreibung or stelle, weights,
+                                          firma=firma)
 
         return {
             "status": "analysiert",

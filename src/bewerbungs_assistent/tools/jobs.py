@@ -1,6 +1,7 @@
 """Jobsuche und Stellenverwaltung — 9 Tools (#446: stelle_bearbeiten, #432: scraper_diagnose)."""
 
 import re
+from ..services import uhr as _uhr
 from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.dashboard_link import dashboard_link as _dashboard_link
 from collections import Counter
@@ -139,13 +140,34 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     )
     if datenlage_hinweis:
         befund["datenlage_hinweis"] = datenlage_hinweis
-    # Der Score kommt weiter mit — als das, was er ist.
-    befund["score"] = score
+    # #1388: EINE Zahl unter dem Etikett "Punkte" - dieselbe wie Liste, Karte
+    # und das `punkte_text` der Antwort (`punkte.fuer_frisch`, mit den
+    # Begriffs-Reglern). Bis 1.8.5 rechnete diese Funktion mit `total_score`
+    # OHNE Regler und nannte das ebenfalls "Punkte": "10 von 14" oben,
+    # "5 von 14" in der Empfehlung. Die Zahl ohne Regler bleibt, aber unter
+    # eigenem Namen und nur, wenn sie wirklich abweicht.
+    from ..services.punkte import SCORE_BEDEUTUNG as _BEDEUTUNG
+    from ..services.punkte import text as _punkte_text
+    if fit_result.get("punkte") is not None:
+        punkte = float(fit_result["punkte"])
+        punkte_max = fit_result.get("punkte_max")
+        punkte_max = float(punkte_max) if punkte_max else None
+        befund["punkte"] = punkte
+        befund["punkte_max"] = punkte_max
+        befund["punkte_text"] = (fit_result.get("punkte_text")
+                                 or _punkte_text(punkte, punkte_max))
+        befund["score"] = punkte
+        if abs(punkte - float(score)) >= 0.05:
+            befund["score_ohne_regler"] = score
+            befund["score_ohne_regler_text"] = (
+                "Ohne deine Regler für Begriffe: "
+                + _punkte_text(score, maximum if anteil is not None else None)
+                + " (nur zur Einordnung, die Punkte oben gelten).")
+    else:
+        befund["score"] = score
+        befund["punkte_text"] = _skala()
     if maximum:
         befund["score_maximum"] = maximum
-    # H24 (#1087 G4): derselbe Satz an jedem Ort.
-    from ..services.punkte import SCORE_BEDEUTUNG as _BEDEUTUNG
-    befund["punkte_text"] = _skala()
     befund["score_bedeutung"] = _BEDEUTUNG
     befund["score_zuverlaessig"] = bool(
         desc_ok and not fit_result.get("beschreibung_kurz"))
@@ -6827,7 +6849,7 @@ def register(mcp, db, logger):
                                 "is_pinned": False,
                                 "remote_level": "unbekannt",
                                 "employment_type": "festanstellung",
-                                "found_at": _dt.now().isoformat(),
+                                "found_at": _uhr.jetzt(),
                             }])
                             # save_jobs setzt is_active immer auf 1 —
                             # Platzhalter sollen nicht im aktiven Pool sein
