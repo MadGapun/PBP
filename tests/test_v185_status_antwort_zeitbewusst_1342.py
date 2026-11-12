@@ -114,7 +114,11 @@ def test_andere_status_behalten_ihre_festen_vorschlaege(umgebung):
     from bewerbungs_assistent.tools.bewerbungen import _get_context_actions
     app = _bewerbung(db, "offen")
     antwort = _wechseln(mcp, app, "beworben")
-    assert antwort["nächste_aktionen"]["aktionen"] == _get_context_actions("beworben")["aktionen"]
+    # #1387: die automatisch gesetzte Nachfass-Erinnerung streicht den Vorschlag
+    # "Nachfass-Erinnerung planen"; alles andere bleibt in fester Reihenfolge.
+    erwartet = [a["tool"] for a in _get_context_actions("beworben")["aktionen"]
+                if a["tool"] != "nachfass_planen"]
+    assert [a["tool"] for a in antwort["nächste_aktionen"]["aktionen"]] == erwartet
 
 
 def test_status_antwort_und_details_sagen_dasselbe(umgebung):

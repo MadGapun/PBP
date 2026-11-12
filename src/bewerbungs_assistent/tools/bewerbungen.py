@@ -1,6 +1,7 @@
 """Bewerbungs-Management (#170: geführter Workflow, #443: Write-Back-Gaps)."""
 
 from ..services.nutzerfuehrung import kein_profil, leer
+from ..services import uhr as _uhr
 
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
@@ -825,7 +826,11 @@ def register(mcp, db, logger):
 
         # #170: Bei in_vorbereitung direkt die nächsten Schritte zeigen
         if status == "in_vorbereitung":
-            result["nächste_schritte"] = _get_context_actions("in_vorbereitung")
+            # #1387: ein Weg mit Details und Statuswechsel - der Stand
+            # (Bewertung, Unterlagen, Nachfass) streicht Erledigtes.
+            from ..services import bewerbung_stand as _stand_neu
+            result["nächste_schritte"] = _stand_neu.aktionen_zum_status(
+                db, aid, "in_vorbereitung", _get_context_actions("in_vorbereitung"))
             result["nachricht"] += (
                 " Status: in_vorbereitung — Nutze bewerbung_details() um die "
                 "Bewerbung zu öffnen und die Vorbereitung zu starten."
@@ -1337,7 +1342,7 @@ def register(mcp, db, logger):
         if stellenbeschreibung_original:
             from datetime import datetime as _dt_now
             updates["description_snapshot"] = stellenbeschreibung_original
-            updates["snapshot_date"] = _dt_now.now().isoformat()
+            updates["snapshot_date"] = _uhr.jetzt()
 
         if not updates:
             return {"fehler": "Keine Änderungen angegeben."}
@@ -1348,6 +1353,23 @@ def register(mcp, db, logger):
             "geänderte_felder": list(updates.keys()),
             "nachricht": f"Bewerbung bei {app.get('company', '')} aktualisiert."
         }
+        # #1382: Unterlagen sind erst Dokumente der Bewerbung (Dialog, ZIP),
+        # wenn sie als Dokument eingetragen sind - nicht nur als Pfad.
+        if cv_path or cover_letter_path:
+            from ..services import unterlagen
+            eintrag = unterlagen.felder_registrieren(
+                db, bewerbung_id, cv_path, cover_letter_path,
+                app.get("profile_id"))
+            if eintrag:
+                antwort["unterlagen"] = eintrag
+                fehlt = [f for f, v in eintrag.items() if v == "nicht_gefunden"]
+                if fehlt:
+                    antwort["nachricht"] += (
+                        " Die Datei zu " + " und ".join(
+                            "Lebenslauf" if f == "cv_path" else "Anschreiben"
+                            for f in fehlt) + " gibt es unter dem Pfad nicht; "
+                        "sie erscheint deshalb nicht unter Dokumente. "
+                        "Pfad prüfen und erneut setzen.")
         if notiz_modus:
             antwort["notizen"] = notiz_modus
         return antwort

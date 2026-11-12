@@ -6,6 +6,7 @@ cross-thread access (MCP thread + Dashboard thread).
 """
 
 import sqlite3
+from .services import uhr as _uhr
 import threading
 import json
 import os
@@ -205,6 +206,33 @@ def _gehalt_gesund(s_min, s_max):
     """
     from .services.gehalt_extraktion import gesund
     return gesund(s_min, s_max)
+
+
+def _stempelt_profil(fn):
+    """Markiert eine Schreibmethode, die ins Profil schreibt (#1389).
+
+    Eine gespeicherte Bewertung einer Stelle merkt sich den Stand des Profils
+    (`passung.profil_stand`). Der bestand aus Zahl der Kompetenzen, Zahl der
+    Stationen und `updated_at` - ein neuer ZEITRAUM einer Kompetenz aendert
+    keines davon, die Bewertung galt weiter als aktuell
+    (`skill_zeitraum_hinzufuegen`). Jetzt erhoeht jede erfolgreiche
+    Schreibmethode ein Zaehlwerk (`profile.stand_nr`); der Registrierungstest
+    haelt fest, dass keine Schreibmethode fehlt.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        erg = fn(self, *args, **kwargs)
+        ok = erg[0] if isinstance(erg, tuple) and erg else erg
+        if ok:
+            try:
+                self._profil_stempeln()
+            except Exception as exc:  # nie das Schreiben selbst kippen
+                logger.debug("Profilstand nicht gestempelt: %s", exc)
+        return erg
+    wrapper._stempelt_profil = True
+    return wrapper
 
 
 class Database:
@@ -957,6 +985,26 @@ class Database:
                         "bleibt, Stellenart ist wieder sichtbar", _n_ign)
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
+
+        # #1389: Zaehlwerk fuer den Profilstand (additiv, kein Schema-Bump)
+        try:
+            conn.execute("SELECT stand_nr FROM profile LIMIT 1")
+        except Exception:
+            try:
+                conn.execute("ALTER TABLE profile ADD COLUMN stand_nr INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("Safety-Net: profile.stand_nr nachgezogen (#1389)")
+            except Exception:
+                pass
+
+        # #1382: Unterlagen, die nur als Pfad an der Bewerbung stehen
+        # (cv_path/cover_letter_path), als Dokument der Bewerbung nachziehen.
+        # Additiv und idempotent; kein Schema-Bump.
+        try:
+            from .services import unterlagen as _unterlagen
+            _unterlagen.altbestand_nachziehen(self)
+        except Exception as e:
+            logger.warning("Unterlagen-Nachzug (#1382): %s", e)
 
         # v1.7.113 (#1053): eine Spur fuer die Scoring-Regler. Zeitpunkt der
         # letzten Aenderung, Vorgaengerwert und Begruendung an der Zeile,
@@ -1828,7 +1876,7 @@ class Database:
             """)
             # Pre-populate with standard reasons
             from datetime import datetime as _dt
-            _now_str = _dt.now().isoformat()
+            _now_str = _uhr.jetzt()
             _standard = [
                 "zu_weit_entfernt", "gehalt_zu_niedrig", "falsches_fachgebiet",
                 "zu_junior", "zu_senior", "unpassendes_arbeitsmodell",
@@ -3612,6 +3660,17 @@ class Database:
             positions.append(pos)
         return positions
 
+    def _profil_stempeln(self, profile_id: str = None) -> None:
+        """Erhoeht den Stand-Zaehler des Profils (#1389)."""
+        conn = self.connect()
+        if profile_id:
+            conn.execute("UPDATE profile SET stand_nr=COALESCE(stand_nr,0)+1 WHERE id=?",
+                         (profile_id,))
+        else:
+            conn.execute("UPDATE profile SET stand_nr=COALESCE(stand_nr,0)+1 WHERE is_active=1")
+        conn.commit()
+
+    @_stempelt_profil
     def add_position(self, data: dict) -> str:
         conn = self.connect()
         pid = _gen_id()
@@ -3633,6 +3692,7 @@ class Database:
         conn.commit()
         return pid
 
+    @_stempelt_profil
     def add_project(self, position_id: str, data: dict) -> str:
         conn = self.connect()
         pid = _gen_id()
@@ -3654,6 +3714,7 @@ class Database:
         conn.commit()
         return pid
 
+    @_stempelt_profil
     def update_project(self, project_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["name", "description", "role", "situation", "task",
@@ -3676,6 +3737,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def delete_project(self, project_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         query = "DELETE FROM projects WHERE id = ?"
@@ -3687,6 +3749,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def update_position(self, position_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["company", "title", "location", "start_date", "end_date",
@@ -3708,6 +3771,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def update_education(self, education_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["institution", "degree", "field_of_study", "start_date",
@@ -3728,6 +3792,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def update_skill(self, skill_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         # #511: start_year, end_year, level_current dazu
@@ -3749,6 +3814,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def delete_position(self, position_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         # Projects are deleted automatically via ON DELETE CASCADE
@@ -3774,6 +3840,7 @@ class Database:
             "SELECT * FROM education ORDER BY end_date DESC"
         ).fetchall()]
 
+    @_stempelt_profil
     def add_education(self, data: dict) -> str:
         conn = self.connect()
         eid = _gen_id()
@@ -3791,6 +3858,7 @@ class Database:
         conn.commit()
         return eid
 
+    @_stempelt_profil
     def delete_education(self, education_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         query = "DELETE FROM education WHERE id = ?"
@@ -3972,6 +4040,7 @@ class Database:
             (pid, sauber)).fetchone()
         return dict(row) if row else None
 
+    @_stempelt_profil
     def add_skill_mit_befund(self, data: dict,
                              quelle: str = "extraktion") -> tuple:
         """Wie `add_skill`, liefert aber `(id, grund)` (#1073).
@@ -4032,6 +4101,7 @@ class Database:
         conn.commit()
         return sid, None
 
+    @_stempelt_profil
     def delete_skill(self, skill_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         query = "DELETE FROM skills WHERE id = ?"
@@ -4432,6 +4502,7 @@ class Database:
 
     # === Skill-Zeitraeume (v1.7.0 #572) ===
 
+    @_stempelt_profil
     def add_skill_period(self, skill_id: str, start_year: int = None,
                           end_year: int = None, level: int = None,
                           notes: str = "") -> str:
@@ -4457,6 +4528,7 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    @_stempelt_profil
     def delete_skill_period(self, period_id: str) -> bool:
         conn = self.connect()
         cur = conn.execute("DELETE FROM skill_periods WHERE id=?", (period_id,))
@@ -6887,17 +6959,15 @@ class Database:
         apps = []
         for row in rows:
             app = dict(row)
-            app["events"] = [dict(e) for e in conn.execute(
+            # #1386: nach ZEITPUNKT ordnen, nicht nach Text - gespeichert sind
+            # UTC mit Zone und (Altbestand) Ortszeit ohne Zone nebeneinander.
+            app["events"] = _uhr.nach_zeit([dict(e) for e in conn.execute(
                 "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
                 (row["id"],)
-            ).fetchall()]
-            # Last note excerpt for list display (#88)
-            last_note_row = conn.execute(
-                "SELECT notes FROM application_events "
-                "WHERE application_id=? AND status='notiz' ORDER BY event_date DESC LIMIT 1",
-                (row["id"],)
-            ).fetchone()
-            app["last_note"] = last_note_row["notes"] if last_note_row else None
+            ).fetchall()])
+            # Last note excerpt for list display (#88): die NEUESTE Notiz
+            notizen = [e for e in app["events"] if e.get("status") == "notiz"]
+            app["last_note"] = notizen[-1].get("notes") if notizen else None
             # Document count for list display (#77)
             doc_count_row = conn.execute(
                 "SELECT COUNT(*) FROM documents WHERE linked_application_id=?",
@@ -7350,10 +7420,10 @@ class Database:
         if not row:
             return None
         app = dict(row)
-        app["events"] = [dict(e) for e in conn.execute(
+        app["events"] = _uhr.nach_zeit([dict(e) for e in conn.execute(
             "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
             (app_id,)
-        ).fetchall()]
+        ).fetchall()])
         # v1.7.0-beta.32 (#588): description_snapshot ist die Source-of-Truth
         # fuer die wortgetreue Stellenanzeige (read-mostly, eingefroren bei
         # Anlage). Nur als Fallback auf jobs.description zugreifen wenn der
@@ -13479,7 +13549,7 @@ def _bewerbung_archiv() -> tuple:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return _uhr.jetzt()
 
 
 def _make_score_buckets(max_score: int, num_buckets: int = 6) -> list[tuple]:
