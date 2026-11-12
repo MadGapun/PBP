@@ -1424,7 +1424,7 @@ export default function JobsPage() {
         description: "Die Suche ist veraltet oder noch nie gelaufen. Neue Treffer bringen jetzt mehr als noch feinere Filter.",
         // #1049: der interne Lauf — "Jobsuche starten" hiess auch die
         // Prompt-Karte, die Claude beauftragt.
-        actionLabel: "Interne Jobsuche starten",
+        actionLabel: "Jobsuche in PBP starten",
         action: () => startJobsuche(),
       };
     }
@@ -2351,7 +2351,7 @@ export default function JobsPage() {
                   <Button onClick={() => navigateTo("suche")}>Suchbegriffe öffnen</Button>
                   <Button variant="secondary" onClick={() => startJobsuche()}>
                     <Search size={15} />
-                    Interne Jobsuche starten
+                    Jobsuche in PBP starten
                   </Button>
                 </div>
               ) : null}

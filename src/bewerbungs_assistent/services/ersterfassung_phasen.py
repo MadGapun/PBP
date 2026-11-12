@@ -44,6 +44,9 @@ Arbeite dich organisch durch, was fehlt; speichere sofort.
 - Jobtitel: 5-10 realistische Titel (deutsch und englisch) vorschlagen,
   freigeben lassen, jobtitel_speichern(titel=[...]).
 Nach jedem Bereich: erfassung_fortschritt_speichern(bereich=...).
+Ein Bereich, der noch offen bleiben soll (z. B. weitere Stationen folgen),
+wird mit abgeschlossen=False gespeichert und bleibt offen, auch wenn schon
+Einträge da sind; erst abgeschlossen=True macht ihn wieder erledigt.
 """
 
 REVIEW = """PHASE 4: REVIEW
@@ -98,14 +101,26 @@ def _bestaetigt(fortschritt: dict, bereich: str) -> bool:
     return fortschritt.get(bereich) is True
 
 
-def stand(profile: dict | None, fortschritt: dict | None = None) -> dict:
+def _ausdruecklich_offen(fortschritt: dict, bereich: str) -> bool:
+    """Der Bereich wurde ausdruecklich als NICHT abgeschlossen gespeichert (#1375)."""
+    return fortschritt.get(bereich) is False
+
+
+def stand(profile: dict | None, fortschritt: dict | None = None,
+          offen_beachten: bool = True) -> dict:
     """Welche Bereiche erledigt sind.
 
     #1108: ein Bereich ist erledigt, wenn er Daten hat ODER ausdruecklich
     bestaetigt wurde (`erfassung_fortschritt_speichern(bereich,
     abgeschlossen=True)`). Ohne das kam, wer keine Berufserfahrung oder
     keinen Abschluss hat, nie zum Abschluss. Dashboard und Ersterfassung
-    lesen diese eine Regel."""
+    lesen diese eine Regel.
+
+    #1375: ein ausdruecklich gespeichertes `abgeschlossen=False` schlaegt
+    "hat Daten" (Setter und Leser). Der Weg zurueck ist
+    `abgeschlossen=True`. `offen_beachten=False` gilt fuer die
+    Profilvollstaendigkeit: sie fragt, ob Angaben da sind, nicht, ob die
+    Erfassung weitergehen soll."""
     if not profile:
         return {b: False for b in BEREICHE}
     fortschritt = fortschritt if fortschritt is not None else (profile.get("erfassung_fortschritt") or {})
@@ -132,6 +147,9 @@ def stand(profile: dict | None, fortschritt: dict | None = None) -> dict:
         "praeferenzen": bool(prefs.get("stellentyp")),
         "review_abgeschlossen": False,
     }
+    if offen_beachten:
+        return {b: False if _ausdruecklich_offen(fortschritt, b)
+                else (bool(daten[b]) or _bestaetigt(fortschritt, b)) for b in BEREICHE}
     return {b: bool(daten[b]) or _bestaetigt(fortschritt, b) for b in BEREICHE}
 
 

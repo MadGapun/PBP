@@ -21,6 +21,11 @@ const CONVERSATION_COMMAND = "/ersterfassung";
 const JOB_WORKFLOW_COMMAND = "/jobsuche_workflow";
 const CONVERSATION_STATE = { IDLE: "idle", ACTIVE: "active", COMPLETE: "complete" };
 
+// #1376: ein ungültiger oder fremder Wert gilt als "nichts gemerkt" (der erste unvollständige Schritt entscheidet).
+function normalizeStepId(value) {
+  return STEP_IDS.includes(value) ? value : null;
+}
+
 function normalizeConversationState(value) {
   return Object.values(CONVERSATION_STATE).includes(value) ? value : CONVERSATION_STATE.IDLE;
 }
@@ -114,6 +119,9 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
 
   const knownFacts = useMemo(() => getKnownProfileFacts(profile), [profile]);
   const conversationPreferenceKey = profile?.id ? `profile_onboarding_conversation_${profile.id}` : "";
+  // #1376: der erreichte Schritt je Profil, damit ein Neuladen nicht wieder bei Schritt 1 beginnt.
+  const stepPreferenceKey = profile?.id ? `profile_onboarding_step_${profile.id}` : "";
+  const stepGeladenRef = useRef("");
 
   const documentCount = profile?.documents?.length || 0;
   const applicationCount = workspace?.applications?.total || 0;
@@ -183,11 +191,16 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       return;
     }
     try {
-      const [sourceRows, activeJobs, conversationPreference] = await Promise.all([
+      const [sourceRows, activeJobs, conversationPreference, stepPreference] = await Promise.all([
         api("/api/sources"),
         api("/api/jobs?active=true"),
         api(`/api/user-preferences/${conversationPreferenceKey}`),
+        // Kein Schritt gemerkt oder nicht lesbar: dann beginnt es wie bisher.
+        api(`/api/user-preferences/${stepPreferenceKey}`).catch(() => null),
       ]);
+      const gemerkterSchritt = normalizeStepId(stepPreference?.value);
+      stepGeladenRef.current = stepPreferenceKey;
+      if (gemerkterSchritt) setActiveStep(gemerkterSchritt);
       const normalizedJobs = Array.isArray(activeJobs) ? activeJobs : [];
       const normalizedConversationState = normalizeConversationState(conversationPreference?.value);
       conversationStartedToastShownRef.current =
@@ -211,6 +224,13 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     setLoadingSupplemental(true);
     loadSupplemental();
   }, [open, profile?.id]);
+
+  // #1376: den erreichten Schritt merken — erst, wenn der gemerkte gelesen ist, sonst überschreibt der Anfangswert ihn.
+  useEffect(() => {
+    if (!open || !stepPreferenceKey || stepGeladenRef.current !== stepPreferenceKey) return;
+    if (!STEP_IDS.includes(activeStep)) return;
+    postJson(`/api/user-preferences/${stepPreferenceKey}`, { value: activeStep }).catch(() => {});
+  }, [open, activeStep, stepPreferenceKey]);
 
   useEffect(() => {
     if (!open) return;

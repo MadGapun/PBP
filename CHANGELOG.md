@@ -42,6 +42,101 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.6] - 2026-11-12 — Jobsuche: Karte, Hinweis und Claude sagen dasselbe; „offen“ hält; die Einrichtung merkt sich, wo du warst
+
+<!-- anwender -->
+Karte „Nächster sinnvoller Schritt“, Hinweis-Banner und Claude nennen jetzt dieselbe Lage der Jobsuche und das wirkliche Alter der letzten Suche.
+Der Knopf dazu heißt überall „Jobsuche in PBP starten“; der Weg über Claude steht daneben.
+Ein Bereich der Ersterfassung, den du ausdrücklich offen lässt, bleibt offen, auch wenn er schon Einträge hat.
+Lädst du die Einrichtung neu, geht sie an dem Schritt weiter, den du zuletzt erreicht hattest.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts.
+
+**Neu und behoben (kurz)**
+
+- Jobsuche: Claude sagt nicht mehr „älter als eine Woche“, wenn gestern gesucht wurde, sondern nennt das Alter („gestern“, „vor 7 Tagen“).
+- Karte und Hinweis auf dem Dashboard melden die Suche ab derselben Grenze (7 Tage oder noch nie gesucht); der Hauptknopf ist in beiden „Jobsuche in PBP starten“.
+- Ersterfassung: „Bereich noch nicht abgeschlossen“ (`abgeschlossen=False`) wirkt jetzt, auch nach einem Lebenslauf-Import.
+- Einrichtungsdialog: merkt sich den erreichten Schritt je Profil und beginnt nach dem Neuladen nicht mehr bei Schritt 1.
+
+### Fixed
+
+- **Claude nannte das falsche Alter der Suche** (#1371, Punkt 1): `naechster_schritt` sagte „Die letzte Suche ist älter als eine Woche“, sobald die Stufe
+  „Jobsuche erneuern“ galt — und die galt schon einen Tag nach der Suche. Der Satz nennt jetzt das Alter aus dem Suchstatus („war heute“, „war gestern“,
+  „war vor N Tagen“); „noch keine Suche“ bleibt ein eigener Satz.
+- **Karte und Banner widersprachen sich** (#1371, Punkt 2): die Karte meldete „Jobsuche erneuern“ ab dem nächsten Tag, der Banner erst nach sieben.
+  Jetzt gilt EINE Grenze, `SUCHE_DRINGEND_NACH_TAGEN = 7` in `services/search_service.py`: Karte, Zählung der offenen Dinge und Banner lesen den Status
+  „nie“ oder „dringend“ vom Server; der Banner rechnet nur noch ohne Status selbst. Eine Suche von gestern ist kein Anlass für eine Meldung mehr.
+- **Zwei verschiedene Knöpfe für dieselbe Lage** (#1371, Punkt 3): Karte und Banner bieten als Hauptaktion „Jobsuche in PBP starten“ an, der Weg über Claude
+  („Jobsuche mit Claude“, kopiert den Prompt) steht als zweiter Knopf daneben.
+- **`abgeschlossen=False` blieb ohne Wirkung** (#1375): `stand()` wertete einen Bereich als erledigt, sobald er Daten hatte; nach einem Lebenslauf-Import
+  hatte jeder Bereich Daten, und die Phase sprang sofort auf „review“. Ein ausdrücklich gespeichertes `False` schlägt jetzt „hat Daten“ (Setter und Leser);
+  der Weg zurück ist `abgeschlossen=True`. Die Antwort des Werkzeugs sagt, dass der Bereich offen bleibt und wie er wieder geschlossen wird, der Phasentext
+  nennt es ebenfalls. Die Profilvollständigkeit zählt weiter nach vorhandenen Angaben (sie sinkt nicht wegen eines offenen Bereichs).
+- **Einrichtungsdialog begann nach dem Neuladen wieder bei Schritt 1** (#1376, Teil „aktiver Schritt wird gemerkt“): der erreichte Schritt steht je Profil
+  in den Einstellungen des Nutzers (`profile_onboarding_step_<Profil>`); ein ungültiger oder fremder Wert fällt auf den ersten unvollständigen Schritt zurück.
+
+### Changed
+
+- Der Wortlaut „Interne Jobsuche starten“ heißt überall „Jobsuche in PBP starten“ (Dashboard, Stellen-Seite, Hilfe, Menüpfad in den Claude-Texten).
+- Gegenprobe: die alte Formulierung des Satzes für Claude wieder eingesetzt – 10 neue Tests rot; die Banner-Grenze verfälscht – der Vergleich „Karte gleich
+  Banner“ rot; `abgeschlossen=False` wieder wirkungslos gemacht – 2 Tests rot; das Lesen des gemerkten Schritts ausgebaut – der Browser-Test rot.
+- Offen und nicht in dieser Fassung: #1376 lässt noch zwei Teile offen (der Dialog bleibt zu, wenn er schon einmal durchlaufen wurde; Escape schließt ihn nicht –
+  eine Produktentscheidung, sie fällt mit #1369); der grundsätzliche Umbau der Suchhinweise (zwei Stufen) steht in #1364.
+
+*Schema v52 (unverändert), 283 MCP-Werkzeuge, 10408 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.6.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.6.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.6 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.6` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.5] - 2026-11-10 — Einladung richtig beantwortet, Sicherung mit Leseprobe, Zurückschalten fragt nach
 
 <!-- anwender -->
