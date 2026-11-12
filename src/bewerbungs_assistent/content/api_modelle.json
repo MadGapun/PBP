@@ -1,0 +1,28 @@
+{
+  "stand": "2026-10-16",
+  "quelle": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "hinweis": "Preise in US-Dollar je Million Tokens (Eingabe / Ausgabe), nach der Preisseite von Anthropic am Stand-Datum, bis 100.000 Tokens Eingabe je Anfrage. Maßgeblich ist immer die Abrechnung bei Anthropic. PBP hält Eingaben weit unter dieser Grenze. Ein Modell, das hier fehlt oder ohne Preis steht, nutzt PBP nicht: ohne Preis lässt sich das Budget nicht einhalten.",
+  "denken_erklaerung": {
+    "aus": "thinking = {type: disabled}: das Modell antwortet ohne Denkphase (Haiku 5.5)",
+    "zwischen_werkzeugen": "thinking = {type: between_tools}: niedrigste Stufe, die dieses Modell erlaubt (Sonnet 5.5)",
+    "adaptiv": "thinking wird nicht gesendet: das Modell entscheidet selbst, wie viel es denkt (Denk-Tokens zählen zu max_tokens)"
+  },
+  "modelle": [
+    {
+      "id": "claude-haiku-5-5",
+      "name": "Claude Haiku 5.5",
+      "eingabe_usd_je_mtok": "0.10",
+      "ausgabe_usd_je_mtok": "0.50",
+      "denken": "aus",
+      "empfehlung": "Das günstigste Modell und die Vorgabe: für Einordnen und Prüfen in großer Zahl gebaut."
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "name": "Claude Sonnet 5.5",
+      "eingabe_usd_je_mtok": "2.00",
+      "ausgabe_usd_je_mtok": "10.00",
+      "denken": "zwischen_werkzeugen",
+      "empfehlung": "Etwa zwanzigmal so teuer wie Haiku; sinnvoll nur, wenn die Messprobe zeigt, dass Haiku zu oft danebenliegt."
+    }
+  ]
+}
