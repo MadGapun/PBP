@@ -42,6 +42,24 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## Unveröffentlicht (main, nach 1.8.6) — Funde aus dem Videodreh Folge 5 und 6
+
+### Für dich als Anwender
+- **Unterlagen, die Claude erstellt, hängen jetzt wirklich an der Bewerbung.** Lebenslauf und Anschreiben erscheinen im Dialog der Bewerbung unter „Dokumente“ und liegen im ZIP-Paket. Bewerbungen, bei denen die Dateien bisher nur als Pfad vermerkt waren, werden beim nächsten Start einmal nachgezogen (#1382).
+- **Eine Datei heißt nicht mehr „Vorlage“, nur weil im Namen „Muster…“ steht.** Dateinamen werden an Wortgrenzen gelesen; „Lebenslauf_Max_Mustermann.docx“ ist ein Lebenslauf (#1383, #1378).
+- **Eine Zahl für die Punkte.** Die Empfehlung in der Fit-Analyse nennt dieselben Punkte wie Liste und Karte; die Zahl ohne deine Begriffs-Regler steht getrennt und ist benannt (#1388).
+- **Die nächsten Schritte kennen den Stand.** Ist die Stelle bewertet, die Unterlagen da oder die Nachfass-Erinnerung gesetzt, fragt PBP nicht noch einmal danach und sagt, was schon erledigt ist (#1387).
+- **Die Lücken-Analyse meldet keine Fähigkeiten mehr als fehlend, die in deinem Profil stehen** (Stationen, Aufgaben, Projekte, Abkürzungen wie AV) (#1390).
+- **Die Lebenslauf-Bewertung widerspricht sich nicht mehr:** messbare Ergebnisse aus Stationen und Projekten, Führung auch aus den Aufgaben, keine Füllwörter und Firmennamen unter den fehlenden Begriffen (#1385).
+- **Der angepasste Lebenslauf bleibt umgekehrt chronologisch;** angepasst werden die Reihenfolge innerhalb einer Station und die Kenntnisse. Das Etikett heißt „Führung“ (#1384).
+- **Der Verlauf einer Bewerbung steht in der richtigen Reihenfolge,** „Letzte Notiz“ zeigt die neueste (#1386).
+- **Neue Zeiträume einer Kompetenz machen eine gespeicherte Bewertung als veraltet kenntlich** (#1389).
+
+### Technik
+- `services/unterlagen.py` (eine Funktion für das Registrieren, Altbestand im Safety-Net), `services/profil_begriffe.py` (Profil-Vokabular und Abkürzungen für `skill_gap_analyse` und `lebenslauf_bewerten`), `services/uhr.py` (`jetzt()`, `zeitpunkt()`, `nach_zeit()`), `bewerbung_stand.erledigtes_streichen`, Dekorator `_stempelt_profil` mit Spalte `profile.stand_nr` (additiv, kein Schema-Bump).
+- Prüfskript `ui_texte_pruefen.py` liest jetzt auch `export.py`.
+- Wächter: `test_v187_zeitstempel_1386.py` (keine neue Stelle mit Ortszeit ohne Zone), `test_v187_profilstand_1389.py` (jede Profil-Schreibmethode stempelt).
+
 ## [1.8.6] - 2026-11-12 — Jobsuche: Karte, Hinweis und Claude sagen dasselbe; „offen“ hält; die Einrichtung merkt sich, wo du warst
 
 <!-- anwender -->
