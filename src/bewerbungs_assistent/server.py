@@ -11,6 +11,9 @@ import json
 import threading
 import logging
 import functools
+import time
+
+_PROZESS_START = time.monotonic()  # #1393: Zeit seit Beginn des Imports
 
 from fastmcp import FastMCP
 
@@ -303,6 +306,42 @@ _werkzeug_katalog.sichtbarkeit_anwenden(mcp, _werkzeug_katalog.beim_start_sichtb
 # Server runner
 # ============================================================
 
+#: Wie lange ein Prozess auf die erste Antwort seines Webteils wartet, bevor er selbst meldet, dass er haengt (#1393).
+DASHBOARD_BEREIT_FRIST_S = 90.0
+
+
+def dashboard_bereit_melden(port: int, *, warte=None, frist: float = DASHBOARD_BEREIT_FRIST_S) -> bool:
+    """Wartet auf die erste Antwort von /api/health und meldet das Ergebnis ins Log (#1393).
+
+    Am 16.11.2026 meldete ein Prozess das Dashboard als gestartet, obwohl es ueber
+    80 s nicht antwortete. Jetzt steht "gestartet" erst nach einer Antwort (mit der
+    Zeit), sonst eine Warnung, dass der Webteil haengt. True/False fuer Tests.
+    """
+    if warte is None:
+        from .services.browser_oeffnen import warte_bis_bereit
+        warte = lambda p, f: warte_bis_bereit(p, frist=f)  # noqa: E731
+    t0 = time.monotonic()
+    try:
+        antwortet = bool(warte(port, frist))
+    except Exception as exc:  # noqa: BLE001 — die Meldung darf nie etwas stoeren
+        logger.warning("Dashboard-Bereitschaft nicht pruefbar: %s", exc)
+        return False
+    dauer = time.monotonic() - t0
+    if antwortet:
+        logger.info("Web Dashboard gestartet auf http://localhost:%d — /api/health antwortet nach %.1f s "
+                    "(Prozess seit %.0f s)", port, dauer, time.monotonic() - _PROZESS_START)
+    else:
+        logger.warning("Web Dashboard: Port %d ist gebunden, /api/health antwortet nach %.0f s nicht — der "
+                       "Webteil dieses Prozesses haengt (siehe #1290).", port, dauer)
+    return antwortet
+
+
+def _bereit_melden_starten(port: int) -> threading.Thread:
+    t = threading.Thread(target=dashboard_bereit_melden, args=(port,), daemon=True, name="dashboard-bereit")
+    t.start()
+    return t
+
+
 def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
     """Startet das Dashboard als Thread dieses Prozesses — und mit ihm den Planer.
 
@@ -362,7 +401,9 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
     dashboard_server = uvicorn.Server(config)
     dashboard_thread = threading.Thread(target=dashboard_server.run, daemon=True)
     dashboard_thread.start()
-    logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
+    # #1393: "gestartet" erst, wenn /api/health antwortet (Thread, blockiert nichts).
+    logger.info("Web Dashboard wird gestartet auf http://localhost:%d", dash_port)
+    _bereit_melden_starten(dash_port)
     dashboard_halter.setzen(dashboard_halter.EIGENER, port=dash_port, server=dashboard_server)
 
     try:
