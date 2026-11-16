@@ -14,6 +14,7 @@ import logging
 import re
 
 from . import make_session, stelle_hash
+from .stichwort_abgleich import passt as _passt
 from .satzweise import text_aus, zuordnen
 from .textgrenzen import fuer_speicher
 from . import rohtreffer
@@ -38,7 +39,7 @@ def _matches(title: str, tags: str, desc: str, keywords: list) -> bool:
     if not keywords:
         return True
     haystack = f"{title} {tags} {desc[:1500]}".lower()
-    return any(kw.lower().strip() in haystack for kw in keywords)
+    return _passt(keywords, title, tags, desc[:1500], quelle="remoteok")
 
 
 def _map(job: dict) -> dict | None:

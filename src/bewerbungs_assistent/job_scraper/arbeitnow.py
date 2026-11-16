@@ -28,6 +28,7 @@ import httpx
 from . import detect_remote_level, stelle_hash, make_session
 from .textgrenzen import fuer_speicher
 from . import rohtreffer
+from .stichwort_abgleich import passt as _passt
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.arbeitnow")
 
@@ -57,8 +58,13 @@ def _matches(job: dict, keywords: list[str], region: str | None) -> bool:
     tags = " ".join(job.get("tags") or []).lower()
     haystack = f"{title} {company} {desc} {tags}"
 
+    # #1394: Wortgrenzen statt Teilwort ("ECO" steckt in "economy"); die
+    # Firma zaehlt nicht mit. Die Gross-/Kleinschreibung kommt aus dem
+    # Originaltext (kurze Begriffe zaehlen im Fliesstext nur grossgeschrieben).
     if keywords:
-        if not any(kw.lower().strip() in haystack for kw in keywords):
+        if not _passt(keywords, job.get("title") or "",
+                      " ".join(job.get("tags") or []),
+                      job.get("description") or "", quelle="arbeitnow"):
             return False
 
     if region:
@@ -109,12 +115,13 @@ def _map(job: dict) -> dict:
     }
 
 
-def _fetch_page(client: httpx.Client, search: str | None, page: int) -> dict[str, Any]:
-    """Holt eine einzelne Seite vom Arbeitnow-API."""
-    params = {"page": page}
-    if search:
-        params["search"] = search
-    r = client.get(_BASE, params=params)
+def _fetch_page(client: httpx.Client, page: int) -> dict[str, Any]:
+    """Holt eine einzelne Seite vom Arbeitnow-API.
+
+    #1394: kein ``search``-Parameter — die API wertet ihn nicht aus (300
+    Ergebnisse mit und ohne, gemessen 16.11.2026). Gefiltert wird lokal.
+    """
+    r = client.get(_BASE, params={"page": page})
     r.raise_for_status()
     return r.json()
 
@@ -123,10 +130,10 @@ def search_arbeitnow(params: dict) -> list[dict]:
     """Sucht Stellen ueber arbeitnow.com.
 
     Strategie:
-        1. Erstes Keyword als ``search``-Parameter an die API geben.
-        2. Bis zu ``_MAX_PAGES`` Seiten ziehen.
-        3. Clientseitig nach allen Keywords und der ersten Wunschregion
-           filtern.
+        1. Bis zu ``_MAX_PAGES`` Seiten des allgemeinen Feeds ziehen
+           (die API hat keine wirksame Suche, #1394).
+        2. Clientseitig nach allen Keywords (Wortgrenzen) und der ersten
+           Wunschregion filtern.
     """
     kw_data = params.get("keywords", {})
     if isinstance(kw_data, dict):
@@ -137,7 +144,6 @@ def search_arbeitnow(params: dict) -> list[dict]:
         regionen = []
 
     region = regionen[0] if regionen else None
-    primary = keywords[0] if keywords else None
 
     jobs: list[dict] = []
     seen_slugs: set[str] = set()
@@ -148,7 +154,7 @@ def search_arbeitnow(params: dict) -> list[dict]:
         with make_session(content_type="json", timeout=15) as client:
             for page in range(1, _MAX_PAGES + 1):
                 try:
-                    data = _fetch_page(client, primary, page)
+                    data = _fetch_page(client, page)
                 except httpx.HTTPStatusError as exc:
                     logger.warning("Arbeitnow HTTP %s auf Seite %d", exc.response.status_code, page)
                     break
