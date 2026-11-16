@@ -1002,12 +1002,15 @@ class Database:
         # Additiv und idempotent; kein Schema-Bump. Nur EINMAL: wer ein so
         # angelegtes Dokument spaeter loescht, soll es nicht beim naechsten
         # Start zurueckbekommen (die Pfade stehen ja weiter an der Bewerbung).
-        # Neue Unterlagen kommen ueber bewerbung_bearbeiten.
+        # Neue Unterlagen kommen ueber bewerbung_bearbeiten. Der Vermerk steht
+        # in `settings` und endet auf `_nachgezogen`: ein Vermerk des Programms
+        # (loeschbereiche._VORGABEN), keine Einstellung des Menschen - eine
+        # frische Installation zaehlt ihn nicht als Daten (#1170 U9).
         try:
-            if not self.get_user_preference("unterlagen_nachzug_1382", False):
+            if not self.get_setting("unterlagen_1382_nachgezogen", False):
                 from .services import unterlagen as _unterlagen
                 _unterlagen.altbestand_nachziehen(self)
-                self.set_user_preference("unterlagen_nachzug_1382", True)
+                self.set_setting("unterlagen_1382_nachgezogen", True)
         except Exception as e:
             logger.warning("Unterlagen-Nachzug (#1382): %s", e)
 
