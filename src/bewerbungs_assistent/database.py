@@ -999,10 +999,15 @@ class Database:
 
         # #1382: Unterlagen, die nur als Pfad an der Bewerbung stehen
         # (cv_path/cover_letter_path), als Dokument der Bewerbung nachziehen.
-        # Additiv und idempotent; kein Schema-Bump.
+        # Additiv und idempotent; kein Schema-Bump. Nur EINMAL: wer ein so
+        # angelegtes Dokument spaeter loescht, soll es nicht beim naechsten
+        # Start zurueckbekommen (die Pfade stehen ja weiter an der Bewerbung).
+        # Neue Unterlagen kommen ueber bewerbung_bearbeiten.
         try:
-            from .services import unterlagen as _unterlagen
-            _unterlagen.altbestand_nachziehen(self)
+            if not self.get_user_preference("unterlagen_nachzug_1382", False):
+                from .services import unterlagen as _unterlagen
+                _unterlagen.altbestand_nachziehen(self)
+                self.set_user_preference("unterlagen_nachzug_1382", True)
         except Exception as e:
             logger.warning("Unterlagen-Nachzug (#1382): %s", e)
 

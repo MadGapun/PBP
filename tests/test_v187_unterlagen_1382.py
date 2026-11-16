@@ -120,9 +120,46 @@ def test_initialize_zieht_altbestand_nach(tmp_path):
     f = tmp_path / "cv.docx"
     f.write_bytes(b"x")
     db.update_application(aid, {"cv_path": str(f)})
+    # Bestand von vor dem Nachzug: der Merker ist noch nicht gesetzt.
+    db.set_user_preference("unterlagen_nachzug_1382", False)
     db.close()
     db2 = Database(db_path=tmp_path / "t.db")
     db2.initialize()
     assert len(db2.get_documents_for_application(aid)) == 1
     db2.close()
+    os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_geloeschtes_nachgezogenes_dokument_kommt_nicht_zurueck(tmp_path):
+    """#1382 (Review): der Nachzug laeuft einmal, nicht bei jedem Start."""
+    daten = tmp_path / "daten"
+    daten.mkdir()
+    os.environ["BA_DATA_DIR"] = str(daten)
+    from bewerbungs_assistent.database import Database
+    db = Database(db_path=daten / "t.db")
+    db.initialize()
+    assert str(daten) in str(db.db_path)
+    db.save_profile({"name": "Test Person"})
+    aid = db.add_application({"title": "A", "company": "Musterbetrieb GmbH", "status": "beworben"})
+    # Die Datei liegt AUSSERHALB des Datenordners (z. B. in "Dokumente"): PBP
+    # loescht nur den Eintrag, die Datei bleibt, der Pfad steht weiter an der Bewerbung.
+    extern = tmp_path / "extern"
+    extern.mkdir()
+    f = extern / "cv.docx"
+    f.write_bytes(b"x")
+    db.update_application(aid, {"cv_path": str(f)})
+    db.set_user_preference("unterlagen_nachzug_1382", False)  # Altbestand
+    db.close()
+    db2 = Database(db_path=daten / "t.db")
+    db2.initialize()
+    dokumente = db2.get_documents_for_application(aid)
+    assert len(dokumente) == 1
+    db2.delete_document(dokumente[0]["id"])
+    assert db2.get_documents_for_application(aid) == []
+    assert f.exists(), "Testannahme: die Datei ausserhalb des Datenordners bleibt liegen"
+    db2.close()
+    db3 = Database(db_path=daten / "t.db")
+    db3.initialize()
+    assert db3.get_documents_for_application(aid) == [], "ein geloeschtes Dokument darf nicht zurueckkommen"
+    db3.close()
     os.environ.pop("BA_DATA_DIR", None)
