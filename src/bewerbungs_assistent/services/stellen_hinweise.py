@@ -27,6 +27,7 @@ Abgrenzung: `google_alert` liest die Mail, `newsletter_service` ruft diesen Dien
 eine Google-Stelle unter Vorbehalt steht und liefert die Suchhilfe; hier steht nur die Liste der Hinweise.
 """
 from __future__ import annotations
+from . import uhr as _uhr
 
 import logging
 from datetime import datetime
@@ -118,7 +119,7 @@ def merken(db, treffer: list[dict], *, suchanfrage: str = "", quelle: str = "goo
     conn = db.connect()
     tabelle_anlegen(conn)
     pid = db.get_active_profile_id()
-    jetzt = datetime.now().isoformat(timespec="seconds")
+    jetzt = _uhr.jetzt()
     neu = bekannt = schon_stelle = 0
     index = None            # der Bestand, einmal je Lauf und erst, wenn ein Hinweis neu ist (#1203)
     for e in treffer:
@@ -210,7 +211,7 @@ def verwerfen(db, hinweis_id: str) -> bool:
     tabelle_anlegen(conn)
     cur = conn.execute(
         "UPDATE stellen_hinweise SET status='verworfen', aktualisiert_am=? WHERE id=? AND status='offen'",
-        (datetime.now().isoformat(timespec="seconds"), hinweis_id))
+        (_uhr.jetzt(), hinweis_id))
     conn.commit()
     return cur.rowcount > 0
 
@@ -220,7 +221,7 @@ def wiederherstellen(db, hinweis_id: str) -> bool:
     tabelle_anlegen(conn)
     cur = conn.execute(
         "UPDATE stellen_hinweise SET status='offen', aktualisiert_am=? WHERE id=? AND status='verworfen'",
-        (datetime.now().isoformat(timespec="seconds"), hinweis_id))
+        (_uhr.jetzt(), hinweis_id))
     conn.commit()
     return cur.rowcount > 0
 
@@ -240,7 +241,7 @@ def als_angelegt(db, firma, titel, job_hash: str) -> int:
             "UPDATE stellen_hinweise SET status='angelegt', job_hash=?, aktualisiert_am=? "
             "WHERE (profile_id=? OR profile_id IS NULL) AND status!='angelegt' "
             "AND norm_hinweis(firma)=? AND norm_hinweis(titel)=?",
-            (job_hash, datetime.now().isoformat(timespec="seconds"), pid, _norm(firma), _norm(titel)))
+            (job_hash, _uhr.jetzt(), pid, _norm(firma), _norm(titel)))
         conn.commit()
         return cur.rowcount
     except Exception as exc:  # pragma: no cover - nie die Anlage kippen

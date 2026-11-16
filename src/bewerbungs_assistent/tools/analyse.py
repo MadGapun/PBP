@@ -429,10 +429,19 @@ def register(mcp, db, logger):
             required_skills[_label] = sum(_formen.values())
 
         # Classify skills
+        from ..services.profil_begriffe import Profilbegriffe
+        _belegt = Profilbegriffe(profile)
         matches = []
         gaps = []
         for skill, count in required_skills.most_common(50):
-            if skill in user_skills or any(skill in us for us in user_skills):
+            # #1390: dieselbe Prüfung wie `lebenslauf_bewerten` (#1385):
+            # ganze Wörter, Wortstämme, Abkürzungen in beide Richtungen,
+            # Titel, Aufgaben, Erfolge UND Projekte des Profils.
+            if not _belegt.ist_brauchbar(skill):
+                continue
+            if (skill in user_skills
+                    or (len(skill) >= 5 and any(skill in us for us in user_skills))
+                    or _belegt.ist_belegt(skill)):
                 matches.append({"skill": skill, "nachfrage": count})
             elif count >= 2 or (job_hash and count >= 1):
                 gaps.append({"skill": skill, "nachfrage": count})

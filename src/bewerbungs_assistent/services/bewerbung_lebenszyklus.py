@@ -17,6 +17,7 @@ angelegte Nachfassungen, das vorherige Bewerbungsdatum, die aussortierte
 Stelle und die veralteten Dokumente mit ihrem alten Zustand.
 """
 from __future__ import annotations
+from . import uhr as _uhr
 
 import hashlib
 import logging
@@ -298,7 +299,7 @@ def anlegen(db, daten: dict, force: bool = False) -> dict:
                 "location": "", "url": url, "source": detect_source_from_url(url),
                 "description": beschreibung, "score": 0, "is_pinned": True,
                 "remote_level": "unbekannt", "employment_type": "festanstellung",
-                "found_at": datetime.now().isoformat(),
+                "found_at": _uhr.jetzt(),
             }])
     job = db.get_job(job_hash) or {}
     snapshot = beschreibung or job.get("description") or ""
@@ -318,7 +319,7 @@ def anlegen(db, daten: dict, force: bool = False) -> dict:
         "ansprechpartner": ansprech, "kontakt_email": email,
         "source": job.get("source", "") or "",
         "description_snapshot": snapshot,
-        "snapshot_date": datetime.now().isoformat() if snapshot else "",
+        "snapshot_date": _uhr.jetzt() if snapshot else "",
         "endkunde": endkunde,
     })
 
@@ -336,7 +337,7 @@ def anlegen(db, daten: dict, force: bool = False) -> dict:
         conn = db.connect()
         conn.execute("INSERT INTO application_events (application_id, status, "
                      "event_date, notes) VALUES (?, 'notiz', ?, ?)",
-                     (aid, datetime.now().isoformat(), notes))
+                     (aid, _uhr.jetzt(), notes))
         conn.commit()
 
     stellen_notizen_uebernommen = 0

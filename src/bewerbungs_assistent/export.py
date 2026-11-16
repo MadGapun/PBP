@@ -5,6 +5,7 @@ Uses fpdf2 for PDF (pure Python, no system deps) and python-docx for DOCX.
 """
 
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -472,7 +473,7 @@ def generate_tailored_cv_docx(
             "fachlich": "Fachlich", "methodisch": "Methodisch",
             "soft_skill": "Soft Skills", "sprache": "Sprachen",
             "tool": "Tools & Software", "zertifizierung": "Zertifizierungen",
-            "fuehrung": "Fuehrung",
+            "fuehrung": "Führung",
         }
 
         def cat_relevance(cat_items):
@@ -498,12 +499,19 @@ def generate_tailored_cv_docx(
         doc.add_heading("Berufserfahrung", level=1)
         _add_section_line(doc)
 
-        def pos_relevance(pos):
-            pos_text = f"{pos.get('title', '')} {pos.get('tasks', '')} {pos.get('technologies', '')} {pos.get('achievements', '')}".lower()
-            hits = sum(1 for kw in job_keywords if kw in pos_text)
-            return -hits
+        # #1384: die Stationen bleiben umgekehrt chronologisch, wie sie im
+        # Profil stehen (neueste zuerst). Bis 1.8.5 sortierte die Zahl der
+        # Suchwort-Treffer sie um: eine Station von 2012 stand vor der
+        # aktuellen. Personaler lesen zeitlich; eine springende Reihenfolge
+        # wirkt wie Verschleierung. Die Anpassung wirkt INNERHALB einer
+        # Station (passende Aufgaben und Erfolge zuerst) und bei den
+        # Kenntnissen.
+        def zeilen_nach_treffern(text):
+            zeilen = [z.strip().lstrip("- ") for z in (text or "").splitlines()]
+            zeilen = [z for z in zeilen if z]
+            return sorted(zeilen, key=lambda z: -sum(1 for kw in job_keywords if kw in z.lower()))
 
-        sorted_positions = sorted(positions, key=pos_relevance)
+        sorted_positions = list(positions)
         overlaps = detect_position_overlaps(positions)
         pos_index_map = {id(p): i for i, p in enumerate(positions)}
 
@@ -537,21 +545,15 @@ def generate_tailored_cv_docx(
                 run_hint.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
 
             # Tasks as bullet points
-            if pos.get("tasks"):
-                for task in pos["tasks"].split("\n"):
-                    task = task.strip().lstrip("- ")
-                    if task:
-                        doc.add_paragraph(task, style="List Bullet")
+            for task in zeilen_nach_treffern(pos.get("tasks")):
+                doc.add_paragraph(task, style="List Bullet")
 
             # Achievements with arrow symbol for visual emphasis
-            if pos.get("achievements"):
-                for ach in pos["achievements"].split("\n"):
-                    ach = ach.strip().lstrip("- ")
-                    if ach:
-                        p = doc.add_paragraph(style="List Bullet")
-                        run = p.add_run(f"\u2192 {ach}")
-                        run.bold = True
-                        run.font.size = Pt(10)
+            for ach in zeilen_nach_treffern(pos.get("achievements")):
+                p = doc.add_paragraph(style="List Bullet")
+                run = p.add_run(f"→ {ach}")
+                run.bold = True
+                run.font.size = Pt(10)
 
             # Technologies
             if pos.get("technologies"):
@@ -634,7 +636,7 @@ def generate_tailored_cv_docx(
 
 def analyse_cv_perspectives(
     profile: dict, job_title: str, job_description: str,
-    weights: dict = None
+    weights: dict = None, firma: str = ""
 ) -> dict:
     """Analyse CV-job fit from 3 professional perspectives.
 
@@ -647,6 +649,9 @@ def analyse_cv_perspectives(
     weights = weights or {"personalberater": 0.33, "ats": 0.34, "recruiter": 0.33}
     job_text = f"{job_title} {job_description}".lower()
     job_words = set(w for w in re.findall(r'\b\w+\b', job_text) if len(w) > 2)
+    # #1385: Gross-/Kleinschreibung der Anzeige und der Firmenname gehen an die
+    # Auswertung der fehlenden Begriffe (Kürzel wie "AV" stehen nur gross da).
+    job_text_orig = f"{job_title}\n{job_description}"
 
     skills = profile.get("skills", [])
     positions = profile.get("positions", [])
@@ -656,7 +661,8 @@ def analyse_cv_perspectives(
     pb = _score_personalberater(profile, skills, positions, job_text, job_words)
 
     # --- ATS perspective ---
-    ats = _score_ats(profile, skills, positions, education, job_text, job_words)
+    ats = _score_ats(profile, skills, positions, education, job_text, job_words,
+                     job_text_orig=job_text_orig, firma=firma)
 
     # --- HR-RECRUITER perspective ---
     rec = _score_recruiter(profile, skills, positions, job_text, job_words)
@@ -682,6 +688,109 @@ def analyse_cv_perspectives(
         },
         "top_empfehlungen": _top_recommendations(pb, ats, rec),
     }
+
+
+# -- Messbare Ergebnisse und Führung: je EINE Funktion (#1385) -------------
+#
+# Die drei Blickwinkel von `lebenslauf_bewerten` widersprachen sich: die
+# Fachabteilung zählte "14 Projekte mit messbaren Ergebnissen", der ATS-Blick
+# sagte "Keine messbaren Erfolge", weil er Zahlen nur in den Stationen suchte
+# und "Mitarbeitende" nicht kannte. Und Führung wurde nur am Titel erkannt
+# ("Fertigungsmeister" mit 26 Mitarbeitenden in drei Schichten galt als
+# führungslos). Jede Frage hat jetzt eine Funktion, beide Blickwinkel rufen sie.
+
+_ZAHL_MIT_EINHEIT = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:%|\u20ac|k\b|\+|prozent|euro|mio\.?|mrd\.?|"
+    r"mitarbeitende[rn]?|mitarbeiter(?:innen|n)?|ma\b|personen|kolleg\w+|"
+    r"projekte?n?|jahre?n?|monate?n?|wochen|tage?n?|stunden|standorte?n?|"
+    r"l\u00e4nder|schichten|tonnen|st\u00fcck|linien|maschinen|anlagen)",
+    re.IGNORECASE)
+
+_PROJEKT_TEXTFELDER = ("description", "result", "action", "task", "situation")
+
+
+def messbare_ergebnisse(positions) -> dict:
+    """Wo im Lebenslauf messbare Ergebnisse stehen: Stationen UND Projekte.
+
+    Rückgabe: `zahlen` (Fundstellen mit Zahl und Einheit),
+    `projekte_mit_ergebnis` (Projekte mit eingetragenem Ergebnis),
+    `projekte_gesamt`.
+    """
+    zahlen: list[str] = []
+    mit_ergebnis = 0
+    gesamt = 0
+    for pos in positions or []:
+        text = f"{pos.get('achievements') or ''} {pos.get('tasks') or ''}"
+        zahlen += [m.group(0).strip() for m in _ZAHL_MIT_EINHEIT.finditer(text)]
+        for proj in pos.get("projects") or []:
+            gesamt += 1
+            if (proj.get("result") or "").strip():
+                mit_ergebnis += 1
+            ptext = " ".join(str(proj.get(f) or "") for f in _PROJEKT_TEXTFELDER)
+            zahlen += [m.group(0).strip() for m in _ZAHL_MIT_EINHEIT.finditer(ptext)]
+    return {"zahlen": zahlen, "projekte_mit_ergebnis": mit_ergebnis,
+            "projekte_gesamt": gesamt}
+
+
+#: Titel, die Führung bedeuten, wenn ein Wort DAMIT ENDET oder so heisst.
+_FUEHRUNG_ENDUNG = ("leiter", "leiterin", "leitung", "meister", "meisterin",
+                    "vorarbeiter", "vorarbeiterin", "polier", "manager",
+                    "managerin", "direktor", "direktorin", "vorstand",
+                    "geschaeftsfuehrer", "gesch\u00e4ftsf\u00fchrer",
+                    "gesch\u00e4ftsf\u00fchrerin")
+_FUEHRUNG_WORT = frozenset({"lead", "head", "director", "principal", "vp",
+                            "chief", "cto", "ceo", "coo", "cfo", "senior",
+                            "architekt", "schichtf\u00fchrer", "schichtfuehrer",
+                            "vorgesetzter", "teamlead"})
+_FUEHRUNG_TEXT = re.compile(
+    r"personalverantwortung|disziplinarisch|f\u00fchrungsverantwortung|"
+    r"fuehrungsverantwortung|\bf\u00fchrung\b|\bfuehrung\b|"
+    r"\b(?:leitete|f\u00fchrte|fuehrte)\b|\bleitung\s+(?:von|des|der|eines)\b|"
+    r"\d+\s*(?:mitarbeitende[rn]?|mitarbeiter(?:innen|n)?|ma\b|personen|kolleg\w+)",
+    re.IGNORECASE)
+
+
+def fuehrung_erkennbar(positions) -> str:
+    """Woran Führung im Lebenslauf zu erkennen ist ('' = nicht erkennbar).
+
+    Aus dem Titel ODER aus Aufgaben, Erfolgen und Beschreibung
+    (Personalverantwortung, "26 Mitarbeitende").
+    """
+    for pos in positions or []:
+        titel = str(pos.get("title") or "").lower()
+        for w in re.findall(r"[a-z\u00e4\u00f6\u00fc\u00df]+", titel):
+            if w in _FUEHRUNG_WORT or w.endswith(_FUEHRUNG_ENDUNG):
+                return f"Titel: {pos.get('title')}"
+        text = " ".join(str(pos.get(f) or "") for f in ("tasks", "achievements", "description"))
+        m = _FUEHRUNG_TEXT.search(text)
+        if m:
+            return f"Aufgaben: {m.group(0).strip()}"
+    return ""
+
+
+def fehlende_begriffe(profile: dict, job_text_orig: str, firma: str = "",
+                      grenze: int = 15) -> list[str]:
+    """Begriffe der Anzeige, die im Profil nicht belegt sind (#1385).
+
+    Dieselbe Begriffslogik wie `skill_gap_analyse` (#1390): Begriffe zieht
+    `stellen_skills.extrahiere_skills` aus der Anzeige (also keine Füllwörter
+    wie "zwecke"), belegt wird gegen alles, was im Profil steht
+    (`profil_begriffe`). Der Firmenname der Anzeige ist kein Begriff.
+    """
+    from .services.profil_begriffe import Profilbegriffe, normieren
+    from .services.stellen_skills import extrahiere_skills, vokabular
+    firmenwoerter = set(re.findall(r"[a-z0-9]+", normieren(firma)))
+    belegt = Profilbegriffe(profile)
+    erg: list[str] = []
+    for begriff in extrahiere_skills(job_text_orig or "", vokabular(profil=profile)):
+        woerter = re.findall(r"[a-z0-9]+", normieren(begriff))
+        if not woerter or not belegt.ist_brauchbar(begriff):
+            continue
+        if firmenwoerter and all(w in firmenwoerter for w in woerter):
+            continue
+        if not belegt.ist_belegt(begriff) and begriff not in erg:
+            erg.append(begriff)
+    return erg[:grenze]
 
 
 def _detect_career_gaps(positions, threshold_months=6):
@@ -740,12 +849,12 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
 
     # Career progression: do titles show growth?
     titles = [p.get("title", "").lower() for p in positions]
-    leadership_words = {"lead", "head", "manager", "director", "leiter", "architekt",
-                        "principal", "senior", "vp", "chief", "teamleiter", "abteilungsleiter"}
-    has_leadership = any(any(lw in t for lw in leadership_words) for t in titles)
+    # #1385: aus dem Titel ODER aus Aufgaben/Personalverantwortung
+    fuehrung = fuehrung_erkennbar(positions)
+    has_leadership = bool(fuehrung)
     if has_leadership:
         score += 20
-        factors.append("Führungserfahrung erkennbar")
+        factors.append(f"Führungserfahrung erkennbar ({fuehrung})")
     else:
         empfehlungen.append("Führungsverantwortung oder Teamleitung hervorheben (auch informell)")
 
@@ -794,14 +903,10 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
         )
 
     # Projects with results (STAR format)
-    projects_with_results = sum(
-        1 for p in positions
-        for proj in p.get("projects", [])
-        if proj.get("result")
-    )
+    projects_with_results = messbare_ergebnisse(positions)["projekte_mit_ergebnis"]
     if projects_with_results >= 3:
         score += 15
-        factors.append(f"{projects_with_results} Projekte mit messbaren Ergebnissen (STAR)")
+        factors.append(f"{projects_with_results} Projekte mit eingetragenem Ergebnis (STAR)")
     elif projects_with_results >= 1:
         score += 8
         empfehlungen.append("Mehr Projekte mit konkreten Ergebnissen dokumentieren")
@@ -852,7 +957,8 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
     }
 
 
-def _score_ats(profile, skills, positions, education, job_text, job_words):
+def _score_ats(profile, skills, positions, education, job_text, job_words,
+               job_text_orig="", firma=""):
     """ATS perspective: keyword matches, standard format, measurables.
 
     Beruecksichtigt professionelle Recruiter-Kriterien:
@@ -920,13 +1026,9 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         )
 
     # Measurable achievements (numbers in text)
-    all_text = " ".join(
-        f"{p.get('achievements', '')} {p.get('tasks', '')}" for p in positions
-    )
-    numbers = re.findall(
-        r'\d+[%\u20ack+]|\d+\s*(?:Prozent|Euro|Mitarbeiter|Projekte|Jahre|Monate|Standorte|Länder)',
-        all_text
-    )
+    # #1385: Stationen UND Projekte, eine Funktion (auch "Mitarbeitende", "MA")
+    _mess = messbare_ergebnisse(positions)
+    numbers = _mess["zahlen"]
     if len(numbers) >= 5:
         score += 12
         factors.append(f"{len(numbers)} messbare Erfolge/Metriken gefunden")
@@ -937,6 +1039,14 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     elif numbers:
         score += 4
         empfehlungen.append("Mehr Zahlen und Metriken in Erfolge einbauen (%, Euro, Teamgrösse)")
+    elif _mess["projekte_mit_ergebnis"]:
+        # Ergebnisse stehen da, nur ohne Zahl: das ist kein "keine Erfolge"
+        # (der Widerspruch zum Personalberater-Blick, #1385).
+        score += 4
+        empfehlungen.append(
+            f"{_mess['projekte_mit_ergebnis']} Projekt-Ergebnisse sind eingetragen, nennen "
+            "aber keine Zahl — Tipp: Budget, Teamgrösse oder Zeitersparnis ergänzen."
+        )
     else:
         empfehlungen.append(
             "Keine messbaren Erfolge — ATS und Recruiter bevorzugen quantifizierte Ergebnisse. "
@@ -984,7 +1094,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         if not has_phone: missing.append("Telefon")
         if not has_city: missing.append("Ort")
         score += contact_score * 2
-        empfehlungen.append(f"Kontaktdaten unvollstaendig: {', '.join(missing)} fehlt")
+        empfehlungen.append(f"Kontaktdaten unvollständig: {', '.join(missing)} fehlt")
 
     # Skills with standard categories
     categorized = [s for s in skills if s.get("category") and s["category"] != "sonstige"]
@@ -1011,8 +1121,9 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         )
 
     # Compile missing keywords for the user
-    all_skill_text = " ".join(skill_names)
-    missing_kw = [w for w in job_words if len(w) > 4 and w not in all_skill_text and w.isalpha()]
+    # #1385: Begriffe, die die Anzeige verlangt - keine Füllwörter, kein
+    # Firmenname, und belegt gilt, was irgendwo im Profil steht (#1390).
+    missing_kw = fehlende_begriffe(profile, job_text_orig or job_text, firma)
 
     return {
         "score": min(score, 100),
@@ -1021,7 +1132,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         "faktoren": factors,
         "empfehlungen": empfehlungen,
         "keyword_matches": exact_matches,
-        "fehlende_keywords": missing_kw[:15],
+        "fehlende_keywords": missing_kw,
     }
 
 

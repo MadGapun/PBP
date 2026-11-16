@@ -16,6 +16,7 @@ Features (#48/#50/#73):
 """
 
 import logging
+from ..services import uhr as _uhr
 import re
 import time
 from datetime import datetime, timedelta
@@ -395,7 +396,7 @@ def _process_raw_job(
         "description": "",
         "employment_type": employment,
         "remote_level": detect_remote_level(volltext),
-        "found_at": datetime.now().isoformat(),
+        "found_at": _uhr.jetzt(),
         "linkedin_job_id": job_id,
     }
 

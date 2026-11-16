@@ -23,6 +23,7 @@ Die Komponenten-DEFINITIONEN leben hier im Code; der Install-ZUSTAND in
 der ``components``-Tabelle (Schema v49, database.py).
 """
 from __future__ import annotations
+from . import uhr as _uhr
 
 import json
 import logging
@@ -231,7 +232,7 @@ def _eigene_installation_merken(target_dir: Path, binary: Path, version: str, de
         "verzeichnis": str(binary.parent),
         "deinstaller": str(deinstaller) if definition.get("deinstaller_name") and deinstaller.is_file() else "",
         "version": version,
-        "angelegt": datetime.now().isoformat(timespec="seconds"),
+        "angelegt": _uhr.jetzt(),
         **_fingerabdruck(binary),
     }
     target_dir.mkdir(parents=True, exist_ok=True)

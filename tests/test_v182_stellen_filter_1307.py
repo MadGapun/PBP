@@ -132,7 +132,9 @@ def test_regression_dieselben_treffer_wie_die_alte_bulk_funktion():
         jobs.append({
             "hash": f"r{i}", "score": rnd.choice([None, -3, 0, 1, 2.5, 4, 7, 12]),
             "found_at": rnd.choice(["", "kaputt", (now - timedelta(days=rnd.randint(0, 60))).isoformat(),
-                                    (now - timedelta(days=rnd.randint(0, 60))).isoformat() + "Z"]),
+                                    (now - timedelta(days=rnd.randint(0, 60))).isoformat(timespec="seconds")]),
+            # #1386: ein Suffix "Z" heisst jetzt wirklich UTC (frueher wurde die Zone abgeschnitten);
+            # die Zonen-Faelle stehen in test_v187_zeitstempel_1386.py
             "company": rnd.choice(["Musterfirma GmbH", "Beispiel AG", "", None]),
             "title": " ".join(rnd.sample(woerter, 2)), "description": " ".join(rnd.sample(woerter, 3)),
         })

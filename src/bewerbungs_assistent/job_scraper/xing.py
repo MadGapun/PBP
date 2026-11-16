@@ -14,6 +14,7 @@ Features (#48/#50/#73):
 """
 
 import logging
+from ..services import uhr as _uhr
 import re
 import time
 from datetime import datetime
@@ -434,7 +435,7 @@ def _process_raw_job(raw: dict, seen_job_ids: set, search_url: str = "") -> dict
         "description": desc,
         "employment_type": employment,
         "remote_level": detect_remote_level(volltext),
-        "found_at": datetime.now().isoformat(),
+        "found_at": _uhr.jetzt(),
         "xing_job_id": job_id,
     }
 
