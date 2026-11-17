@@ -338,7 +338,11 @@ def test_aussortieren_gibt_der_ki_nur_urteile_des_menschen(db):
     erg = aa.aussortieren(db, max_stellen=5)
     assert erg["geprueft"] == 1
     nutzlast = db.ki.nutzlasten[-1]
-    assert _titel(nutzlast["recent_dismissals"]) == ["Mensch C", "Mensch B", "Mensch A"]
+    # #1396: die Beispiele kommen als `lern_beispiele` (nach Aehnlichkeit; ohne
+    # Aehnliches die juengsten Entscheidungen des Menschen). Das Bewerben ist sein Ja.
+    assert sorted(b["titel"] for b in nutzlast["lern_beispiele"]) == [
+        "Mensch A", "Mensch B", "Mensch C", "System A"]
+    assert {b["titel"]: b["klasse"] for b in nutzlast["lern_beispiele"]}["System A"] == "passt"
     assert {e["reason"]: e["count"] for e in nutzlast["dismiss_reasons_top"]} == {
         "falsches_fachgebiet": 2, "zu_junior": 1, "zu_weit_entfernt": 1}
 
@@ -357,7 +361,7 @@ def test_die_eigenen_urteile_der_ki_kommen_nicht_als_beispiele_zurueck(db):
                    "source": "manuell", "description": LANG, "score": 3}])
     aa.aussortieren(db, max_stellen=5)
     zweite = [n for n in db.ki.nutzlasten if n["job_title"] == "Zweite Stelle"][-1]
-    assert _titel(zweite["recent_dismissals"]) == ["Mensch A"], "das Urteil der KI aus Lauf 1 stand als Beispiel da"
+    assert [b["titel"] for b in zweite["lern_beispiele"]] == ["Mensch A"],         "das Urteil der KI aus Lauf 1 stand als Beispiel da"
     assert {e["reason"] for e in zweite["dismiss_reasons_top"]} == {"falsches_fachgebiet"}
 
 
@@ -370,10 +374,10 @@ def test_der_prompt_zeigt_nur_die_beispiele_des_menschen(db):
                    "source": "manuell", "description": LANG, "score": 3}])
     aa.aussortieren(db, max_stellen=5)
     prompt = _build_match_job_to_skills_prompt(db.ki.nutzlasten[-1])
-    beispiele = prompt.split("BEISPIELE", 1)[1].split("Nutze diese Muster", 1)[0]
+    beispiele = prompt.split("BEISPIELE", 1)[1].split("Achte darauf", 1)[0]
     for gut in ("Mensch A", "Mensch B", "Mensch C"):
         assert gut in beispiele
-    for schlecht in ("Automatik", "System", "Doppelt", "Altbestand", "profil_match_negativ", "bewerbung_erstellt"):
+    for schlecht in ("Automatik", "Doppelt", "Altbestand", "profil_match_negativ", "System B", "System C"):
         assert schlecht not in beispiele, schlecht
 
 
@@ -414,7 +418,11 @@ def test_waechter_die_ki_aussortierung_fragt_die_gruende_nur_ueber_den_filter():
     quelle = (SRC / "services" / "auto_aussortierung.py").read_text(encoding="utf-8")
     assert _aufrufe(quelle, "gruende_zaehlen"), "die Auto-Aussortierung zaehlt keine Gruende mehr? Dann diesen Waechter nachziehen"
     assert _nur_menschen_fehlt(quelle) == [], "gruende_zaehlen ohne nur_menschen=True in der KI-Aussortierung (#1239)"
-    assert _aufrufe(quelle, "get_recent_user_dismissals"), "die Beispiele kommen aus get_recent_user_dismissals"
+    # #1396: die Beispiele kommen aus `ki_beispiele` (nach Aehnlichkeit); die
+    # Auto-Aussortierung ruft den Pool und die Auswahl, nicht mehr die Datumsliste.
+    assert _aufrufe(quelle, "pool_laden") and _aufrufe(quelle, "beispiele_fuer"),         "die Beispiele kommen aus ki_beispiele (#1396)"
+    beispiele = (SRC / "services" / "ki_beispiele.py").read_text(encoding="utf-8")
+    assert _aufrufe(beispiele, "urteilsgruende_des_menschen"),         "ki_beispiele fragt urteilsgruende_des_menschen nicht mehr (#1239)"
 
 
 def test_waechter_die_beispiele_fragen_die_eine_funktion():
