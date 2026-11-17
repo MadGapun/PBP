@@ -516,19 +516,27 @@ def test_1254_nach_einer_frage_gibt_es_in_der_seitenleiste_einen_einzigen_scroll
 # (Die Hoehe des Verlaufs selbst eignet sich nicht zum Vergleich: der Kopf der Seitenleiste waechst nach dem Laden um eine Zeile, sobald die
 # Pruefung auf Updates antwortet, und nimmt dem Fuss dieselbe Hoehe weg.)
 DRUMHERUM = """
-() => document.querySelector('[data-elwosa-chat]').getBoundingClientRect().height
-    - document.querySelector('[data-elwosa-liste]').getBoundingClientRect().height
+() => {
+  const c = document.querySelector('[data-elwosa-chat]');
+  const l = document.querySelector('[data-elwosa-liste]');
+  return c && l ? c.getBoundingClientRect().height - l.getBoundingClientRect().height : null;
+}
 """
+
+
+def _drumherum(seite):
+    """Der Platz neben dem Verlauf. Die Seitenleiste baut sich kurz neu auf, wenn eine Antwort kommt: dann fehlt ein Element einen Augenblick (null) - warten."""
+    return seite.wait_for_function(DRUMHERUM, timeout=10000).json_value()
 
 
 def test_1254_der_elwosa_verlauf_behaelt_seine_hoehe_wenn_antworten_dazukommen(live, browser):
     kontext, seite = _seite_mit_verlauf(browser, live)
     try:
-        vorher = seite.evaluate(DRUMHERUM)
+        vorher = _drumherum(seite)
         _gefragt(seite, "Wie aktualisiere ich PBP?")
-        nach_eins = seite.evaluate(DRUMHERUM)
+        nach_eins = _drumherum(seite)
         _gefragt(seite, "Wie lege ich eine Bewerbung an?")
-        nach_zwei = seite.evaluate(DRUMHERUM)
+        nach_zwei = _drumherum(seite)
         assert abs(nach_eins - vorher) <= 2 and abs(nach_zwei - vorher) <= 2, (
             f"neben dem Verlauf braucht Elwosa {vorher:.0f} px, nach der ersten Frage {nach_eins:.0f}, nach der zweiten {nach_zwei:.0f}: "
             "die Antworten nehmen dem Verlauf die Hoehe")
