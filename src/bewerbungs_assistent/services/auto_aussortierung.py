@@ -245,11 +245,22 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     # bekannte Anti-Muster wiedererkennen kann.
     dismiss_reasons_top = gruende_top(db)
 
-    # v1.7.0-beta.63 (#638 Stufe 3): konkrete Few-Shot-Beispiele
+    # #1396: Beispiele nach Aehnlichkeit statt der zehn letzten Ablehnungen -
+    # nur Entscheidungen von Mensch und Claude, einmal je Lauf geladen.
+    from . import ki_beispiele, ki_lernen
     try:
-        recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)
-    except Exception:
-        recent_dismissals_fewshot = []
+        beispiel_pool = ki_beispiele.pool_laden(db)
+    except Exception as exc:
+        logger.warning("Beispiel-Pool nicht geladen: %s", exc)
+        beispiel_pool = []
+    # #1236: Der API-Weg bekommt weiter nur die geschwaerzten `recent_dismissals` (Allowlist `nutzlast_fuer_api`); die
+    # Lern-Beispiele nach Aehnlichkeit (#1396) tragen Begruendungen im Freitext und gehen nicht ueber die API.
+    recent_dismissals_fewshot = []
+    if api_weg:
+        try:
+            recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)
+        except Exception:
+            recent_dismissals_fewshot = []
 
     if not candidates:
         if ohne_beschreibung:
@@ -321,9 +332,13 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "job_company": job.get("company") or "",
                 "job_description": (job.get("description") or "")[:1500],
                 "dismiss_reasons_top": dismiss_reasons_top,
-                # v1.7.0-beta.63 (#638 Stufe 3): Few-Shot-Beispiele
-                "recent_dismissals": recent_dismissals_fewshot,
             }
+            if api_weg:
+                payload["recent_dismissals"] = recent_dismissals_fewshot
+            else:
+                # #1396: Beispiele nach Aehnlichkeit (kein Datum-Fenster mehr)
+                payload["lern_beispiele"] = ki_beispiele.beispiele_fuer(
+                    db, job, pool=beispiel_pool)
             result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
             metriken = getattr(result, "metrics", None) or {}
             ueber_api = getattr(result, "backend", None) == Backend.API
@@ -358,6 +373,12 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "score": job.get("score"),
                 "reason": reason,
             }
+            if not dry_run:
+                # #1396: was die KI zu dieser Stelle gesagt hat (der Marker, aus dem
+                # spaeter die Gegenprobe wird).
+                ki_lernen.merke_urteil(
+                    db, job["hash"], decision, reason,
+                    (result.payload or {}).get("sicherheit", "klar"))
             if decision == "PASST_NICHT" and _DUBLETTEN_WORT.search(reason):
                 # #1250: ob zwei Anzeigen dieselbe sind, entscheidet die
                 # Dubletten-Erkennung beim Speichern (`stellen_dublette`),
@@ -369,6 +390,9 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 entry["reason"] = (f"{reason} — kein fachliches Urteil "
                                    "(Dubletten erkennt PBP selbst), "
                                    "nicht aussortiert.")
+                if not dry_run:  # #1396: das gilt als unsicher, nicht als PASST_NICHT
+                    ki_lernen.merke_urteil(db, job["hash"], "UNSICHER", reason,
+                                           "schwach")
                 unsicher_results.append(entry)
             elif decision == "PASST_NICHT":
                 if not dry_run:
@@ -383,7 +407,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                             # #1092: das Urteil ist das der lokalen KI,
                             # nicht des Menschen (#1010). Vorher trug
                             # dieser Weg die Vorgabe "ich".
-                            herkunft="automatik")
+                            herkunft="automatik", entschieden_von="ollama")
                     except Exception as exc:
                         errors.append({
                             "hash": job["hash"], "error": str(exc)[:200],

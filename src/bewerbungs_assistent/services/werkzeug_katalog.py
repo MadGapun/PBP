@@ -97,6 +97,12 @@ API_WEG = frozenset({"api_weg_anzeigen", "api_weg_einstellen", "api_weg_pruefen"
 
 # Kuratierte Beschreibungen fuer den Kernweg: Zweck, wann, wann nicht.
 KURZ = {
+    "ki_lernstand": (
+        "Zeigt, wie oft die lokale KI mit ihrem Urteil richtig lag (Quote, "
+        "Verlauf, häufigste Fehler, größte Abweichungen). Nutzen, wenn der "
+        "Mensch fragt, ob der KI zu trauen ist, oder bevor du eine automatisch "
+        "aussortierte Stelle zurückholst. Ohne Parameter, nur lesend: es gibt nichts "
+        "einzustellen, die KI lernt von selbst aus den Entscheidungen des Menschen und von Claude."),
     "profil_status": (
         "Prüft, ob es ein Profil gibt, und nennt den nächsten sinnvollen "
         "Schritt. Zu Beginn jedes Gesprächs aufrufen, bevor du etwas "

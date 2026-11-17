@@ -3430,6 +3430,35 @@ def register(mcp, db, logger):
             "aktueller_stand": kontext.lesen(db),
         }
 
+    @mcp.tool()
+    def ki_lernstand() -> dict:
+        """Wie gut bewertet die lokale KI, und wo irrt sie? (#1396)
+
+        Vergleicht jedes Urteil der lokalen KI mit der Entscheidung von
+        Mensch oder Claude: Trefferquote (Ergebnis und Grund getrennt), Verlauf
+        je Woche, die häufigsten Fehlerbilder und die Stellen mit der
+        größten Abweichung. Nur lesend; es gibt nichts einzustellen — die KI
+        lernt automatisch aus deinen Entscheidungen, solange sie eingeschaltet ist.
+
+        Nutze es, wenn der Mensch fragt, ob der KI zu trauen ist, oder bevor
+        du eine automatisch aussortierte Stelle zurückholst.
+        """
+        from ..services import ki_lernen
+        from ..services.tool_budget import mit_kurzbudget
+        stand = mit_kurzbudget(
+            lambda: ki_lernen.lernstand(db), budget=5.0,
+            fallback={"status": "uebersprungen",
+                      "grund": "Die Datenbank antwortete nicht rechtzeitig."})
+        if isinstance(stand, dict) and "gesehen" in stand:
+            stand["ki_an"] = str(db.get_profile_setting(
+                "llm_local_state", "off")) == "active"
+            stand["naechster_schritt"] = (
+                "Holt der Mensch eine zu Unrecht aussortierte Stelle zurück "
+                "(stelle_reaktivieren), zählt das als Gegenbeispiel."
+                if stand["falsch"] else
+                "Nichts zu tun: PBP vergleicht von selbst, sobald entschieden wird.")
+        return stand
+
     # === Telemetrie-Sharing-Steuerung (#594 Stufe 5, beta.93) ==========
 
     @mcp.tool()

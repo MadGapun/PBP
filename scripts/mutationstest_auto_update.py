@@ -2687,14 +2687,14 @@ M_WIEDERGAENGER = [
     ("wg16", "jedes Muster mit zwei Belegen ist ein k.o., egal welcher Grund", WG_DIENST,
      WG_KO, '    return muster.get("anzahl", 0) >= 2\n', T_WG),
     ("wg17", "Gehalt ist ein fachlicher k.o.-Grund", WG_DIENST,
-     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell",\n})\n\n\ndef ist_fachlicher_ko',
-     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell", "gehalt_zu_niedrig",\n})\n\n\ndef ist_fachlicher_ko', T_WG),
+     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell",\n})\n',
+     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell", "gehalt_zu_niedrig",\n})\n', T_WG),
     ("wg18", "die Liste macht wieder aus jedem Muster ein k.o.", WG_TOOL,
-     '                    if ist_fachlicher_ko(muster):\n                        j["_ko_muster"] = muster\n'
+     '                    if ist_fachlicher_ko(muster, tor_offen=_tor_gespeichert_offen(j)):\n                        j["_ko_muster"] = muster\n'
      '                    elif muster:\n                        j["_wg_hinweis"] = muster\n',
      '                    if muster:\n                        j["_ko_muster"] = muster\n', T_WG),
     ("wg19", "die Analyse hat wieder ihre eigene k.o.-Frage", WG_TOOL,
-     '    if ist_fachlicher_ko(wiedergaenger):\n        ko_gruende.append(',
+     '    if ist_fachlicher_ko(wiedergaenger, tor_offen=bool(muss_hits)):\n        ko_gruende.append(',
      '    if wiedergaenger:\n        ko_gruende.append(', T_WG),
     ("wg20", "das gelesene Urteil steht nicht neben dem k.o.", WG_TOOL,
      '                if _gelesen and _gelesen != "NICHT_EMPFOHLEN":\n', '                if False:\n', T_WG),
@@ -3267,7 +3267,7 @@ M_URTEILE_MENSCH = [
     ("um18", "Der Block GELERNT zaehlt mit nur_menschen=False", UM_AA,
      "ausser=(), nur_menschen=True)", "ausser=(), nur_menschen=False)", T_UM),
     ("um19", "Die KI bekommt keine Beispiele mehr", UM_AA,
-     "        recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)\n", "        recent_dismissals_fewshot = []\n", T_UM),
+     "        beispiel_pool = ki_beispiele.pool_laden(db)\n", "        beispiel_pool = []\n", T_UM),
     # die Waechter selbst (die Eingriffe sitzen in der Testdatei)
     ("um20", "Waechter: nur_menschen=False zaehlt als gut", UM_T,
      "        if not (isinstance(wert, ast.Constant) and wert.value is True):\n", "        if wert is None:\n", T_UM),
