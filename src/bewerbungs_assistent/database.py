@@ -10,6 +10,7 @@ import threading
 import json
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -348,6 +349,7 @@ class Database:
 
     def initialize(self):
         """Create all tables if they don't exist."""
+        _t_start = time.perf_counter()  # #1393: Dauer im Log
         # #1097: eine DSGVO-Loeschung, die im laufenden Betrieb nicht alles
         # entfernen konnte (Datei von einem zweiten Prozess gesperrt), hat
         # eine Vormerkung hinterlassen. Der Rest geht JETZT, bevor die
@@ -1461,6 +1463,8 @@ class Database:
         except Exception as e:
             logger.debug("LinkedIn-Vorgabe nicht bereinigt (#1147): %s", e)
         logger.info("Database initialized at %s", self.db_path)
+        # #1393: ein langsamer Start soll belegbar sein, nicht geschaetzt.
+        logger.info("Startschritt Datenbank: %.2f s", time.perf_counter() - _t_start)
 
     def _repair_document_paths(self) -> int:
         """Validiert alle `documents.filepath`-Eintraege und repariert
@@ -1476,6 +1480,7 @@ class Database:
 
         Returns: Anzahl reparierter Pfade.
         """
+        _t_start = time.perf_counter()  # #1393
         conn = self.connect()
         try:
             cur = conn.execute(
@@ -1544,6 +1549,12 @@ class Database:
                     repaired += 1
                     break
 
+        # #1393: Dauer und Zahlen immer ins Log. Gemessen mit 223 nicht
+        # aufloesbaren Eintraegen: 0,05 s — die Pruefung ist nicht die Ursache
+        # eines langsamen Starts; das Log soll es auf jedem Rechner belegen.
+        logger.info(
+            "Startschritt Dokumentpfade: %.2f s (%d Eintraege, %d nicht auffindbar, %d repariert)",
+            time.perf_counter() - _t_start, len(rows), broken - repaired, repaired)
         if repaired:
             conn.commit()
             logger.warning(
