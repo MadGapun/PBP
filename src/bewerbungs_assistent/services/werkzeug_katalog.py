@@ -213,10 +213,10 @@ KURZ = {
         "suchkriterien_setzen (alles) oder suchkriterien_bearbeiten "
         "(einzelne Begriffe)."),
     "stelle_urteil_speichern": (
-        "Speichert deine Bewertung einer Stelle, nachdem du Anzeige und "
-        "Profil gelesen hast (empfohlen, bedingt, nicht_empfohlen), mit "
-        "Begruendung. Nur nach echtem Lesen, etwa nach fit_analyse — ein "
-        "Bewertung aus den Punkten abzuleiten ist falsch. Die Bewertung steht "
+        "Speichert deine Bewertung einer Stelle, nach dem Lesen von Anzeige und "
+        "Profil (empfohlen, bedingt, nicht_empfohlen), mit "
+        "Begruendung. Nur nach echtem Lesen; aus den Punkten abgeleitet "
+        "ist sie falsch. Die Bewertung steht "
         "danach an der Stelle und in der Trefferliste, bis sich Profil oder "
         "Anzeige aendern."),
     "aufgaben_uebersicht": (

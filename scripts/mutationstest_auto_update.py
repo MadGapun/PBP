@@ -785,7 +785,7 @@ M_BROWSER = [
     ("bw16", "LinkedIn-Plan: das Feld regel ist leer", JOBS,
      '"regel": REGEL_IM_ZWEIFEL,', '"regel": "",', T_BR),
     ("bw17", "LinkedIn-Plan: der Vorfilter urteilt wieder mit", JOBS,
-     '"urteilt nicht: im Zweifel holen.",', '"urteilt: was nicht passt, fällt weg.",', T_BR),
+     '"bewertet nicht: im Zweifel holen.",', '"bewertet: was nicht passt, fällt weg.",', T_BR),
     ("bw18", "LinkedIn-Plan: die Vorschau (dry_run=True) kommt im Ablauf nicht mehr vor", JOBS,
      '"als Vorschau (dry_run=True, dieselben Prüfungen wie der "', '"als Vorschau (dieselben Prüfungen wie der "', T_BR),
     ('bw19', "Katalogtext von stelle_manuell_anlegen: wieder 'nicht fuer Treffer aus einer Jobboerse'", WK,
