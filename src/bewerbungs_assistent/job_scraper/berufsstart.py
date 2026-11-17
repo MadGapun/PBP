@@ -17,6 +17,7 @@ from xml.etree import ElementTree as ET
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .stichwort_abgleich import passt as _passt
 from .textgrenzen import fuer_speicher
 from . import rohtreffer
 
@@ -38,7 +39,7 @@ def _matches(title: str, desc: str, keywords: list,
               region: str | None) -> bool:
     haystack = f"{title} {desc[:1500]}".lower()
     if keywords:
-        if not any(kw.lower().strip() in haystack for kw in keywords):
+        if not _passt(keywords, title, "", desc[:1500], quelle="berufsstart"):
             return False
     if region:
         if region.lower() in haystack:

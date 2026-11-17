@@ -28,6 +28,7 @@ from xml.etree import ElementTree as ET
 import httpx
 
 from . import detect_remote_level, stelle_hash
+from .stichwort_abgleich import passt as _passt
 from .textgrenzen import fuer_speicher
 from . import rohtreffer
 
@@ -87,7 +88,7 @@ def _matches_keywords(title: str, desc: str, keywords: list) -> bool:
     if not keywords:
         return True
     haystack = f"{title} {desc[:1500]}".lower()
-    return any(kw.lower().strip() in haystack for kw in keywords)
+    return _passt(keywords, title, "", desc[:1500], quelle="meinestadt")
 
 
 def _parse_item(item: ET.Element, stadt: str) -> dict | None:

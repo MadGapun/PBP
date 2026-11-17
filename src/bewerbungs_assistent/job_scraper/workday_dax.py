@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .stichwort_abgleich import passt as _passt
 from .textgrenzen import fuer_speicher
 from . import rohtreffer
 
@@ -72,7 +73,7 @@ def _matches(title: str, location: str, desc: str,
              keywords: list, region: str | None) -> bool:
     haystack = f"{title} {location} {desc[:1500]}".lower()
     if keywords:
-        if not any(kw.lower().strip() in haystack for kw in keywords):
+        if not _passt(keywords, title, location or "", desc[:1500], quelle="workday_dax"):
             return False
     if region:
         if region.lower() in (location or "").lower():
