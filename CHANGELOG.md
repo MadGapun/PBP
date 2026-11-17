@@ -42,16 +42,13 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## Unveröffentlicht (main, nach 1.8.6) — Funde aus dem Videodreh Folge 5 und 6
+## Unveröffentlicht (main, nach 1.8.7) — weitere Funde aus dem Videodreh Folge 5 und 6
+
+> #1382, #1383, #1384, #1387 und #1388 sind mit 1.8.7 ausgeliefert (Eintrag darunter).
 
 ### Für dich als Anwender
-- **Unterlagen, die Claude erstellt, hängen jetzt wirklich an der Bewerbung.** Lebenslauf und Anschreiben erscheinen im Dialog der Bewerbung unter „Dokumente“ und liegen im ZIP-Paket. Bewerbungen, bei denen die Dateien bisher nur als Pfad vermerkt waren, werden beim nächsten Start einmal nachgezogen (#1382).
-- **Eine Datei heißt nicht mehr „Vorlage“, nur weil im Namen „Muster…“ steht.** Dateinamen werden an Wortgrenzen gelesen; „Lebenslauf_Max_Mustermann.docx“ ist ein Lebenslauf (#1383, #1378).
-- **Eine Zahl für die Punkte.** Die Empfehlung in der Fit-Analyse nennt dieselben Punkte wie Liste und Karte; die Zahl ohne deine Begriffs-Regler steht getrennt und ist benannt (#1388).
-- **Die nächsten Schritte kennen den Stand.** Ist die Stelle bewertet, die Unterlagen da oder die Nachfass-Erinnerung gesetzt, fragt PBP nicht noch einmal danach und sagt, was schon erledigt ist (#1387).
 - **Die Lücken-Analyse meldet keine Fähigkeiten mehr als fehlend, die in deinem Profil stehen** (Stationen, Aufgaben, Projekte, Abkürzungen wie AV) (#1390).
 - **Die Lebenslauf-Bewertung widerspricht sich nicht mehr:** messbare Ergebnisse aus Stationen und Projekten, Führung auch aus den Aufgaben, keine Füllwörter und Firmennamen unter den fehlenden Begriffen (#1385).
-- **Der angepasste Lebenslauf bleibt umgekehrt chronologisch;** angepasst werden die Reihenfolge innerhalb einer Station und die Kenntnisse. Das Etikett heißt „Führung“ (#1384).
 - **Der Verlauf einer Bewerbung steht in der richtigen Reihenfolge,** „Letzte Notiz“ zeigt die neueste (#1386).
 - **Neue Zeiträume einer Kompetenz machen eine gespeicherte Bewertung als veraltet kenntlich** (#1389).
 
@@ -59,6 +56,102 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 - `services/unterlagen.py` (eine Funktion für das Registrieren, Altbestand im Safety-Net), `services/profil_begriffe.py` (Profil-Vokabular und Abkürzungen für `skill_gap_analyse` und `lebenslauf_bewerten`), `services/uhr.py` (`jetzt()`, `zeitpunkt()`, `nach_zeit()`), `bewerbung_stand.erledigtes_streichen`, Dekorator `_stempelt_profil` mit Spalte `profile.stand_nr` (additiv, kein Schema-Bump).
 - Prüfskript `ui_texte_pruefen.py` liest jetzt auch `export.py`.
 - Wächter: `test_v187_zeitstempel_1386.py` (keine neue Stelle mit Ortszeit ohne Zone), `test_v187_profilstand_1389.py` (jede Profil-Schreibmethode stempelt).
+
+## [1.8.7] - 2026-11-17 — Die lokale KI lernt aus deinen Entscheidungen; Unterlagen hängen an der Bewerbung; Quellen liefern weniger Fachfremdes
+
+<!-- anwender -->
+Die lokale KI lernt jetzt von selbst aus deinen Entscheidungen und denen von Claude: Sie sieht vor jeder Bewertung ähnliche Stellen, über die ihr entschieden habt, und übt im Leerlauf an Stellen, bei denen die Antwort schon feststeht.
+Lebenslauf und Anschreiben, die Claude für eine Bewerbung erstellt, erscheinen jetzt wirklich unter „Dokumente“ der Bewerbung und im ZIP-Paket.
+Quellen ohne eigene Suche liefern weniger Fachfremdes, und der Start von PBP schreibt auf, wie lange jeder Schritt dauert.
+Die Vorschläge für den nächsten Schritt wissen, was schon erledigt ist.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Lernen der lokalen KI läuft nach dem Update von selbst, solange die KI eingeschaltet ist; der KI-Schalter schaltet es ab.
+
+**Neu und behoben (kurz)**
+
+- **Die lokale KI lernt aus deinen Entscheidungen** (#1396): Vor jeder Bewertung zeigt PBP ihr bis zu acht ähnliche Stellen, über die du oder Claude entschieden habt (gemischt „passt“ und „passt nicht“, mit deinem Grund und Claudes Begründung). Entscheidungen der Automatik sind nie ein Beispiel. Widersprichst du der KI, wird die Stelle ein Gegenbeispiel.
+- **„KI lernt nach“** (#1396): Läuft sonst nichts im Hintergrund, bewertet die KI in kleinen Portionen (höchstens sechs Stellen, 100 Sekunden, 150 Stellen pro Woche) Stellen, über die ihr längst entschieden habt, und PBP vergleicht. Der Start von PBP wird nicht langsamer; ist die KI aus, gibt es keine Läufe.
+- **Neue Karte „Wie gut bewertet die lokale KI?“** unter Einstellungen › Lokale KI: wie oft die KI mit deiner Entscheidung übereinstimmte (Quote ab fünf Vergleichen) und wo sie danebenlag. Claude kann dieselbe Auskunft geben.
+- **Unterlagen hängen an der Bewerbung** (#1382): Lebenslauf und Anschreiben, die Claude erstellt, stehen im Dialog der Bewerbung unter „Dokumente“ und liegen im ZIP-Paket. Bewerbungen, bei denen die Dateien bisher nur als Pfad vermerkt waren, werden beim ersten Start einmal nachgezogen; löschst du ein Dokument, kommt es nicht zurück.
+- **Eine Datei heißt nicht mehr „Vorlage“, nur weil „Muster…“ im Namen steht** (#1383, #1378): „Lebenslauf_Max_Mustermann.docx“ ist ein Lebenslauf.
+- **Der angepasste Lebenslauf bleibt umgekehrt chronologisch** (#1384); das Etikett heißt „Führung“.
+- **Die nächsten Schritte kennen den Stand** (#1387): Ist die Stelle bewertet, sind die Unterlagen da oder ist die Nachfass-Erinnerung gesetzt, fragt PBP nicht noch einmal danach und sagt, was schon erledigt ist.
+- **Eine Punktzahl in der Fit-Analyse** (#1388): Die Empfehlung nennt dieselben Punkte wie Liste und Karte; die Zahl ohne deine Begriffs-Regler steht getrennt und ist benannt.
+- **Quellen ohne eigene Suche liefern weniger Fachfremdes** (#1394): Der Vergleich der Suchbegriffe prüft an Wortgrenzen („ECO“ trifft nicht mehr „economy“); der Lauf meldet je Quelle, wie viele Treffer geliefert und wie viele gefiltert wurden.
+- **Der Start schreibt auf, wo die Zeit bleibt** (#1393): Jeder Startschritt steht mit seiner Dauer im Protokoll; „gestartet“ meldet PBP erst, wenn es wirklich antwortet, und endet die Desktop-Verknüpfung, steht eine sichtbare Meldung da.
+- **Die Automatik zählt nur Entscheidungen von Menschen und Claude als Beleg** (#1395): Wiedergänger-Befunde stützen sich nicht mehr auf frühere Aussortierungen der Automatik selbst (Altbestand ohne Herkunft zählt weiter). Gemeinsame Wörter wie „gender“ oder „all“ begründen kein Firmen-k.o. mehr, und ein k.o. wegen falschem Fachgebiet gilt nicht, wenn das Pflicht-Tor offen ist.
+
+### Added
+
+- `services/ki_lernen.py` (Marker, Ableitung, Gegenprobe, Lernstand), `services/ki_beispiele.py` (Auswahl nach Ähnlichkeit, ganze Wörter), `services/ki_nachlernen.py` (der Lauf im Leerlauf, Schritt am Ende von `automatik_scheduler._tick`) (#1396).
+- Neue Spalten von `jobs` (additiv, ohne Schema-Bump, alle in `_BEWAHREN`): `entschieden_von`, `claude_gelesen_am`, `ollama_gesehen_am`, `ollama_urteil`, `ollama_grund`, `ollama_sicherheit`, `ollama_lag_richtig`, `ollama_grund_traf`, `ollama_geprueft_am` (#1396). Beim ersten Start einmalige Ableitung für den Bestand (20.000 Stellen in 0,2 Sekunden; Unbekanntes bleibt „unbekannt“).
+- Claude-Werkzeug `ki_lernstand` (nur lesend); `/api/llm/accuracy` trägt zusätzlich `lernstand` (#1396).
+- `job_scraper/stichwort_abgleich.py` (ein gemeinsamer Abgleich mit Wortgrenzen für elf Adapter), Laufergebnis `quellen_abgleich` (#1394).
+- `services/unterlagen.py` (eine Funktion für das Registrieren; der Altbestand wird einmal nachgezogen, Vermerk `unterlagen_1382_nachgezogen` in `settings`) (#1382).
+- Entwicklerwerkzeug `scripts/ki_lernprobe.py` (Trockenlauf auf einer Kopie, die KI nur mit `--mit-ki`); keine Anwenderfunktion.
+
+### Changed
+
+- Die Auto-Aussortierung gibt dem Prompt `lern_beispiele` statt `recent_dismissals`; `db.get_recent_user_dismissals` bleibt als Funktion bestehen. `db.dismiss_job` (Parameter `entschieden_von`), `db.restore_job` und `db.set_job_analysis` führen die Marker.
+- `bewerbung_stand.erledigtes_streichen` streicht erledigte Vorschläge, ein Weg für Anlegen, Details und Statuswechsel (#1387).
+- `_name_hat` in `dashboard.py`: der Dateiname wird an Wortgrenzen gelesen (#1383).
+- Das Budget der Werkzeugliste steigt von 218.000 auf 218.500 Zeichen (ein neues Werkzeug).
+- Prüfskript `ui_texte_pruefen.py` liest jetzt auch `export.py`.
+- Gegenproben: Einmal-Vermerk der Unterlagen ausgebaut – der Test „gelöschtes Dokument kommt nicht zurück“ rot; Teilwortvergleich der Quellen wieder eingesetzt – 300 Stellen mit 177 Teilworttreffern statt unter 20.
+- Nicht in dieser Fassung (nächste Linie): #1385 (Lebenslauf-Bewertung), #1386 (Zeitstempel, Folge #1399), #1389 (Profilstand), #1390 (Lücken-Analyse), #1391 (Begriffe).
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10917 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.7.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.7.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.7 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.7` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
 
 ## [1.8.6] - 2026-11-12 — Jobsuche: Karte, Hinweis und Claude sagen dasselbe; „offen“ hält; die Einrichtung merkt sich, wo du warst
 

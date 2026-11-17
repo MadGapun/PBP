@@ -1826,6 +1826,57 @@ function OllamaAccuracyCard() {
   useEffect(() => {
     api("/api/llm/accuracy").then(setAcc).catch(() => {});
   }, []);
+  const lern = acc && acc.lernstand;
+  if (lern && lern.gesehen > 0) {
+    // #1396: die Gegenprobe der lokalen KI gegen deine Entscheidungen und die von Claude.
+    const q = lern.trefferquote_prozent;
+    const qFarbe = q == null ? "text-muted" : q >= 85 ? "text-teal" : q >= 65 ? "text-amber" : "text-coral";
+    const woche = (lern.verlauf || []).slice(-4);
+    return (
+      <div className="glass-card p-3 mb-4 border-teal/15" data-testid="ki-lernstand">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">
+          Wie gut bewertet die lokale KI?
+        </p>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-lg font-bold text-ink">{lern.gesehen}</p>
+            <p className="text-xs text-muted">Stellen<br/>beurteilt</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-ink">{lern.bewertet}</p>
+            <p className="text-xs text-muted">mit deiner Entscheidung<br/>verglichen</p>
+          </div>
+          <div>
+            <p className={`text-lg font-bold ${qFarbe}`}>{q == null ? "—" : `${q} %`}</p>
+            <p className="text-xs text-muted">Trefferquote</p>
+          </div>
+        </div>
+        <p className="text-sm text-ink mt-2" data-testid="ki-lernstand-satz">{lern.satz}</p>
+        {lern.grund && lern.grund.quote_prozent != null && (
+          <p className="text-xs text-muted mt-1">
+            Den Grund hat sie in {lern.grund.quote_prozent} % getroffen (nur dort, wo er sich vergleichen lässt).
+          </p>
+        )}
+        {woche.length > 1 && (
+          <p className="text-xs text-muted mt-1">
+            Verlauf: {woche.map((w) => `${w.woche.slice(-3)} ${w.quote_prozent} %`).join(" · ")}
+          </p>
+        )}
+        {(lern.groesste_abweichungen || []).length > 0 && (
+          <ul className="text-xs text-muted mt-2 space-y-0.5">
+            {lern.groesste_abweichungen.slice(0, 3).map((a, i) => (
+              <li key={i}>
+                „{a.titel}“: Die KI sagte {a.ki_sagte === "PASST" ? "passt" : "passt nicht"}, richtig war {a.richtig_war === "passt_nicht" ? "passt nicht" : "passt"}.
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-muted mt-2">
+          Es gibt nichts einzustellen: Die KI lernt von selbst aus deinen Entscheidungen und denen von Claude, solange sie eingeschaltet ist.
+        </p>
+      </div>
+    );
+  }
   if (!acc || !acc.auto_aussortiert_gesamt) {
     return null; // Noch keine Auto-Aussortierungen → Card ausblenden
   }

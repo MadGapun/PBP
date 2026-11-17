@@ -267,6 +267,14 @@ def _tick(db) -> None:
         # 'laeuft_bereits' NICHT markieren, dann beim naechsten Tick erneut.
         if res.get("status") in ("gestartet", "keine_internen_quellen", "keine_suchbegriffe"):
             db.mark_automatik_run("jobsuche")
+    # #1396: "KI lernt nach" - als LETZTER Schritt, damit er nie neben einer eben
+    # gestarteten Jobsuche oder Aufraeum-Runde laeuft (die Automatik laeuft nie
+    # neben anderer Hintergrundarbeit). Bei ausgeschalteter KI: sofort zurueck.
+    try:
+        from . import ki_nachlernen
+        ki_nachlernen.tick(db)
+    except Exception as exc:  # pragma: no cover - nie den Tick stoppen
+        logger.warning("KI lernt nach: %s", exc)
 
 
 def start_automatik_scheduler(db) -> None:

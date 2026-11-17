@@ -123,6 +123,12 @@ try:
         elif ergebnis != PBP:
             # Der Start endet am Port, PBP lief nie an: das ist kein Fehlstart dieser Fassung (#1290).
             _ohne_schuld("port_belegt")
+            # #1393: nicht stumm enden - Log-Zeile, und ohne Terminal ein Meldungsfenster.
+            try:
+                from bewerbungs_assistent.services.start_meldung import start_endet
+                start_endet(port, ergebnis)
+            except Exception as e:
+                logger.warning("Startende nicht gemeldet: %s", e)
             _enter_zum_schliessen()
             sys.exit(1)
         else:

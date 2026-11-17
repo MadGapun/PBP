@@ -16,6 +16,7 @@ import re
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .stichwort_abgleich import passt as _passt
 from .satzweise import zuordnen
 from .textgrenzen import fuer_speicher
 from . import rohtreffer
@@ -38,7 +39,7 @@ def _matches(title: str, location: str, desc: str, keywords: list) -> bool:
     if not keywords:
         return True
     haystack = f"{title} {location} {desc[:1500]}".lower()
-    return any(kw.lower().strip() in haystack for kw in keywords)
+    return _passt(keywords, title, location or "", desc[:1500], quelle="remotive")
 
 
 def _map(job: dict) -> dict | None:

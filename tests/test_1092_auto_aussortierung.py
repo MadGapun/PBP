@@ -183,7 +183,9 @@ def test_ki_abfrage_steht_nur_an_einer_stelle():
             continue
         if "MATCH_JOB_TO_SKILLS" in p.read_text(encoding="utf-8-sig"):
             funde.append(p.name)
-    assert funde == ["auto_aussortierung.py"], funde
+    # #1396: das Nachlernen fragt die KI ebenfalls, ueber DENSELBEN Prompt und dieselben
+    # Hilfsfunktionen (`profil_kontext`, `gruende_top`); es sortiert nie aus.
+    assert funde == ["auto_aussortierung.py", "ki_nachlernen.py"], funde
 
 
 def test_kein_fester_score_mehr():
