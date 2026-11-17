@@ -958,6 +958,20 @@ class Database:
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
 
+        # #1382: Unterlagen, die nur als Pfad an der Bewerbung stehen
+        # (cv_path/cover_letter_path), als Dokument der Bewerbung nachziehen.
+        # Additiv und idempotent; kein Schema-Bump. Nur EINMAL: wer ein so
+        # angelegtes Dokument spaeter loescht, soll es nicht beim naechsten
+        # Start zurueckbekommen (die Pfade stehen ja weiter an der Bewerbung).
+        # Neue Unterlagen kommen ueber bewerbung_bearbeiten.
+        try:
+            if not self.get_setting("unterlagen_1382_nachgezogen", False):
+                from .services import unterlagen as _unterlagen
+                _unterlagen.altbestand_nachziehen(self)
+                self.set_setting("unterlagen_1382_nachgezogen", True)
+        except Exception as e:
+            logger.warning("Unterlagen-Nachzug (#1382): %s", e)
+
         # v1.7.113 (#1053): eine Spur fuer die Scoring-Regler. Zeitpunkt der
         # letzten Aenderung, Vorgaengerwert und Begruendung an der Zeile,
         # dazu ein Verlauf mit Herkunft. Additiv, deshalb Safety-Net statt

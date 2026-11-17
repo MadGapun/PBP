@@ -618,7 +618,7 @@ def test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_seh
         # Neues: sonst entscheidet sie noch nach der Lage VOR dem Scrollen (auf einem langsamen Rechner ein Wettlauf, auf der CI beobachtet)
         liste.evaluate("el => { el.scrollTop = el.scrollHeight; }")
         seite.evaluate("() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))")
-        seite.wait_for_function("() => { const l = document.querySelector('[data-elwosa-liste]'); return l.scrollHeight - l.scrollTop - l.clientHeight < 30; }")
+        seite.wait_for_function("() => { const l = document.querySelector('[data-elwosa-liste]'); return !!l && l.scrollHeight - l.scrollTop - l.clientHeight < 30; }")
         live["db"].add_elwosa_message("Neu nach der Antwort: die Suche ist fertig.", trigger_kind="test", trigger_ref="t1254-neu")
         seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")        # holt den Verlauf sofort, wie der Takt von 30 Sekunden
         neu = liste.get_by_text("Neu nach der Antwort")
@@ -745,7 +745,7 @@ def _nach_oben(seite):
 def _ans_ende(seite):
     seite.locator("[data-elwosa-liste]").evaluate("l => { l.scrollTop = l.scrollHeight; }")
     seite.wait_for_function(
-        "() => { const l = document.querySelector('[data-elwosa-liste]'); return l.scrollHeight - l.scrollTop - l.clientHeight < 2; }", timeout=5000)
+        "() => { const l = document.querySelector('[data-elwosa-liste]'); return !!l && l.scrollHeight - l.scrollTop - l.clientHeight < 2; }", timeout=5000)
     _bilder(seite)
 
 

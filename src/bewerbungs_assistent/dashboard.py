@@ -6184,6 +6184,38 @@ async def api_upload_document(
     return antwort
 
 
+# #1383: Schluesselwoerter im Dateinamen nur als WORT erkennen. Ein Teilstring-
+# Vergleich machte aus "Lebenslauf_Bob_Mustermann.docx" eine Vorlage ("muster"),
+# aus "Attest" ein Test-Dokument ("test"), aus "Wissenschaftler" ein
+# Referenzdokument ("wissen"). Regeln:
+#  * Wort = Folge von Buchstaben; Trenner sind _ - Leerzeichen . Ziffern.
+#  * Ein Wort trifft, wenn es das Schluesselwort ist (auch Mehrzahl e/en/n/s).
+#  * Lange, eindeutige Woerter (ab 7 Buchstaben) zaehlen auch am Rand eines
+#    Kompositums ("Arbeitszeugnis", "Standardlebenslauf" als Lebenslauf).
+#  * Wendungen mit Trennzeichen ("interview confirmation") bleiben ein
+#    Teilstring-Vergleich; sie sind lang genug, um eindeutig zu sein.
+_NAME_NUR_WORT = frozenset({"standard", "generic", "entwurf", "chaotisch"})
+_NAME_PLURAL = ("", "e", "en", "n", "s")
+
+
+def _name_hat(fname: str, schluessel) -> bool:
+    import re as _re
+    woerter = _re.findall(r"[a-zäöüß]+", fname.lower())
+    for kw in schluessel:
+        kw = kw.lower()
+        if not _re.fullmatch(r"[a-zäöüß]+", kw):
+            if kw in fname.lower():
+                return True
+            continue
+        rand = len(kw) >= 7 and kw not in _NAME_NUR_WORT
+        for w in woerter:
+            if any(w == kw + suf for suf in _NAME_PLURAL):
+                return True
+            if rand and (w.startswith(kw) or w.endswith(kw)):
+                return True
+    return False
+
+
 def _detect_doc_type(filename: str, text: str) -> str | None:
     """Auto-detect document type from filename and extracted text (#131, #538).
 
@@ -6199,50 +6231,57 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
     text_lower = (text or "").lower()[:2000]
 
     # Special cases: known internal/reference documents
-    if any(kw in fname for kw in ["master-wissen", "bewerbungs-master", "wissen"]):
+    if _name_hat(fname, ["master-wissen", "bewerbungs-master", "wissen"]):
         return "referenz"
     # Test/draft documents → sonstiges
-    if any(kw in fname for kw in ["test", "chaotisch", "draft", "entwurf", "tmp"]):
+    if _name_hat(fname, ["test", "chaotisch", "draft", "entwurf", "tmp"]):
         return "sonstiges"
-    # Templates/Vorlagen — generic CVs not tied to a specific application
-    if any(kw in fname for kw in ["template", "vorlage", "standard", "generic", "muster"]):
+    # Templates/Vorlagen — generic CVs not tied to a specific application.
+    # #1383: "template"/"vorlage" sind eindeutig und gehen vor; wer seine Datei
+    # "Lebenslauf" nennt, meint seinen Lebenslauf - die schwachen Hinweise
+    # (standard, generic, muster) stehen deshalb HINTER dieser Regel.
+    if _name_hat(fname, ["template", "vorlage"]):
+        return "vorlage"
+    if _name_hat(fname, ["lebenslauf", "cv", "resume"]):
+        return "lebenslauf"
+    if _name_hat(fname, ["standard", "generic", "muster"]):
         return "vorlage"
 
     # v1.7.0-beta.3 (#538): Neue Cluster — Reihenfolge wichtig (spezifisch zuerst)
-    if any(kw in fname for kw in ["transkript", "transcript", "mitschrift"]):
+    if _name_hat(fname, ["transkript", "transcript", "mitschrift"]):
         return "interview_transkript"
-    if any(kw in fname for kw in ["einladung", "invitation"]) and any(kw in fname for kw in ["interview", "vorstell", "gespraech", "gespräch"]):
+    if _name_hat(fname, ["einladung", "invitation"]) and _name_hat(fname, ["interview", "vorstell", "gespraech", "gespräch"]):
         return "interview_einladung"
     # #655 (E14, beta.77): Vor dem generischen "confirmation"-Match die
     # spezifische Interview-Bestaetigung pruefen — sonst landet "Interview
     # confirmation - 24_..." in eingangsbestaetigung statt interview_bestaetigung.
     if "interview confirmation" in fname or "interview-confirmation" in fname:
         return "interview_bestaetigung"
-    if any(kw in fname for kw in ["eingangsbestaetigung", "eingangsbestätigung", "confirmation", "bewerbungseingang"]):
+    if _name_hat(fname, ["eingangsbestaetigung", "eingangsbestätigung", "confirmation", "bewerbungseingang"]):
         return "eingangsbestaetigung"
-    if any(kw in fname for kw in ["absage", "rejection", "abgelehnt"]):
+    if _name_hat(fname, ["absage", "rejection", "abgelehnt"]):
         return "absage"
-    if any(kw in fname for kw in ["arbeitsvertrag", "vertrag", "offer", "angebot", "projektangebot"]):
+    if _name_hat(fname, ["arbeitsvertrag", "vertrag", "offer", "angebot", "projektangebot"]):
         return "angebot"
-    if any(kw in fname for kw in ["spickzettel", "spick", "cheat-sheet", "cheatsheet"]):
+    if _name_hat(fname, ["spickzettel", "spick", "cheat-sheet", "cheatsheet"]):
         return "vorbereitung"
     # #655 (E14, beta.77): Interview-Bestaetigung — speziell die Termin-
     # Bestaetigungs-Mails nach erfolgter Einladung. Unterscheidet sich
     # von interview_einladung (initial Anfrage vs. konkrete Termin-Zusage).
-    if any(kw in fname for kw in [
+    if _name_hat(fname, [
         "interview confirmation", "interview-confirmation",
         "confidential - interview", "confirmation - 24_",  # Datums-Pattern
         "confirmation - 20_", "confirmation - 13_",
     ]):
         return "interview_bestaetigung"
     # #655 (E14): Projekt-Update-/Zwischenfeedback-Mails von Recruitern.
-    if any(kw in fname for kw in [
+    if _name_hat(fname, [
         "zwischenfeedback", "update zum projekt", "update zur projekt",
         "update zum projektanfrage",
     ]):
         return "projekt_update"
     # #655 (E14): Persoenliche Rueckmeldung nach Gespraech.
-    if any(kw in fname for kw in [
+    if _name_hat(fname, [
         "persoenliche rueckmeldung", "persönliche rückmeldung",
         "persoenliche rueckmeldung zum projekt",
         "personal feedback",
@@ -6251,7 +6290,7 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
     # #649 (E13, beta.75): erweiterte Filename-Patterns fuer moderne
     # Recruiter-Outreach. Vorher: Recall-Problem bei "X hat Ihnen eine
     # Nachricht gesendet", "Wir suchen einen ...", "Live <ROLE> Roles..".
-    if any(kw in fname for kw in [
+    if _name_hat(fname, [
         "recruiter", "headhunter", "vakanz", "opportunity", "anfrage",
         "projektanfrage", "projektangebot",
         "hat ihnen eine nachricht gesendet",
@@ -6268,25 +6307,25 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         return "recruiter_anfrage"
 
     # Filename patterns (order matters — more specific first)
-    if any(kw in fname for kw in ["vorbereitung", "preparation", "interview-prep"]):
+    if _name_hat(fname, ["vorbereitung", "preparation", "interview-prep"]):
         return "vorbereitung"
-    if any(kw in fname for kw in ["projektliste", "project-list", "projekte"]):
+    if _name_hat(fname, ["projektliste", "project-list", "projekte"]):
         return "projektliste"
-    if any(kw in fname for kw in ["stellenbeschreibung", "job-description", "ausschreibung"]):
+    if _name_hat(fname, ["stellenbeschreibung", "job-description", "ausschreibung"]):
         return "stellenbeschreibung"
-    if any(kw in fname for kw in ["lebenslauf", "cv", "resume", "curriculum", "vita"]):
+    if _name_hat(fname, ["lebenslauf", "cv", "resume", "curriculum", "vita"]):
         return "lebenslauf"
-    if any(kw in fname for kw in ["anschreiben", "cover", "motivations"]):
+    if _name_hat(fname, ["anschreiben", "cover", "motivations"]):
         return "anschreiben"
-    if any(kw in fname for kw in ["zeugnis", "arbeitszeugnis"]):
+    if _name_hat(fname, ["zeugnis", "arbeitszeugnis"]):
         return "zeugnis"
-    if any(kw in fname for kw in ["referenz", "reference", "empfehlung"]):
+    if _name_hat(fname, ["referenz", "reference", "empfehlung"]):
         return "referenz"
-    if any(kw in fname for kw in ["zertifikat", "certificate", "bescheinigung"]):
+    if _name_hat(fname, ["zertifikat", "certificate", "bescheinigung"]):
         return "zertifikat"
-    if any(kw in fname for kw in ["foto", "bild", "bewerbungsfoto", "portrait", "photo"]):
+    if _name_hat(fname, ["foto", "bild", "bewerbungsfoto", "portrait", "photo"]):
         return "foto"
-    if any(kw in fname for kw in ["portfolio", "mappe", "arbeitsproben"]):
+    if _name_hat(fname, ["portfolio", "mappe", "arbeitsproben"]):
         return "portfolio"
 
     # .md files are rarely cover letters — treat as reference/sonstiges
