@@ -3416,7 +3416,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def ki_lernstand() -> dict:
-        """Wie gut urteilt die lokale KI, und wo irrt sie? (#1396)
+        """Wie gut bewertet die lokale KI, und wo irrt sie? (#1396)
 
         Vergleicht jedes Urteil der lokalen KI mit der Entscheidung von
         Mensch oder Claude: Trefferquote (Ergebnis und Grund getrennt), Verlauf
