@@ -35,6 +35,8 @@ sys.path.insert(0, str(_repo() / "src"))
 
 #: (Datei, Anfang der Abfrage) -> Grund
 UEBER_ALLE_PROFILE = {
+    ("services/ki_lernen.py", "SELECT hash, dismissed_by, dismiss_reason, dismiss_note"):
+        "Einmalige Migration der Marker (#1396): setzt sie fuer ALLE Profile in einem Durchgang",
     ("dashboard.py", "SELECT (SELECT COUNT(*) FROM applications) AS a_cnt"):
         "Aenderungs-Marker fuers Nachladen: eine Aenderung irgendwo darf neu laden",
     ("dashboard.py", "SELECT COUNT(*) AS n FROM jobs WHERE (description_snapshot IS NULL"):

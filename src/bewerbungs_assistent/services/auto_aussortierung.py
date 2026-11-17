@@ -60,6 +60,51 @@ def schalter_gesetzt(db) -> bool:
     return db.get_profile_setting(SCHALTER, None) is not None
 
 
+def profil_kontext(profile: dict) -> dict:
+    """Skills, aktuelle Position und Karrierestufe des Profils fuer den Bewertungs-Prompt.
+
+    EINE Quelle fuer die Auto-Aussortierung und das Nachlernen (#1396): beide
+    muessen der KI dasselbe Profil zeigen, sonst misst die Gegenprobe etwas anderes."""
+    profile_skills = [
+        s.get("name", "") for s in (profile.get("skills") or [])[:15]
+    ]
+    positions = profile.get("positions") or []
+    latest_pos = positions[0] if positions else {}
+    profile_position = latest_pos.get("title", "")
+    # Heuristik: Karriere-Stufe aus den Berufsjahren ableiten. EINE Rechnung
+    # (berufsfeld.berufsjahre, ein offenes Ende zaehlt bis zum Jahr der Uhr):
+    # bis v1.7.158 stand hier eine eigene Schleife mit einer festen 2026 (#1237).
+    from .berufsfeld import berufsjahre
+    years = berufsjahre(positions)
+    if years >= 10:
+        profile_seniority = f"Senior ({years} Jahre Erfahrung)"
+    elif years >= 5:
+        profile_seniority = f"Mid-Level ({years} Jahre Erfahrung)"
+    elif years >= 1:
+        profile_seniority = f"Junior ({years} Jahre Erfahrung)"
+    else:
+        profile_seniority = "Berufseinsteiger / Berufsanfänger"
+    return {"profile_skills": profile_skills, "profile_position": profile_position,
+            "profile_seniority": profile_seniority}
+
+
+def anti_muster_top(db) -> list[dict]:
+    """Die drei haeufigsten Gruende, aus denen der MENSCH aussortiert (fuer den Prompt).
+
+    EINE Quelle fuer die Auto-Aussortierung und das Nachlernen (#1396)."""
+    try:
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        from .ablehnungsgruende import abgeschaltete_gruende, gruende_zaehlen
+        liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)
+        # #1297: ein abgeschalteter Grund ist kein Anti-Muster mehr.
+        _aus = abgeschaltete_gruende(db)
+        liste = [(g, n) for g, n in liste if g.lower() not in _aus]
+        return [{"reason": g, "count": n} for g, n in liste[:3]]
+    except Exception:
+        return []
+
+
 def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                  dry_run: bool = False, max_dauer_sek: int = 50,
                  obergrenze_stellen: int = 30,
@@ -128,25 +173,10 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         profile = db.get_profile() or {}
     except Exception as exc:  # #691: schemakonformer Fehler statt Crash
         return _err(f"profil_lesen_fehlgeschlagen: {str(exc)[:150]}")
-    profile_skills = [
-        s.get("name", "") for s in (profile.get("skills") or [])[:15]
-    ]
-    positions = profile.get("positions") or []
-    latest_pos = positions[0] if positions else {}
-    profile_position = latest_pos.get("title", "")
-    # Heuristik: Karriere-Stufe aus den Berufsjahren ableiten. EINE Rechnung
-    # (berufsfeld.berufsjahre, ein offenes Ende zaehlt bis zum Jahr der Uhr):
-    # bis v1.7.158 stand hier eine eigene Schleife mit einer festen 2026 (#1237).
-    from .berufsfeld import berufsjahre
-    years = berufsjahre(positions)
-    if years >= 10:
-        profile_seniority = f"Senior ({years} Jahre Erfahrung)"
-    elif years >= 5:
-        profile_seniority = f"Mid-Level ({years} Jahre Erfahrung)"
-    elif years >= 1:
-        profile_seniority = f"Junior ({years} Jahre Erfahrung)"
-    else:
-        profile_seniority = "Berufseinsteiger / Berufsanfänger"
+    kontext = profil_kontext(profile)
+    profile_skills = kontext["profile_skills"]
+    profile_position = kontext["profile_position"]
+    profile_seniority = kontext["profile_seniority"]
 
     # Kandidaten holen — aktive, noch nicht bewertete Stellen
     try:
@@ -190,26 +220,16 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     # MENSCHEN (`nur_menschen=True`); die Automatik und Systemgruende
     # (`bewerbung_erstellt`, `profil_match_negativ`, ...) sind keine
     # Anti-Muster des Bewerbers, sonst lernt das Modell von sich selbst.
-    dismiss_reasons_top: list[dict] = []
-    try:
-        conn = db.connect()
-        pid = db.get_active_profile_id()
-        from .ablehnungsgruende import abgeschaltete_gruende, gruende_zaehlen
-        liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)
-        # #1297: ein abgeschalteter Grund ist kein Anti-Muster mehr.
-        _aus = abgeschaltete_gruende(db)
-        liste = [(g, n) for g, n in liste if g.lower() not in _aus]
-        dismiss_reasons_top = [
-            {"reason": g, "count": n} for g, n in liste[:3]
-        ]
-    except Exception:
-        pass
+    dismiss_reasons_top = anti_muster_top(db)
 
-    # v1.7.0-beta.63 (#638 Stufe 3): konkrete Few-Shot-Beispiele
+    # #1396: Beispiele nach Aehnlichkeit statt der zehn letzten Ablehnungen -
+    # nur Entscheidungen von Mensch und Claude, einmal je Lauf geladen.
+    from . import ki_beispiele, ki_lernen
     try:
-        recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)
-    except Exception:
-        recent_dismissals_fewshot = []
+        beispiel_pool = ki_beispiele.pool_laden(db)
+    except Exception as exc:
+        logger.warning("Beispiel-Pool nicht geladen: %s", exc)
+        beispiel_pool = []
 
     if not candidates:
         if ohne_beschreibung:
@@ -260,8 +280,9 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "job_company": job.get("company") or "",
                 "job_description": (job.get("description") or "")[:1500],
                 "dismiss_reasons_top": dismiss_reasons_top,
-                # v1.7.0-beta.63 (#638 Stufe 3): Few-Shot-Beispiele
-                "recent_dismissals": recent_dismissals_fewshot,
+                # #1396: Beispiele nach Aehnlichkeit (kein Datum-Fenster mehr)
+                "lern_beispiele": ki_beispiele.beispiele_fuer(
+                    db, job, pool=beispiel_pool),
             }
             result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
             if not result.success:
@@ -283,6 +304,12 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "score": job.get("score"),
                 "reason": reason,
             }
+            if not dry_run:
+                # #1396: was die KI zu dieser Stelle gesagt hat (der Marker, aus dem
+                # spaeter die Gegenprobe wird).
+                ki_lernen.merke_urteil(
+                    db, job["hash"], decision, reason,
+                    (result.payload or {}).get("sicherheit", "klar"))
             if decision == "PASST_NICHT" and _DUBLETTEN_WORT.search(reason):
                 # #1250: ob zwei Anzeigen dieselbe sind, entscheidet die
                 # Dubletten-Erkennung beim Speichern (`stellen_dublette`),
@@ -294,6 +321,9 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 entry["reason"] = (f"{reason} — kein fachliches Urteil "
                                    "(Dubletten erkennt PBP selbst), "
                                    "nicht aussortiert.")
+                if not dry_run:  # #1396: das gilt als unsicher, nicht als PASST_NICHT
+                    ki_lernen.merke_urteil(db, job["hash"], "UNSICHER", reason,
+                                           "schwach")
                 unsicher_results.append(entry)
             elif decision == "PASST_NICHT":
                 if not dry_run:
@@ -308,7 +338,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                             # #1092: das Urteil ist das der lokalen KI,
                             # nicht des Menschen (#1010). Vorher trug
                             # dieser Weg die Vorgabe "ich".
-                            herkunft="automatik")
+                            herkunft="automatik", entschieden_von="ollama")
                     except Exception as exc:
                         errors.append({
                             "hash": job["hash"], "error": str(exc)[:200],

@@ -12544,7 +12544,15 @@ async def api_llm_accuracy():
     Wie oft hat der User eine automatische Aussortierung korrigiert?
     Dashboard kann das als Vertrauens-Indikator anzeigen.
     """
-    return _db.get_ollama_accuracy_stats()
+    erg = _db.get_ollama_accuracy_stats()
+    # #1396: der Lernstand aus den Markern (Gegenprobe gegen Mensch und Claude) -
+    # dieselbe Antwort wie das Werkzeug `ki_lernstand`.
+    try:
+        from .services import ki_lernen
+        erg["lernstand"] = ki_lernen.lernstand(_db)
+    except Exception as exc:  # pragma: no cover - die alten Felder bleiben
+        erg["lernstand"] = {"gesehen": 0, "fehler": str(exc)[:120]}
+    return erg
 
 
 @app.post("/api/llm/warmup")

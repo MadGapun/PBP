@@ -1097,6 +1097,15 @@ class Database:
                 conn.execute("ALTER TABLE jobs ADD COLUMN dismissed_by TEXT")
                 conn.commit()
                 logger.info("Safety-Net: jobs.dismissed_by nachgezogen (#1010)")
+            # #1396: Bearbeitungsmarker je Stelle (wer hat entschieden, was hat
+            # die lokale KI gesagt, lag sie richtig) - additiv, ohne Bump; die
+            # vorhandenen Stellen bekommen die Marker einmalig, soweit sie aus den
+            # Daten ableitbar sind. Ein Fehler hier darf den Start nie verhindern.
+            try:
+                from .services import ki_lernen
+                ki_lernen.migrieren(self)
+            except Exception as _exc:  # pragma: no cover
+                logger.warning("KI-Marker (#1396) nicht gesetzt: %s", _exc)
             # v1.7.62 (#1008 Befund 3): tote Regler abraeumen. Der
             # Mechanismus hinter `hochschulabschluss/fehlt` ist seit
             # v1.7.35 (#972) entfernt; die Zeile lag danach in jedem
@@ -5775,6 +5784,11 @@ class Database:
         # und Remote-Stufe. Ohne diese Eintraege loeschte der naechste
         # Suchlauf den Schutz (DoD 8e).
         "art_quelle", "umfang_quelle", "remote_quelle",
+        # #1396: was die lokale KI zu einer Stelle gesagt hat und ob sie richtig lag.
+        # Ohne diese Eintraege loeschte der naechste Suchlauf das Gelernte (DoD 8e).
+        "entschieden_von", "claude_gelesen_am", "ollama_gesehen_am",
+        "ollama_urteil", "ollama_grund", "ollama_sicherheit",
+        "ollama_lag_richtig", "ollama_grund_traf", "ollama_geprueft_am",
     )
 
     #: #1299: Merkmal -> Spalte, die festhaelt, dass der MENSCH es gesetzt hat.
@@ -6356,6 +6370,13 @@ class Database:
             except Exception as _exc:  # pragma: no cover
                 logger.debug("Stempel (#954): %s", _exc)
 
+            # #1396: die Anlage-Zweige (Wiedergaenger, Dublette, Nicht-DACH) sind
+            # Regeln der Automatik, keine Entscheidung eines Menschen.
+            if is_new and not is_active:
+                conn.execute(
+                    "UPDATE jobs SET entschieden_von='regel' WHERE hash=? "
+                    "AND entschieden_von IS NULL", (stored_hash,))
+
             # v1.7.74 (#892, C64): der Erst-Score. Er wird NUR beim
             # ersten Speichern gesetzt und danach nie wieder angefasst —
             # sonst waere er der aktuelle Score unter anderem Namen.
@@ -6640,7 +6661,23 @@ class Database:
              _now(), profil_stand(profil), score_jetzt, stand,
              _now(), target_hash),
         )
+        # #1396: Claude hat Anzeige und Profil gelesen. Das ist seine
+        # Entscheidung, ausser der Mensch hat bereits selbst entschieden
+        # (sein Wort bleibt); danach die Gegenprobe gegen die lokale KI.
+        if wert in ("EMPFOHLEN", "BEDINGT", "NICHT_EMPFOHLEN"):
+            conn.execute(
+                "UPDATE jobs SET claude_gelesen_am=?, entschieden_von="
+                "CASE WHEN entschieden_von='mensch' THEN 'mensch' ELSE 'claude' END "
+                "WHERE hash=?", (_now(), target_hash))
+        else:
+            conn.execute("UPDATE jobs SET claude_gelesen_am=? WHERE hash=?",
+                         (_now(), target_hash))
         conn.commit()
+        try:
+            from .services import ki_lernen
+            ki_lernen.nach_entscheidung(conn, target_hash)
+        except Exception as _exc:  # pragma: no cover
+            logger.debug("KI-Gegenprobe (#1396): %s", _exc)
         return cur.rowcount > 0
 
     def mark_job_sighted(self, job_hash: str) -> bool:
@@ -6704,7 +6741,7 @@ class Database:
         return cur.rowcount > 0
 
     def dismiss_job(self, job_hash: str, reason: str, herkunft: str = "ich",
-                    notiz: str = "") -> bool:
+                    notiz: str = "", entschieden_von: str = "") -> bool:
         """Sortiert eine Stelle aus. `notiz` ist der Freitext dazu (#956).
 
         Vor v1.7.70 haengten drei Aufrufer ihren Protokolltext an
@@ -6793,6 +6830,20 @@ class Database:
         if wer == "ich":
             conn.execute("UPDATE jobs SET zurueckgeholt_am=NULL WHERE hash=?",
                          (target_hash,))
+        # #1396: wer hat entschieden - dieselbe Ableitung wie in der Migration.
+        # Die lokale KI nennt sich selbst (`entschieden_von`), sonst folgt es aus
+        # Herkunft und Grund. Danach die Gegenprobe, falls die KI die Stelle schon
+        # gesehen hatte (ihr PASST gegen das Aussortieren des Menschen).
+        try:
+            from .services import ki_lernen
+            _von = (entschieden_von if entschieden_von in ki_lernen.WERTE
+                    else ki_lernen.ableiten(wer, reason, "; ".join(freitexte)))
+            conn.execute("UPDATE jobs SET entschieden_von=? WHERE hash=?",
+                         (_von, target_hash))
+            conn.commit()
+            ki_lernen.nach_entscheidung(conn, target_hash)
+        except Exception as _exc:  # pragma: no cover
+            logger.debug("KI-Marker beim Aussortieren (#1396): %s", _exc)
         conn.commit()
         return cur.rowcount > 0
 
@@ -6825,6 +6876,17 @@ class Database:
             "WHERE hash=?",
             (jetzt, 1 if durch_mensch else 0, jetzt, target_hash)
         )
+        # #1396: das Zurueckholen durch den Menschen ist sein Ja zur Stelle - und
+        # die Gegenprobe gegen die KI, die sie aussortiert hatte ("lag falsch").
+        if durch_mensch and cur.rowcount > 0:
+            try:
+                from .services import ki_lernen
+                conn.execute("UPDATE jobs SET entschieden_von='mensch' WHERE hash=?",
+                             (target_hash,))
+                conn.commit()
+                ki_lernen.nach_entscheidung(conn, target_hash)
+            except Exception as _exc:  # pragma: no cover
+                logger.debug("KI-Marker beim Zurueckholen (#1396): %s", _exc)
         conn.commit()
         return cur.rowcount > 0
 

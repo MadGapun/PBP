@@ -2979,7 +2979,7 @@ M_URTEILE_MENSCH = [
     ("um18", "Der Block GELERNT zaehlt mit nur_menschen=False", UM_AA,
      "ausser=(), nur_menschen=True)", "ausser=(), nur_menschen=False)", T_UM),
     ("um19", "Die KI bekommt keine Beispiele mehr", UM_AA,
-     "        recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)\n", "        recent_dismissals_fewshot = []\n", T_UM),
+     "        beispiel_pool = ki_beispiele.pool_laden(db)\n", "        beispiel_pool = []\n", T_UM),
     # die Waechter selbst (die Eingriffe sitzen in der Testdatei)
     ("um20", "Waechter: nur_menschen=False zaehlt als gut", UM_T,
      "        if not (isinstance(wert, ast.Constant) and wert.value is True):\n", "        if wert is None:\n", T_UM),

@@ -20,7 +20,8 @@ from bewerbungs_assistent.services import werkzeug_katalog
 
 #: Zeichen der sichtbaren Liste (Name + Beschreibung + Eingabeschema als JSON) im Alltagsmodus. Gemessen 12.10.2026: rund 208.000
 #: bei 256 sichtbaren Werkzeugen. Die Grenze liegt bewusst knapp darueber: ein neues Werkzeug passt hinein, ein ganzer Block nicht.
-BUDGET_ZEICHEN = 218_000
+# 1.8.7 (#1396): +500 fuer `ki_lernstand` (ein neues Werkzeug, ~400 Zeichen mit Schema); vorher lag die Liste bei rund 217.930.
+BUDGET_ZEICHEN = 218_700
 #: ... und kein einzelnes Werkzeug traegt mehr als das (heute das groesste: ~3.800).
 BUDGET_JE_WERKZEUG = 4_500
 
