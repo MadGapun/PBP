@@ -1,4 +1,4 @@
-"""#1396 im Browser: die Karte "Wie gut urteilt die lokale KI?" unter Einstellungen > Lokale KI.
+"""#1396 im Browser: die Karte "Wie gut bewertet die lokale KI?" unter Einstellungen > Lokale KI.
 
 Der Test wartet auf Zustaende (Karte sichtbar, Satz geladen), nicht auf Zeit. Die echte
 lokale KI (Ollama, Port 11434) wird nie erreicht: `PBP_LLM_MOCK=1` ersetzt die Erkennung.
@@ -100,7 +100,7 @@ def test_die_karte_zeigt_trefferquote_satz_und_abweichung(browser, server):
         satz = page.locator("[data-testid=ki-lernstand-satz]")
         satz.wait_for(state="visible", timeout=10000)
         text = karte.inner_text()
-        assert "wie gut urteilt die lokale ki?" in text.lower()
+        assert "wie gut bewertet die lokale ki?" in text.lower()
         assert "83.3 %" in text                      # 5 von 6 richtig
         assert "Gegenbeispiele" in satz.inner_text()  # was der Mensch tun kann: zurueckholen
         assert "Es gibt nichts einzustellen" in text

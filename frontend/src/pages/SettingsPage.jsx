@@ -1833,7 +1833,7 @@ function OllamaAccuracyCard() {
     return (
       <div className="glass-card p-3 mb-4 border-teal/15" data-testid="ki-lernstand">
         <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-          Wie gut urteilt die lokale KI?
+          Wie gut bewertet die lokale KI?
         </p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
