@@ -64,7 +64,7 @@ export default function StellenRegeln() {
         return;
       }
       const zusatz = [
-        vorschau.geschuetzt ? `${vorschau.geschuetzt} geschützte Stelle(n) (zurückgeholt oder mit Urteil) bleiben.` : "",
+        vorschau.geschuetzt ? `${vorschau.geschuetzt} geschützte Stelle(n) (zurückgeholt oder mit Bewertung) bleiben.` : "",
         vorschau.sprache_unbekannt ? `${vorschau.sprache_unbekannt} Stelle(n) ohne erkennbare Sprache bleiben.` : "",
       ].filter(Boolean).join(" ");
       const ok = await bestaetigen({
@@ -121,7 +121,7 @@ export default function StellenRegeln() {
       </div>
       <p className="mb-4 text-xs text-muted">
         Eine Regel sortiert passende neue Stellen nach jeder Suche von selbst aus — mit dem Grund, den du wählst.
-        Stellen, die du zurückgeholt hast, Stellen mit gelesenem Urteil und Stellen mit Bewerbung bleiben immer stehen.
+        Stellen, die du zurückgeholt hast, Stellen mit gelesener Bewertung und Stellen mit Bewerbung bleiben immer stehen.
         Weitere Regeln und Ansichten (Titel, Anzeigentext, Quelle, Punkte) legst du mit Claude an:
         „Speichere mir eine Regel, die …“.
       </p>

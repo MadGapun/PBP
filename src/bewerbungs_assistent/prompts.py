@@ -553,21 +553,21 @@ Harte Grenzen zuerst (sofort aussortieren, ohne Rückfrage):
   -> der passende Grund (zeitarbeit, befristet)
 - Gehalt oder Tagessatz BELEGT unter dem Minimum -> gehalt_zu_niedrig.
   Geschätzte Werte sind kein Grund.
-Vorgeschichte (vor jedem inhaltlichen Urteil):
+Vorgeschichte (vor jeder inhaltlichen Bewertung):
 - Steht eine Repost-Warnung an der Stelle (repost_warnung, repost_details)?
   Läuft die Bewerbung noch (laeuft: true) und ist es dieselbe Stelle:
   bereits_beworben, nicht noch einmal bewerben. Bei einer abgeschlossenen
   den dokumentierten Absagegrund lesen (bewerbung_details, dokument_lesen)
   und gegen die neue Anzeige halten. Eine Neuausschreibung ist nicht
   automatisch eine zweite Chance. Art "vermittler" ist eine Frage an den
-  Menschen, kein Urteil.
+  Menschen, keine Bewertung.
 - firma_kontext(firmenname): bei Vermittlern auch den Endkunden bedenken
 - Schon beworben auf dieselbe Rolle -> bereits_beworben, nicht duplikat
 Inhalt:
 - Bei allem, was die harten Grenzen besteht und fachlich in Frage kommt:
   fit_analyse(job_hash) lesen, vollständig
 - Fehlt der Anzeigentext: stellenbeschreibung_nachladen(stellen_hash);
-  klappt das nicht, NICHT_BEURTEILBAR mit Grund. Nicht aus dem Titel urteilen.
+  klappt das nicht, NICHT_BEURTEILBAR mit Grund. Nicht aus dem Titel bewerten.
 - Achtung Begriffe: ein Pflichtbegriff kann in einer anderen Bedeutung
   vorkommen (z. B. "Change Management" als Organisations- oder HR-Wandel
   statt als Änderungswesen im Engineering). Lies, was gemeint ist.
@@ -587,7 +587,7 @@ SCHRITT 4: ERGEBNIS SICHERN
 
 SCHRITT 5: BERICHT
 - Wie viele Stellen gelesen, wie viele aussortiert (nach Grund gruppiert)
-- Tabelle der verbleibenden Stellen: Urteil, Kernaussage, was vor einer
+- Tabelle der verbleibenden Stellen: Bewertung, Kernaussage, was vor einer
   Bewerbung zu klären ist
 - Auffälligkeiten an Suchbegriffen oder Quellen als Vorschlag — nichts
   selbst an den Suchkriterien ändern
@@ -1305,7 +1305,7 @@ Gehe diese Schritte der Reihe nach durch. Markiere erledigte Schritte.
     → Zeige dem User: Was passt, was fehlt, Risiken
     → Nenne die Punkte so, wie fit_analyse sie liefert (punkte_text), und
       was sie bedeuten: {SCORE_BEDEUTUNG} Keine Prozentzahl.
-    → Habt ihr Anzeige und Profil gelesen: das Urteil mit
+    → Habt ihr Anzeige und Profil gelesen: die Bewertung mit
       stelle_urteil_speichern(job_hash, urteil, begruendung) festhalten.
 
 [ ] 2. LÜCKEN PRÜFEN

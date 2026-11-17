@@ -485,7 +485,7 @@ def grund_guete(job: dict) -> tuple[str, str]:
                 return "ohne_grundlage", (
                     f"die Anzeige hatte nur {laenge} Zeichen — daraus "
                     "lässt sich über Fachgebiet, System oder Seniorität "
-                    "nichts entnehmen; das Urteil zählt nicht mit")
+                    "nichts entnehmen; die Bewertung zählt nicht mit")
             if laenge < MINDESTLAENGE_BELASTBAR:
                 maengel.append(
                     f"die Anzeige hatte nur {laenge} Zeichen — zu wenig, "
@@ -666,7 +666,7 @@ def find_wiedergaenger_pattern(
             + (" ACHTUNG zur Grundlage: "
                + "; ".join(sorted(set(schwache_belege[top_grund])))
                + f" ({len(schwache_belege[top_grund])} von {anzahl} "
-                 "Urteilen). Der Befund wiegt entsprechend weniger."
+                 "Aussortierungen). Der Befund wiegt entsprechend weniger."
                if schwache_belege.get(top_grund) else "")
         ),
     }

@@ -114,15 +114,15 @@ KURZ = {
     "fit_analyse": (
         "Liefert für eine Stelle den vollen Anzeigentext, die getroffenen "
         "und fehlenden Suchbegriffe, Rahmen (Entfernung, Gehalt, Remote) und "
-        "eine Einordnung. Nutzen, bevor du über eine einzelne Stelle "
-        "urteilst. Liest nur. Hast du Anzeige und Profil gelesen, speichere "
-        "dein Urteil mit stelle_urteil_speichern — sonst bleibt die Stelle "
+        "eine Einordnung. Nutzen, bevor du eine einzelne Stelle "
+        "bewertest. Liest nur. Hast du Anzeige und Profil gelesen, speichere "
+        "deine Bewertung mit stelle_urteil_speichern — sonst bleibt die Stelle "
         "'nicht beurteilt'."),
     "stelle_einordnen": (
         "Ordnet eine Stelle ein: behalten ('passt') oder aussortieren "
         "('passt_nicht' mit Grund aus der Liste). Nutzen für einzelne "
         "Stellen nach einer Entscheidung des Menschen. Für viele Stellen "
-        "stellen_bulk_bewerten, für ein gelesenes Urteil "
+        "stellen_bulk_bewerten, für eine gelesene Bewertung "
         "stelle_urteil_speichern. Nur Gruende aus 'verfuegbare_gruende' "
         "verwenden, nie eigene erfinden."),
     "stellen_bulk_bewerten": (
@@ -213,10 +213,10 @@ KURZ = {
         "suchkriterien_setzen (alles) oder suchkriterien_bearbeiten "
         "(einzelne Begriffe)."),
     "stelle_urteil_speichern": (
-        "Speichert dein Urteil über eine Stelle, nachdem du Anzeige und "
+        "Speichert deine Bewertung einer Stelle, nachdem du Anzeige und "
         "Profil gelesen hast (empfohlen, bedingt, nicht_empfohlen), mit "
         "Begruendung. Nur nach echtem Lesen, etwa nach fit_analyse — ein "
-        "Urteil aus den Punkten abzuleiten ist falsch. Das Urteil steht "
+        "Bewertung aus den Punkten abzuleiten ist falsch. Die Bewertung steht "
         "danach an der Stelle und in der Trefferliste, bis sich Profil oder "
         "Anzeige aendern."),
     "aufgaben_uebersicht": (

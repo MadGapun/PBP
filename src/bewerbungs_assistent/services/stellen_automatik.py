@@ -460,7 +460,7 @@ def _tor_widerspricht(db, job: dict, grund: str, muster: Optional[dict],
 #: Anzeigentext gekommen ist (#1250).
 OHNE_TEXT_HINWEIS = (
     "Gleicht früher aussortierten Stellen ({grund}), aber der Anzeigentext "
-    "fehlt — ohne Text kein Urteil. Erst den Text nachladen, dann entscheiden.")
+    "fehlt — ohne Text keine Bewertung. Erst den Text nachladen, dann entscheiden.")
 
 
 def _ohne_text(job: dict, muster: dict, grund: str) -> dict:

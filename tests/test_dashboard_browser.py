@@ -843,7 +843,7 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
         # AK 7: der Klick auf das Abzeichen fuehrt zum Ergebnis.
         page.get_by_text("Bedingt ⚠ überholt").first.click()
         page.get_by_role("heading", name="Woher die Punkte kommen — PLM Consultant").wait_for(state="visible")
-        page.get_by_text("Gelesenes Urteil").wait_for(state="visible")
+        page.get_by_text("Gelesene Bewertung").wait_for(state="visible")
         page.get_by_text("Methodenluecke, ueberbrueckbar").wait_for(state="visible")
 
         # AK 1/2: der Einstieg steht in der Fusszeile, also ohne Scrollen.

@@ -46,7 +46,7 @@ URTEIL = "urteil"
 KLARTEXT = {
     ZURUECKGEHOLT: "Du hast diese Stelle zurückgeholt oder als passend "
                    "markiert — die Automatik sortiert sie nicht aus.",
-    URTEIL: "Zu dieser Stelle liegt ein gelesenes Urteil vor "
+    URTEIL: "Zu dieser Stelle liegt eine gelesene Bewertung vor "
             "(empfohlen oder bedingt) — die Automatik sortiert sie "
             "nicht aus.",
 }

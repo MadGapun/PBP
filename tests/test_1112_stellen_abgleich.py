@@ -125,7 +125,7 @@ def test_die_regeln_aus_dem_issue_stehen_drin(db):
     text = _text(db)
     assert "ohne_schwelle=True ist Pflicht" in text
     assert "heben die Grenze NICHT auf" in text
-    assert "Nicht aus dem Titel urteilen" in text
+    assert "Nicht aus dem Titel bewerten" in text
     assert "Geschätzte Werte sind kein Grund" in text
     assert "nichts\n  selbst an den Suchkriterien ändern" in text
 

@@ -3176,7 +3176,7 @@ def register(mcp, db, logger):
         Regelbasiert, ohne Sprachmodell: Antwortarchiv (alle
         wiederverwendbaren Antworten mit Herkunft), wiederkehrende
         Selbstkritik und Überraschungen (mit Fallzahl — Beobachtung,
-        kein Urteil), Bauchgefühl gegen tatsächlichen Ausgang, offene
+        keine Bewertung), Bauchgefühl gegen tatsächlichen Ausgang, offene
         nächste Schritte aus laufenden Verfahren.
 
         Muster werden erst ab 4 Reflexionen ausgewiesen (#798-Regel:

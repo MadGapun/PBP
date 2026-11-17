@@ -14,7 +14,7 @@ check("Urteil ist klickbar", kernaussage(urteil).urteil, true);
 check("Urteil-Ton", kernaussage(urteil).ton, "amber");
 const ueberholt = { ...urteil, pruefstand: { art: "beurteilt", ueberholt: true } };
 check("ueberholt benannt", kernaussage(ueberholt).text, "Bedingt ⚠ überholt");
-check("ueberholt als Grund", kartenGrund(ueberholt), "Das Urteil ist älter als Profil oder Anzeige");
+check("ueberholt als Grund", kartenGrund(ueberholt), "Die Bewertung ist älter als Profil oder Anzeige");
 
 const daumen = { description: text, fach_daumen: { richtung: "hoch", farbe: "belegt" } };
 check("ohne Urteil der Daumen", kernaussage(daumen).text, "passt fachlich gut");

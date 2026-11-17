@@ -45,7 +45,7 @@ def _geschuetzt_details(geschuetzt: list) -> dict:
             for j in geschuetzt[:10]],
         "geschuetzt_hinweis": (
             f"{len(geschuetzt)} Stelle(n) hat die KI nicht beurteilt: du "
-            "hast sie zurückgeholt, oder es liegt ein gelesenes Urteil "
+            "hast sie zurückgeholt, oder es liegt eine gelesene Bewertung "
             "(empfohlen oder bedingt) vor. Die Automatik sortiert sie nicht aus."),
     }
 
@@ -260,7 +260,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 uebersprungen_ohne_beschreibung=len(ohne_beschreibung),
                 uebersprungen_details=uebersprungen_details,
                 hinweis=(
-                    "Ohne Beschreibung kein fachliches Urteil (#756). "
+                    "Ohne Beschreibung keine fachliche Bewertung (#756). "
                     "Erst stellenbeschreibung_nachladen(hash) für die "
                     "übersprungenen Stellen, dann erneut aufrufen."
                 ),
@@ -366,7 +366,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 # KI sprach den Grund einer Kopie aus ihren Beispielen nach
                 # (die Beispiele sind seit #1239 bereinigt; das hier ist der
                 # doppelte Boden). Ein solches Urteil gilt als unsicher.
-                entry["reason"] = (f"{reason} — kein fachliches Urteil "
+                entry["reason"] = (f"{reason} — keine fachliche Bewertung "
                                    "(Dubletten erkennt PBP selbst), "
                                    "nicht aussortiert.")
                 unsicher_results.append(entry)
@@ -477,7 +477,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         result_payload["uebersprungen_hinweis"] = (
             f"{len(ohne_beschreibung)} Stellen ohne Beschreibung wurden "
             "NICHT bewertet (#756) — ohne Stellentext kein fachliches "
-            "Urteil. Nächster Schritt: stellenbeschreibung_nachladen(hash)."
+            "Bewertung. Nächster Schritt: stellenbeschreibung_nachladen(hash)."
         )
     return result_payload
 

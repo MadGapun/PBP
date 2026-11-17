@@ -99,7 +99,7 @@ def nachricht(block: dict) -> str:
         am = (block.get("aussortiert_am") or "")[:10]
         return (
             f"Diese Stelle ist bereits aussortiert (Grund: {gruende}"
-            + (f", am {am}" if am else "") + "). Das frühere Urteil greift, "
+            + (f", am {am}" if am else "") + "). Die frühere Bewertung greift, "
             "zu tun ist nichts. Soll sie zurück in die Liste: "
             f"stelle_reaktivieren('{kennung}').")
     return (
