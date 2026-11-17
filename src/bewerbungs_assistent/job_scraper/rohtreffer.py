@@ -55,6 +55,7 @@ def lauf_beginnen() -> None:
     """
     with _LOCK:
         _GESEHEN.clear()
+        _DURCHLASS.clear()
 
 
 def melde(quelle: str, anzahl: int) -> None:
@@ -89,3 +90,36 @@ def alle() -> dict:
     """Der ganze Stand — fuer Diagnose und Tests."""
     with _LOCK:
         return dict(_GESEHEN)
+
+
+# #1394: was NACH dem adaptereigenen Keyword-Filter uebrig blieb. Eine Quelle
+# ohne eigene Suche (arbeitnow, remoteok) liefert den allgemeinen Feed; erst
+# die Gegenueberstellung geliefert / durchgelassen / mit Treffer im Titel
+# macht einen undichten Filter sichtbar (stilles Zuviel, Gegenstueck zu #1334).
+_DURCHLASS: dict[str, dict[str, int]] = {}
+
+
+def melde_durchlass(quelle: str, durchgelassen: int, im_titel: int) -> None:
+    if not quelle:
+        return
+    with _LOCK:
+        d = _DURCHLASS.setdefault(quelle, {"durchgelassen": 0, "im_titel": 0})
+        d["durchgelassen"] += int(durchgelassen)
+        d["im_titel"] += int(im_titel)
+
+
+def durchlass(quelle: str):
+    """`{"durchgelassen": n, "im_titel": m}` oder `None` (= nicht gemeldet)."""
+    with _LOCK:
+        d = _DURCHLASS.get(quelle)
+        return dict(d) if d is not None else None
+
+
+def bilanz() -> dict:
+    """Je Quelle mit Filter: geliefert / durch den Filter / mit Pflichttreffer im Titel."""
+    with _LOCK:
+        quellen = dict(_DURCHLASS)
+        gesehen = dict(_GESEHEN)
+    return {q: {"geliefert": gesehen.get(q), "durch_filter": d["durchgelassen"],
+                "mit_pflichttreffer_im_titel": d["im_titel"]}
+            for q, d in quellen.items()}
