@@ -254,15 +254,18 @@ def test_1234_analyse_und_liste_stellen_dieselbe_frage():
     assert quelle.count("ist_fachlicher_ko(") >= 2
 
 
-@pytest.mark.parametrize("grund, kategorie", [
-    ("falsches_fachgebiet", "NICHT_EMPFOHLEN"),
-    ("gehalt_zu_niedrig", "NICHT_BEURTEILBAR"),
-    ("bewerbung_erstellt", "NICHT_BEURTEILBAR"),
+@pytest.mark.parametrize("grund, kategorie, muss_hits", [
+    # #1395: trifft die Stelle einen Pflichtbegriff (Tor offen), ist "falsches Fachgebiet" fuer die Firma kein k.o.
+    ("falsches_fachgebiet", "NICHT_EMPFOHLEN", []),
+    ("falsches_fachgebiet", "NICHT_BEURTEILBAR", ["a"]),
+    ("zu_junior", "NICHT_EMPFOHLEN", ["a"]),
+    ("gehalt_zu_niedrig", "NICHT_BEURTEILBAR", ["a"]),
+    ("bewerbung_erstellt", "NICHT_BEURTEILBAR", ["a"]),
 ])
-def test_1234_die_analyse_urteilt_wie_vorher(grund, kategorie):
+def test_1234_die_analyse_urteilt_wie_vorher(grund, kategorie, muss_hits):
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit = {"total_score": 10, "total_score_max": 30,
-           "beschreibung_vorhanden": True, "muss_hits": ["a"], "missing_muss": [],
+           "beschreibung_vorhanden": True, "muss_hits": muss_hits, "missing_muss": [],
            "wiedergaenger": {"firma": "F", "anzahl": 2, "top_grund": grund}}
     befund = _build_empfehlung(fit, {"title": "T"}, profil_kompetenzen=5)
     assert befund["kategorie"] == kategorie

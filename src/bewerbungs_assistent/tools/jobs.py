@@ -73,7 +73,8 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     from ..services.wiedergaenger import ist_fachlicher_ko
 
     ko_gruende: list[str] = []
-    if ist_fachlicher_ko(wiedergaenger):
+    # #1395: oeffnet das Pflicht-Tor (muss_hits), ist ein Firmen-k.o. "falsches Fachgebiet" keines.
+    if ist_fachlicher_ko(wiedergaenger, tor_offen=bool(muss_hits)):
         ko_gruende.append(
             f"Wiedergaenger: Firma '{wiedergaenger.get('firma')}' wurde "
             f"bereits {wiedergaenger['anzahl']}x mit fachlichem k.o.-Grund "
@@ -1496,6 +1497,11 @@ def register(mcp, db, logger):
         # nichts bekannt ist. Dieselbe Bauform wie der Guete-Rang.
         from ..services import muss_tor as _tor
 
+        def _tor_gespeichert_offen(j) -> bool:
+            """#1395: hat die gespeicherte Stelle einen Pflichttreffer? (dieselbe Antwort wie `_tor_rang`)"""
+            muss = [k for k in ((_guete_krit or {}).get("keywords_muss") or []) if str(k).strip()]
+            return bool(muss) and j.get("fachscore") is not None and not _tor.ohne_pflichttreffer(j, _guete_krit)
+
         def _tor_rang(j):
             return _tor.sortierschluessel(j, _guete_krit)
 
@@ -1610,7 +1616,7 @@ def register(mcp, db, logger):
                     # #1234: wie in der Analyse ist nur ein FACHLICHER Grund ein
                     # k.o. Jedes andere Muster ist ein Hinweis, kein Urteil - bis
                     # v1.7.158 hing jede Stelle mit einem Muster unten in der Liste.
-                    if ist_fachlicher_ko(muster):
+                    if ist_fachlicher_ko(muster, tor_offen=_tor_gespeichert_offen(j)):
                         j["_ko_muster"] = muster
                     elif muster:
                         j["_wg_hinweis"] = muster
