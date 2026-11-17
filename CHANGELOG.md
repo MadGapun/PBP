@@ -90,7 +90,7 @@ Die Vorschläge für den nächsten Schritt wissen, was schon erledigt ist.
 - Gegenproben: Einmal-Vermerk der Unterlagen ausgebaut – der Test „gelöschtes Dokument kommt nicht zurück“ rot; Teilwortvergleich der Quellen wieder eingesetzt – 300 Stellen mit 177 Teilworttreffern statt unter 20.
 - Nicht in dieser Fassung (nächste Linie): #1385 (Lebenslauf-Bewertung), #1386 (Zeitstempel, Folge #1399), #1389 (Profilstand), #1390 (Lücken-Analyse), #1391 (Begriffe).
 
-*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10541 Tests.*
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10559 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
