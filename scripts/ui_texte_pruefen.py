@@ -194,7 +194,7 @@ BACKEND_DATEIEN = [BACKEND / p for p in (
     "services/schwellen_umstellung.py", "services/status_rueckweg.py",
     "services/papierkorb.py", "services/stellen_nach_quelle.py",
     "services/quellen_texte.py", "services/menue.py", "services/dashboard_bereiche.py",
-    "dashboard.py", "job_scraper/__init__.py",
+    "dashboard.py", "job_scraper/__init__.py", "export.py",
 )]
 # Die ganze Datei ist Anzeige (Linienpool) — auch kleingeschriebene Texte.
 BACKEND_NUR_ANZEIGE = {"elwosa_lines.py"}

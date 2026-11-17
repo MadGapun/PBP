@@ -472,7 +472,7 @@ def generate_tailored_cv_docx(
             "fachlich": "Fachlich", "methodisch": "Methodisch",
             "soft_skill": "Soft Skills", "sprache": "Sprachen",
             "tool": "Tools & Software", "zertifizierung": "Zertifizierungen",
-            "fuehrung": "Fuehrung",
+            "fuehrung": "Führung",
         }
 
         def cat_relevance(cat_items):
@@ -498,12 +498,19 @@ def generate_tailored_cv_docx(
         doc.add_heading("Berufserfahrung", level=1)
         _add_section_line(doc)
 
-        def pos_relevance(pos):
-            pos_text = f"{pos.get('title', '')} {pos.get('tasks', '')} {pos.get('technologies', '')} {pos.get('achievements', '')}".lower()
-            hits = sum(1 for kw in job_keywords if kw in pos_text)
-            return -hits
+        # #1384: die Stationen bleiben umgekehrt chronologisch, wie sie im
+        # Profil stehen (neueste zuerst). Bis 1.8.5 sortierte die Zahl der
+        # Suchwort-Treffer sie um: eine Station von 2012 stand vor der
+        # aktuellen. Personaler lesen zeitlich; eine springende Reihenfolge
+        # wirkt wie Verschleierung. Die Anpassung wirkt INNERHALB einer
+        # Station (passende Aufgaben und Erfolge zuerst) und bei den
+        # Kenntnissen.
+        def zeilen_nach_treffern(text):
+            zeilen = [z.strip().lstrip("- ") for z in (text or "").splitlines()]
+            zeilen = [z for z in zeilen if z]
+            return sorted(zeilen, key=lambda z: -sum(1 for kw in job_keywords if kw in z.lower()))
 
-        sorted_positions = sorted(positions, key=pos_relevance)
+        sorted_positions = list(positions)
         overlaps = detect_position_overlaps(positions)
         pos_index_map = {id(p): i for i, p in enumerate(positions)}
 
@@ -537,21 +544,15 @@ def generate_tailored_cv_docx(
                 run_hint.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
 
             # Tasks as bullet points
-            if pos.get("tasks"):
-                for task in pos["tasks"].split("\n"):
-                    task = task.strip().lstrip("- ")
-                    if task:
-                        doc.add_paragraph(task, style="List Bullet")
+            for task in zeilen_nach_treffern(pos.get("tasks")):
+                doc.add_paragraph(task, style="List Bullet")
 
             # Achievements with arrow symbol for visual emphasis
-            if pos.get("achievements"):
-                for ach in pos["achievements"].split("\n"):
-                    ach = ach.strip().lstrip("- ")
-                    if ach:
-                        p = doc.add_paragraph(style="List Bullet")
-                        run = p.add_run(f"\u2192 {ach}")
-                        run.bold = True
-                        run.font.size = Pt(10)
+            for ach in zeilen_nach_treffern(pos.get("achievements")):
+                p = doc.add_paragraph(style="List Bullet")
+                run = p.add_run(f"→ {ach}")
+                run.bold = True
+                run.font.size = Pt(10)
 
             # Technologies
             if pos.get("technologies"):
@@ -984,7 +985,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         if not has_phone: missing.append("Telefon")
         if not has_city: missing.append("Ort")
         score += contact_score * 2
-        empfehlungen.append(f"Kontaktdaten unvollstaendig: {', '.join(missing)} fehlt")
+        empfehlungen.append(f"Kontaktdaten unvollständig: {', '.join(missing)} fehlt")
 
     # Skills with standard categories
     categorized = [s for s in skills if s.get("category") and s["category"] != "sonstige"]
