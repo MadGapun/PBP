@@ -149,7 +149,14 @@ const EMPLOYMENT_TYPE_LABELS = {
   festanstellung: "Festanstellung",
   freelance: "Freelance",
   teilzeit: "Teilzeit",
+  vollzeit: "Vollzeit",
   praktikum: "Praktikum",
+  werkstudent: "Werkstudent",
+  ehrenamt: "Ehrenamt",
+  elternzeit: "Elternzeit",
+  pflegezeit: "Pflegezeit",
+  weiterbildung: "Weiterbildung",
+  auszeit: "Auszeit",
 };
 
 function formatPositionPeriod(position) {
@@ -2420,6 +2427,15 @@ export default function ProfilePage({ bereich = "profil" }) {
               <option value="freelance">Freelance</option>
               <option value="teilzeit">Teilzeit</option>
               <option value="praktikum">Praktikum</option>
+              <option value="werkstudent">Werkstudent</option>
+              <option value="ehrenamt">Ehrenamt</option>
+              <option value="elternzeit">Elternzeit</option>
+              <option value="pflegezeit">Pflegezeit</option>
+              <option value="weiterbildung">Weiterbildung</option>
+              <option value="auszeit">Auszeit</option>
+              {positionDialog.draft.employment_type && !EMPLOYMENT_TYPE_LABELS[positionDialog.draft.employment_type] ? (
+                <option value={positionDialog.draft.employment_type}>{positionDialog.draft.employment_type}</option>
+              ) : null}
             </SelectInput>
           </Field>
           <label className="mt-8 inline-flex items-center gap-2 text-sm text-ink">
