@@ -4252,6 +4252,7 @@ async def api_upload_email(file: UploadFile = File(...)):
         parse_email_file,
         detect_direction,
         match_email_to_application,
+        titel_firma_kandidaten,
         detect_email_status,
         extract_meetings_from_email,
         save_attachments,
@@ -4317,7 +4318,12 @@ async def api_upload_email(file: UploadFile = File(...)):
 
     # Auto-match to application
     apps = _db.get_applications()
-    match_app_id, match_confidence = match_email_to_application(parsed, apps)
+    from .duplicate_detection import firmen_kanon
+    kanon = firmen_kanon(_db)
+    match_app_id, match_confidence = match_email_to_application(parsed, apps, kanon=kanon)
+    # #1412 D2: bleibt die Mail unzugeordnet, weil mehrere Bewerbungen zu Titel
+    # und Firma passen, stehen die Kandidaten in der Antwort (nie eine Wahl).
+    kandidaten = [] if match_app_id else titel_firma_kandidaten(parsed, apps, kanon)
 
     # Detect status from content
     detected_status, status_confidence = detect_email_status(
@@ -4464,6 +4470,8 @@ async def api_upload_email(file: UploadFile = File(...)):
         "match": {
             "application": matched_app,
             "confidence": match_confidence,
+            "mehrdeutig": len(kandidaten) > 1,
+            "kandidaten": kandidaten,
         },
         "detected_status": {
             "status": detected_status,
@@ -4580,6 +4588,17 @@ async def api_apply_email_status(email_id: str, request: Request):
 async def api_list_emails():
     """List all emails for the active profile."""
     emails = _db.get_all_emails()
+    # #1412 D2: bei einer unzugeordneten Mail die Bewerbungen nennen, die zu
+    # Titel und Firma passen — die Auswahl zeigt sie oben.
+    offen = [e for e in emails if not e.get("application_id")]
+    if offen:
+        from .duplicate_detection import firmen_kanon
+        from .services.email_service import titel_firma_kandidaten
+        apps = _db.get_applications()
+        kanon = firmen_kanon(_db)
+        for e in offen:
+            e["kandidaten"] = titel_firma_kandidaten(
+                {"subject": e.get("subject"), "sender": e.get("sender")}, apps, kanon)
     return {"emails": emails, "count": len(emails)}
 
 

@@ -212,3 +212,55 @@ def test_d7_task_id_wird_als_alias_angenommen(db):
 
 def test_d7_ohne_id_kommt_eine_klare_meldung(db):
     assert "todo_id" in _tasks(db)["todo_erledigen"]()["fehler"]
+
+
+# ── D2: Zuordnung ueber Stellentitel und Firmenname ─────────────────────
+
+BETREFF = "Ihre Bewerbung als Fachkraft Lagerlogistik bei Musterbau"
+
+
+def test_d2_titel_und_firma_im_betreff_ordnen_zu(db):
+    app_id = _bewerbung(db)
+    _bewerbung(db, titel="Buchhalter", firma="Andere AG")
+    j = _hochladen(_client(), eml(BETREFF, EINLADUNG)).json()
+    assert j["match"]["application"]["id"] == app_id
+    assert len(db.get_meetings_for_application(app_id)) == 1
+
+
+def test_d2_mehrere_passende_sind_mehrdeutig_und_werden_genannt(db):
+    a1 = _bewerbung(db)
+    a2 = _bewerbung(db)  # zweite Bewerbung auf dieselbe Stelle
+    j = _hochladen(_client(), eml(BETREFF, EINLADUNG)).json()
+    assert j["match"]["application"] is None
+    assert j["match"]["mehrdeutig"] is True
+    assert set(j["match"]["kandidaten"]) == {a1, a2}
+    liste = _client().get("/api/emails").json()["emails"]
+    assert set(liste[0]["kandidaten"]) == {a1, a2}
+
+
+def test_d2_nur_titel_ohne_firma_ordnet_nicht_zu(db):
+    _bewerbung(db)
+    j = _hochladen(_client(), eml("Ihre Bewerbung als Fachkraft Lagerlogistik",
+                                  EINLADUNG, absender="X <x@personal.example.org>")).json()
+    assert j["match"]["application"] is None
+    assert j["match"]["kandidaten"] == []
+
+
+def test_d2_bestaetigte_schreibweise_aus_dem_firmenstamm(db):
+    from bewerbungs_assistent.services import firmen_stamm
+    app_id = _bewerbung(db, firma="Musterbau GmbH")
+    fid = firmen_stamm.firma_anlegen(db, "Musterbau GmbH")
+    fid = fid.get("id") or fid.get("firma", {}).get("id")
+    firmen_stamm.alias_hinzufuegen(db, fid, "Baufix")
+    j = _hochladen(_client(), eml("Ihre Bewerbung als Fachkraft Lagerlogistik bei Baufix",
+                                  EINLADUNG)).json()
+    assert j["match"]["application"]["id"] == app_id
+
+
+def test_d2_archivierte_bewerbung_zaehlt_nicht(db):
+    app_id = _bewerbung(db)
+    db.update_application_status(app_id, "abgelehnt") if hasattr(db, "update_application_status") else None
+    from bewerbungs_assistent.services.email_service import titel_firma_kandidaten
+    app = db.get_application(app_id)
+    app["status"] = "abgelehnt"
+    assert titel_firma_kandidaten({"subject": BETREFF, "sender": ""}, [app]) == []

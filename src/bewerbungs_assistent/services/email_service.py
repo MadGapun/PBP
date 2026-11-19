@@ -404,7 +404,64 @@ def _is_recruiter_domain(domain: str) -> bool:
     return bool(d) and any(k in d for k in RECRUITER_DOMAIN_KEYWORDS)
 
 
-def match_email_to_application(parsed_email: dict, applications: list) -> tuple[Optional[str], float]:
+def match_email_to_application(parsed_email: dict, applications: list,
+                                 kanon=None) -> tuple[Optional[str], float]:
+    """Ordnet eine Mail einer Bewerbung zu: erst das Domain-Verfahren
+    (#523/#743), danach - wenn es nichts findet - Stellentitel UND Firmenname
+    im Betreff (#1412 D2). Mehrere Treffer sind `mehrdeutig`: dann bleibt die
+    Mail unzugeordnet (die Kandidaten liefert `titel_firma_kandidaten`)."""
+    app_id, konfidenz = _match_ueber_domain(parsed_email, applications)
+    if app_id:
+        return app_id, konfidenz
+    kandidaten = titel_firma_kandidaten(parsed_email, applications, kanon)
+    if len(kandidaten) == 1:
+        return kandidaten[0], 0.9
+    return None, 0.0
+
+
+_TEXT_UMSCHRIFT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def _text_norm(text) -> str:
+    """Klein, Umlaute umgeschrieben, nur Woerter und einfache Leerzeichen."""
+    t = (text or "").lower().translate(_TEXT_UMSCHRIFT)
+    t = re.sub(r"\(?\s*[mwfd]\s*[/|*]\s*[mwfd]\s*(?:[/|*]\s*[mwfdx])?\s*\)?", " ", t)
+    return " ".join(re.sub(r"[^\w\s]", " ", t).split())
+
+
+def titel_firma_kandidaten(parsed_email: dict, applications: list, kanon=None) -> list:
+    """Bewerbungen, deren Stellentitel UND Firmenname in der Mail stehen (#1412 D2).
+
+    Titel als ganze Wortfolge im Betreff, Firma (Name oder eine bestaetigte
+    Schreibweise aus `firmen_kanon`) im Betreff oder Absender. Recall vor
+    Praezision: die Liste kann mehrere enthalten, nie entscheidet sie
+    zwischen ihnen. Archivierte Bewerbungen zaehlen nicht (#743).
+    """
+    from .bewerbung_status import ARCHIV as _archiv
+    from ..duplicate_detection import normalize_company_name as _firma_norm
+    betreff = _text_norm(parsed_email.get("subject"))
+    absender = _text_norm(parsed_email.get("sender"))
+    if not betreff:
+        return []
+    treffer = []
+    for app in applications or []:
+        if (app.get("status") or "").lower() in _archiv:
+            continue
+        titel = _text_norm(app.get("title"))
+        firma = (app.get("company") or "").strip()
+        if len(titel) < 5 or not firma or f" {titel} " not in f" {betreff} ":
+            continue
+        formen = {_text_norm(firma), _text_norm(_firma_norm(firma))}
+        if kanon is not None:
+            for f in list(formen):
+                formen.update(_text_norm(x) for x in kanon.formen_von(f))
+        formen = {f for f in formen if len(f) >= 3}
+        if any(f" {f} " in f" {betreff} " or f" {f} " in f" {absender} " for f in formen):
+            treffer.append(app.get("id"))
+    return treffer
+
+
+def _match_ueber_domain(parsed_email: dict, applications: list) -> tuple[Optional[str], float]:
     """Try to match an email to an existing application.
 
     Returns (application_id, confidence) or (None, 0.0) if no match.
