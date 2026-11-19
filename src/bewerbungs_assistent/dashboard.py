@@ -159,7 +159,7 @@ DASHBOARD_BUILD_HTML = Path(__file__).parent / "static" / "dashboard" / "index.h
 # === Pages ===
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
+def index():
     """Main dashboard page."""
     if not DASHBOARD_BUILD_HTML.exists():
         logger.error("Dashboard-Frontend nicht gefunden: %s", DASHBOARD_BUILD_HTML)
@@ -345,7 +345,7 @@ def _get_email_for_active_profile(email_id: str):
 # === API Endpoints ===
 
 @app.get("/api/status")
-async def api_status():
+def api_status():
     from . import __version__
     from .heartbeat import get_connection_status
 
@@ -465,13 +465,13 @@ async def api_public_hints():
 
 
 @app.get("/api/workspace-summary")
-async def api_workspace_summary():
+def api_workspace_summary():
     """Aggregated workspace state for dashboard guidance and navigation."""
     return _build_workspace_summary()
 
 
 @app.get("/api/live-update-token")
-async def api_live_update_token():
+def api_live_update_token():
     """Token for frontend polling to detect external DB writes in near realtime."""
     return _build_live_update_token_payload()
 
@@ -523,7 +523,7 @@ def _get_daily_impulse() -> dict:
 
 
 @app.get("/api/daily-impulse")
-async def api_daily_impulse():
+def api_daily_impulse():
     """Tagesimpuls für das Dashboard (#163)."""
     return _get_daily_impulse()
 
@@ -537,7 +537,7 @@ async def api_toggle_daily_impulse():
 
 
 @app.get("/api/profile")
-async def api_profile():
+def api_profile():
     profile = _db.get_profile()
     if profile is None:
         return JSONResponse({"error": "Kein Profil vorhanden"}, status_code=404)
@@ -582,7 +582,7 @@ async def api_save_profile(request: Request):
 
 
 @app.get("/api/profiles")
-async def api_list_profiles():
+def api_list_profiles():
     """List all profiles for profile switching."""
     # Ensure active-profile state is canonicalized before listing.
     _db.get_active_profile_id()
@@ -637,7 +637,7 @@ async def api_delete_profile(profile_id: str):
 # === Job Title Suggestions ===
 
 @app.get("/api/job-titles")
-async def api_get_job_titles():
+def api_get_job_titles():
     titles = _db.get_suggested_job_titles()
     return {"titles": titles}
 
@@ -801,7 +801,7 @@ async def api_delete_document(doc_id: str):
 
 
 @app.get("/api/document-types")
-async def api_document_types():
+def api_document_types():
     """Die Typen, auf die ein Dokument von Hand gestellt werden darf, mit Namen (#1162)."""
     from .services import document_handlers
     return {"typen": document_handlers.typen_fuer_auswahl()}
@@ -1118,7 +1118,7 @@ async def api_reanalyze_document(doc_id: str):
 
 
 @app.get("/api/document/{doc_id}/extraction")
-async def api_get_document_extraction(doc_id: str):
+def api_get_document_extraction(doc_id: str):
     """Return latest extraction entry for a document in the active profile."""
     profile_id = _db.get_active_profile_id()
     if not profile_id:
@@ -1136,13 +1136,13 @@ async def api_get_document_extraction(doc_id: str):
 
 
 @app.get("/api/analysis-templates")
-async def api_list_analysis_templates():
+def api_list_analysis_templates():
     """Return all available document-analysis templates (#496)."""
     return {"templates": doc_analysis_available_templates()}
 
 
 @app.get("/api/document/{doc_id}/analysis-prompt")
-async def api_get_document_analysis_prompt(doc_id: str, request: Request):
+def api_get_document_analysis_prompt(doc_id: str, request: Request):
     """Return a Claude-ready prompt that targets exactly one uploaded document.
 
     Query params:
@@ -1188,7 +1188,7 @@ async def api_get_document_analysis_prompt(doc_id: str, request: Request):
 
 
 @app.get("/api/prompts")
-async def api_list_prompts():
+def api_list_prompts():
     """Der Prompt-Katalog (#979, G29) — eine Quelle fuer alle Anzeigen.
 
     Bis v1.7.32 standen Kategorie, Titel und Beschreibung hier in einem
@@ -1221,7 +1221,7 @@ async def api_list_prompts():
 
 
 @app.get("/api/dashboard/bereiche")
-async def api_dashboard_bereiche():
+def api_dashboard_bereiche():
     """Welche Bloecke das Dashboard zeigt, in welcher Reihenfolge (#985).
 
     Nutzerwunsch: sein eigenes Dashboard zusammenstellen — an- und
@@ -1273,7 +1273,7 @@ async def api_set_schnellzugriff(request: Request):
 
 
 @app.get("/api/workflow-prompt/{workflow_name}")
-async def api_get_workflow_prompt(workflow_name: str, request: Request):
+def api_get_workflow_prompt(workflow_name: str, request: Request):
     """Return the resolved workflow instructions instead of a raw slash command.
 
     v1.7.6 (#706, G16): optionale Query-Parameter werden an die Prompt-
@@ -1677,7 +1677,7 @@ def _import_folder(data: dict):
 
 
 @app.get("/api/cv/generate")
-async def api_generate_cv(format: str = "text"):
+def api_generate_cv(format: str = "text"):
     """Generate a Master-CV from profile data."""
     profile = _db.get_profile()
     if not profile:
@@ -1781,7 +1781,7 @@ async def api_generate_cv(format: str = "text"):
 
 
 @app.get("/api/application/{app_id}/timeline")
-async def api_application_timeline(app_id: str):
+def api_application_timeline(app_id: str):
     """Get full event timeline for an application with job details and documents."""
     profile_id = _get_active_profile_id()
     app_row = _get_application_row_for_active_profile(app_id)
@@ -2186,7 +2186,7 @@ a {{ color: #3182ce; }}
 
 
 @app.get("/api/application/{app_id}/timeline/print")
-async def api_application_timeline_print(app_id: str):
+def api_application_timeline_print(app_id: str):
     """Druckbare HTML-Seite des Bewerbungsprotokolls (#313 / beta.28)."""
     html = _build_application_print_html(app_id)
     if html is None:
@@ -2196,7 +2196,7 @@ async def api_application_timeline_print(app_id: str):
 
 
 @app.get("/api/application/{app_id}/export.zip")
-async def api_application_export_zip(
+def api_application_export_zip(
     app_id: str,
     dokumente: int = 1,
     mails: int = 1,
@@ -2533,7 +2533,7 @@ def _render_html_to_pdf(html: str) -> bytes | None:
 
 
 @app.get("/api/stellen-filter-standard")
-async def api_stellen_filter_standard_lesen():
+def api_stellen_filter_standard_lesen():
     """Die ausdruecklich gesetzte Voreinstellung der Filter der Stellenliste, oder `null` (#1158 Punkt 5)."""
     from .services import stellen_filter_standard
     return {"standard": stellen_filter_standard.lesen(_db)}
@@ -2568,7 +2568,7 @@ def _filter_antwort(erg: dict):
 
 
 @app.get("/api/stellen-filter")
-async def api_stellen_filter_liste():
+def api_stellen_filter_liste():
     """Alle eigenen Filter des aktiven Profils, getrennt nach Ansichten und Regeln."""
     from .services import gespeicherte_filter as _gf
     antwort = _gf.verwalten(_db, "anzeigen")
@@ -2616,7 +2616,7 @@ async def api_stellen_filter_loeschen(filter_id: int):
 
 
 @app.get("/api/jobs")
-async def api_jobs(active: bool = True,
+def api_jobs(active: bool = True,
                    exclude_blacklisted: bool = True,
                    exclude_applied: bool = False,
                    limit: int = 0,
@@ -2919,7 +2919,7 @@ async def api_dismiss_job(request: Request):
 
 
 @app.get("/api/jobs/auto-dismissed")
-async def api_auto_dismissed_jobs(limit: int = 20):
+def api_auto_dismissed_jobs(limit: int = 20):
     """Die zuletzt automatisch aussortierten Stellen (#941).
 
     Grundlage der eingeklappten Rueckhol-Liste. Die Laenge ist
@@ -2931,7 +2931,7 @@ async def api_auto_dismissed_jobs(limit: int = 20):
 
 
 @app.get("/api/jobs/dismissed-log")
-async def api_aussortier_protokoll(zeitfenster: str = "7tage",
+def api_aussortier_protokoll(zeitfenster: str = "7tage",
                                    limit: int = 50, herkunft: str = ""):
     """Aussortier-Protokoll (#1010) — derselbe Dienst wie das MCP-Werkzeug.
 
@@ -2973,7 +2973,7 @@ async def api_restore_job(request: Request):
 
 
 @app.get("/api/jobs/{job_hash}/fit-analyse")
-async def api_fit_analyse(job_hash: str):
+def api_fit_analyse(job_hash: str):
     """Detailed fit analysis for a specific job."""
     from .job_scraper import fit_analyse
     job = _db.get_job(job_hash)
@@ -3043,7 +3043,7 @@ async def api_fit_analyse(job_hash: str):
 
 
 @app.get("/api/applications")
-async def api_applications(
+def api_applications(
     status: str = None, limit: int = 30, offset: int = 0,
     include_archived: bool = False,
     from_date: str = None, to_date: str = None,
@@ -3157,7 +3157,7 @@ async def api_app_status_rueckgaengig(app_id: str, request: Request):
 
 
 @app.get("/api/settings/pbp-start-date")
-async def api_get_pbp_start_date():
+def api_get_pbp_start_date():
     """Liefert das PBP-Start-Datum (User-Override oder Auto-Detect)."""
     auto = None
     try:
@@ -3196,7 +3196,7 @@ async def api_set_pbp_start_date(request: Request):
 
 
 @app.get("/api/settings/ablage")
-async def api_ablage_lesen():
+def api_ablage_lesen():
     """Ausgabe- und Vorlagen-Ordner (#973)."""
     return ablage.uebersicht(_db)
 
@@ -3227,7 +3227,7 @@ async def api_ablage_setzen(request: Request):
 
 
 @app.get("/api/settings/report")
-async def api_get_report_settings():
+def api_get_report_settings():
     """Liest Bewerbungsbericht-Einstellungen (v1.6.6, #540).
 
     Alle Felder sind optional. Nicht gesetzte Felder werden im Bericht
@@ -3265,7 +3265,7 @@ async def api_set_report_settings(request: Request):
 
 
 @app.get("/api/settings/auto-aussortieren")
-async def api_get_auto_aussortieren():
+def api_get_auto_aussortieren():
     """#1092: Schalter "Nach jeder Suche mit der lokalen KI aussortieren"."""
     from .services import auto_aussortierung
     return {"an": auto_aussortierung.schalter_an(_db)}
@@ -3282,7 +3282,7 @@ async def api_set_auto_aussortieren(request: Request):
 
 
 @app.get("/api/settings/followup")
-async def api_get_followup_settings():
+def api_get_followup_settings():
     """Liest die Follow-up-Automations-Einstellungen (#494)."""
     try:
         default_days = _db.get_setting_zahl("followup_default_days", 7)
@@ -3604,7 +3604,7 @@ async def api_snapshot_description(app_id: str, request: Request):
 
 
 @app.get("/api/documents")
-async def api_documents(
+def api_documents(
     q: str = "",
     doc_type: str = "",
     application_id: str = "",
@@ -3747,7 +3747,7 @@ async def api_documents(
 
 
 @app.get("/api/documents/{doc_id}/download")
-async def api_download_document(doc_id: str):
+def api_download_document(doc_id: str):
     """Download/preview a document by ID."""
     profile_id = _get_active_profile_id()
     if not profile_id:
@@ -3764,7 +3764,7 @@ async def api_download_document(doc_id: str):
 
 
 @app.get("/api/emails/{email_id}/download")
-async def api_download_email(email_id: str):
+def api_download_email(email_id: str):
     """Download the original email file (.msg/.eml) by ID."""
     profile_id = _get_active_profile_id()
     if not profile_id:
@@ -3781,25 +3781,25 @@ async def api_download_email(email_id: str):
 
 
 @app.get("/api/statistics")
-async def api_statistics():
+def api_statistics():
     return _db.get_statistics()
 
 
 @app.get("/api/stats/timeline")
-async def api_stats_timeline(interval: str = "month", range: str = ""):
+def api_stats_timeline(interval: str = "month", range: str = ""):
     """Application timeline grouped by interval (week/month/quarter/year).
     Optional range param overrides time window: 30d, 90d, 6m, 12m."""
     return _db.get_timeline_stats(interval, time_range=range)
 
 
 @app.get("/api/stats/scores")
-async def api_stats_scores():
+def api_stats_scores():
     """Score distribution and trend data for charts."""
     return _db.get_score_stats()
 
 
 @app.get("/api/stats/score-over-time")
-async def api_stats_score_over_time(interval: str = "month", weeks: int = 26):
+def api_stats_score_over_time(interval: str = "month", weeks: int = 26):
     """Fit-Score-Verteilung ueber Zeit als Histogramm pro Periode (#520).
 
     Liefert pro Zeit-Bucket (week/month) die Anzahl Stellen pro Score-Range.
@@ -3937,13 +3937,13 @@ async def api_documents_bulk_prepare(request: Request):
 
 
 @app.get("/api/stats/extended")
-async def api_stats_extended():
+def api_stats_extended():
     """Extended statistics: daily activity, response times, dismiss reasons, import vs new (#135)."""
     return _db.get_extended_stats()
 
 
 @app.get("/api/keyword-suggestions")
-async def api_keyword_suggestions():
+def api_keyword_suggestions():
     """Keyword-Vorschlaege fuer das Frontend (#458 / beta.35).
 
     War bis beta.34 eine alte Schwester-Implementierung mit kurzer
@@ -4117,7 +4117,7 @@ async def api_keyword_suggestions():
 
 
 @app.get("/api/stats/style")
-async def api_stats_style():
+def api_stats_style():
     """Anschreiben-Stil-Auswertung: Welcher Stil bringt mehr Interviews/Angebote? (#454)."""
     import re as _re
 
@@ -4556,14 +4556,14 @@ async def api_apply_email_status(email_id: str, request: Request):
 
 
 @app.get("/api/emails")
-async def api_list_emails():
+def api_list_emails():
     """List all emails for the active profile."""
     emails = _db.get_all_emails()
     return {"emails": emails, "count": len(emails)}
 
 
 @app.get("/api/emails/{email_id}")
-async def api_get_email(email_id: str):
+def api_get_email(email_id: str):
     """Get a single email with full body."""
     em = _get_email_for_active_profile(email_id)
     if not em:
@@ -4572,7 +4572,7 @@ async def api_get_email(email_id: str):
 
 
 @app.get("/api/applications/{app_id}/emails")
-async def api_get_application_emails(app_id: str):
+def api_get_application_emails(app_id: str):
     """List all emails linked to a specific application."""
     profile_id = _get_active_profile_id()
     if not profile_id or not _get_application_row_for_active_profile(app_id):
@@ -4656,14 +4656,14 @@ async def api_delete_email(email_id: str):
 # === Meetings (#136) ===
 
 @app.get("/api/meetings")
-async def api_upcoming_meetings(days: int = 30):
+def api_upcoming_meetings(days: int = 30):
     """Get upcoming meetings for the dashboard widget."""
     meetings = _db.get_upcoming_meetings(days=days)
     return {"meetings": meetings, "count": len(meetings)}
 
 
 @app.get("/api/meetings/export.ics")
-async def api_meetings_export_ics():
+def api_meetings_export_ics():
     """Export all planned meetings as a single .ics calendar file (#310).
 
     v1.8.0-beta.3 (J4.1/#481): Kern nach services/ics_service.py extrahiert
@@ -4685,7 +4685,7 @@ async def api_meetings_export_ics():
 
 
 @app.get("/api/meetings/calendar")
-async def api_meetings_calendar(days: int = 90):
+def api_meetings_calendar(days: int = 90):
     """Get all meetings + follow-ups for calendar view with collision detection (#267, #364)."""
     meetings = _db.get_upcoming_meetings(days=days)
     # Also include past meetings (last 30 days) for context
@@ -4780,7 +4780,7 @@ async def api_meetings_calendar(days: int = 90):
 
 
 @app.get("/api/activity-log")
-async def api_activity_log(days: int = 90, categories: str = ""):
+def api_activity_log(days: int = 90, categories: str = ""):
     """Aggregated activity log from multiple sources (#373).
 
     Categories: termine, bewerbungen, followups, dokumente (comma-separated).
@@ -4893,7 +4893,7 @@ async def api_activity_log(days: int = 90, categories: str = ""):
 
 
 @app.get("/api/meetings/export.csv")
-async def api_meetings_csv(from_: str = "", to: str = "",
+def api_meetings_csv(from_: str = "", to: str = "",
                             request: Request = None):
     """Termine als CSV exportieren (#578).
 
@@ -4937,7 +4937,7 @@ async def api_meetings_csv(from_: str = "", to: str = "",
 
 
 @app.get("/api/meetings/{meeting_id}")
-async def api_get_meeting(meeting_id: str):
+def api_get_meeting(meeting_id: str):
     """Get a single meeting."""
     row = _get_meeting_row_for_active_profile(meeting_id)
     if not row:
@@ -5020,7 +5020,7 @@ async def api_create_meeting(request: Request):
 
 
 @app.get("/api/applications/{app_id}/meetings")
-async def api_get_application_meetings(app_id: str):
+def api_get_application_meetings(app_id: str):
     """List all meetings for a specific application."""
     profile_id = _get_active_profile_id()
     if not _get_application_row_for_active_profile(app_id):
@@ -5036,7 +5036,7 @@ async def api_get_application_meetings(app_id: str):
 # Ursachen-Behebung; das Formular haengt in der Bewerbungs-Timeline.
 
 @app.get("/api/applications/{app_id}/reflexionen")
-async def api_get_reflexionen(app_id: str):
+def api_get_reflexionen(app_id: str):
     if not _get_application_row_for_active_profile(app_id):
         return JSONResponse({"error": "Bewerbung nicht gefunden"},
                             status_code=404)
@@ -5093,14 +5093,14 @@ async def api_delete_reflexion(reflexion_id: int):
 
 
 @app.get("/api/interview-lehren")
-async def api_interview_lehren():
+def api_interview_lehren():
     """Quer-Auswertung aller Reflexionen (#824) — regelbasiert."""
     from .services.interview_lehren import lehren_auswerten
     return lehren_auswerten(_db)
 
 
 @app.get("/api/meetings/{meeting_id}/ics")
-async def api_meeting_ics(meeting_id: str):
+def api_meeting_ics(meeting_id: str):
     """Export a single meeting as .ics file (#261, #263)."""
     row = _get_meeting_row_for_active_profile(meeting_id)
     if not row:
@@ -5126,7 +5126,7 @@ async def api_meeting_ics(meeting_id: str):
 # === Meeting Categories (#417) ===
 
 @app.get("/api/meeting-categories")
-async def api_get_meeting_categories():
+def api_get_meeting_categories():
     """List all meeting categories for the active profile."""
     _db.ensure_system_categories()
     categories = _db.get_meeting_categories()
@@ -5326,14 +5326,14 @@ async def api_save_app_fit_analyse(app_id: str, request: Request):
 
 
 @app.get("/api/applications/zombies")
-async def api_zombie_applications(days: int = 60):
+def api_zombie_applications(days: int = 60):
     """Detect zombie applications â€” stuck in early status without activity (#130)."""
     zombies = _db.get_zombie_applications(days_threshold=days)
     return {"zombies": zombies, "count": len(zombies), "threshold_days": days}
 
 
 @app.get("/api/applications/export")
-async def api_export_applications(
+def api_export_applications(
     format: str = "pdf",
     from_: str = "",
     to: str = "",
@@ -5377,7 +5377,7 @@ async def api_export_applications(
 
 
 @app.get("/api/datenguete/umgang")
-async def api_datenguete_umgang():
+def api_datenguete_umgang():
     """#989: Wie geht PBP mit ungeprueften Angaben um?
 
     Die Liste im Browser muss dieselbe Reihenfolge zeigen wie die im
@@ -5401,7 +5401,7 @@ async def api_datenguete_umgang_setzen(request: Request):
 
 
 @app.get("/api/score-verteilung")
-async def api_score_verteilung(nur_aktive: bool = True, schwelle: float = -1):
+def api_score_verteilung(nur_aktive: bool = True, schwelle: float = -1):
     """#892: Reglerspanne, Median und Farbzonen aus der echten Verteilung.
 
     Der Regler stand fest auf 0..20, waehrend der hoechste Score im
@@ -5451,12 +5451,12 @@ async def api_schwellen_stufe(request: Request):
 
 
 @app.get("/api/search-criteria")
-async def api_search_criteria():
+def api_search_criteria():
     return _db.get_search_criteria()
 
 
 @app.get("/api/entfernung/vorgaben")
-async def api_entfernung_vorgaben():
+def api_entfernung_vorgaben():
     """#1036: die Vorgaben der Entfernungsgrenze je Anstellungsform kommen
     vom Server — im Profil stand eine dritte Fassung der Tabelle. Eigener
     Endpunkt, damit leere Kriterien leer bleiben (#927)."""
@@ -5479,7 +5479,7 @@ async def api_set_criteria(request: Request):
 
 
 @app.get("/api/dismiss-reasons")
-async def api_dismiss_reasons():
+def api_dismiss_reasons():
     """Get all dismiss reasons for the dismiss dialog (#108, #120).
 
     #1297: je Zeile `ist_standard` und `abschaltbar` - die Einstellungen
@@ -5579,13 +5579,13 @@ async def api_delete_dismiss_reason(reason_id: int, request: Request):
 
 # v45 (#666 D19, beta.85): Tasks-API
 @app.get("/api/applications/{application_id}/tasks")
-async def api_list_tasks_for_app(application_id: str, offen: int = 0):
+def api_list_tasks_for_app(application_id: str, offen: int = 0):
     """Liefert Tasks fuer eine Bewerbung."""
     return _db.list_tasks(application_id=application_id, nur_offen=bool(offen))
 
 
 @app.get("/api/tasks")
-async def api_list_all_tasks(offen: int = 0):
+def api_list_all_tasks(offen: int = 0):
     """Liefert alle Tasks des aktiven Profils."""
     return _db.list_tasks(nur_offen=bool(offen))
 
@@ -5701,7 +5701,7 @@ async def api_task_hinfaellig(task_id: str, request: Request):
 
 
 @app.get("/api/aufgaben")
-async def api_aufgaben_uebersicht(status: str = "offen"):
+def api_aufgaben_uebersicht(status: str = "offen"):
     """Alle Toepfe (Todos, Nachfassungen, Termine, Vorbereitung) in einer
     Sicht, gruppiert nach Faelligkeit (#815).
 
@@ -5717,7 +5717,7 @@ async def api_aufgaben_uebersicht(status: str = "offen"):
 
 
 @app.get("/api/dashboard/offen")
-async def api_dashboard_offen():
+def api_dashboard_offen():
     """Der Block "Offen" auf dem Dashboard (#976, #982, #983).
 
     Ueberfaellig, heute und diese Woche aus derselben Quelle wie der
@@ -5736,7 +5736,7 @@ async def api_dashboard_offen():
 # defekt aussieht, obwohl nur die Registrierung fehlt.
 
 @app.get("/api/quellen/adzuna")
-async def api_adzuna_status():
+def api_adzuna_status():
     app_id = _db.get_setting("adzuna_app_id", "") or ""
     app_key = _db.get_setting("adzuna_app_key", "") or ""
     return {
@@ -5791,7 +5791,7 @@ async def api_adzuna_speichern(request: Request):
 # einer eingerichtet ist.
 
 @app.get("/api/routing")
-async def api_routing_status():
+def api_routing_status():
     from .services import routing as _routing
     return _routing.status(_db)
 
@@ -5850,7 +5850,7 @@ async def api_routing_entfernen():
 
 
 @app.get("/api/blacklist")
-async def api_blacklist():
+def api_blacklist():
     return _db.get_blacklist()
 
 
@@ -6529,7 +6529,7 @@ async def api_analyze_filename(request: Request):
 
 
 @app.get("/api/sources")
-async def api_sources():
+def api_sources():
     """List all available job sources with active status and health (#499)."""
     from .job_scraper import SOURCE_REGISTRY
     from .services.search_service import aktive_quellen
@@ -6628,7 +6628,7 @@ async def api_set_sources(request: Request):
 
 
 @app.get("/api/sources/{source_key}/stellen")
-async def api_source_stellen_vorschau(source_key: str):
+def api_source_stellen_vorschau(source_key: str):
     """Wie viele Stellen eine Quelle im Bestand hat — und welche blieben (#1075).
 
     Nur eine Vorschau. Das Dashboard fragt sie nach dem Abwaehlen einer
@@ -6728,7 +6728,7 @@ async def api_start_source_login(source_key: str):
 
 
 @app.get("/api/cv/export/{fmt}")
-async def api_export_cv(fmt: str):
+def api_export_cv(fmt: str):
     """Export CV as DOCX or PDF."""
     profile = _db.get_profile()
     if not profile:
@@ -6789,7 +6789,7 @@ async def api_export_cover_letter(fmt: str, request: Request):
 
 
 @app.get("/api/background-jobs/{job_id}")
-async def api_background_job(job_id: str):
+def api_background_job(job_id: str):
     job = _db.get_background_job(job_id)
     if job is None:
         return JSONResponse({"error": "Not found"}, status_code=404)
@@ -6888,7 +6888,7 @@ async def api_component_uninstall(name: str):
 # ============================================================
 
 @app.get("/api/plugins")
-async def api_plugins_list():
+def api_plugins_list():
     from .services import plugins as plug
     return {
         "plugins": _db.get_plugins(),
@@ -6937,7 +6937,7 @@ def _require_plugin(request: Request, capability: str):
 
 
 @app.get("/api/v1/ingest/ping")
-async def api_ingest_ping(request: Request):
+def api_ingest_ping(request: Request):
     """Verbindungs-/Key-Check fuer Plugins (Setup-Validierung)."""
     from .services import plugins as plug
     plugin, err = _require_plugin(request, "")
@@ -7054,7 +7054,7 @@ async def api_ingest_job(request: Request, payload: dict):
 
 
 @app.get("/api/v1/ingest/mail-policy")
-async def api_ingest_mail_policy(request: Request):
+def api_ingest_mail_policy(request: Request):
     """Was ein Mail-Add-on lesen darf (#947). Ist der Ordner-Scan nicht wirksam, ist die Liste leer.
 
     Jedes Add-on fragt das, bevor es einen Ordner anfasst, und sendet bei jeder Scan-Mail Anbieter, Konto und Ordner mit.
@@ -7113,7 +7113,7 @@ async def api_ingest_email(request: Request, file: UploadFile = File(...), modus
 # Die Regel sitzt in PBP (`services/mail_quelle.py`), nicht im Add-on: anbieterunabhaengig, Vorgabe AUS, harte Liste.
 
 @app.get("/api/mail-quelle")
-async def api_mail_quelle():
+def api_mail_quelle():
     from .services import mail_quelle
     return mail_quelle.uebersicht(_db)
 
@@ -7248,7 +7248,7 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
 
 
 @app.get("/api/jobsuche/running")
-async def api_jobsuche_running():
+def api_jobsuche_running():
     """Return whether a jobsuche background job is currently running."""
     job = _db.get_running_background_job("jobsuche")
     if not job:
@@ -7271,7 +7271,7 @@ async def api_jobsuche_running():
 
 
 @app.get("/api/jobsuche/browser-quellen")
-async def api_jobsuche_browser_quellen():
+def api_jobsuche_browser_quellen():
     """Quellen, die nur im Browser liefern, samt kopierbarem Prompt (#1049).
 
     Liste und Prompt entstehen in `services/browser_handoff.py` — die
@@ -7286,7 +7286,7 @@ async def api_jobsuche_browser_quellen():
 
 
 @app.get("/api/jobsuche/last")
-async def api_jobsuche_last():
+def api_jobsuche_last():
     """Return the most recently finished jobsuche job (#487 Status-Badge).
 
     v1.7.91 (#1033): der Endpunkt las `neue_stellen` — einen Schluessel,
@@ -7367,7 +7367,7 @@ async def api_jobsuche_last():
 # ============================================================
 
 @app.get("/api/follow-ups")
-async def api_follow_ups():
+def api_follow_ups():
     """Get all follow-ups with due status.
 
     v1.7.0-beta.13 (#518): `faellig` ist jetzt typ-sensitiv. Nur Follow-ups
@@ -7457,7 +7457,7 @@ async def api_adopt_position(app_id: str, payload: dict = Body(default={})):
 
 
 @app.get("/api/salary-stats")
-async def api_salary_stats():
+def api_salary_stats():
     """Get salary statistics for dashboard."""
     stats = _db.get_salary_statistics()
     # #1055: dieselbe Quelle wie die MCP-Antwort — die Suchkriterien.
@@ -7474,27 +7474,27 @@ async def api_salary_stats():
 
 
 @app.get("/api/next-steps")
-async def api_next_steps():
+def api_next_steps():
     """Get personalized next action recommendations."""
     steps = _db.get_next_steps()
     return {"steps": steps}
 
 
 @app.get("/api/rejection-patterns")
-async def api_rejection_patterns():
+def api_rejection_patterns():
     """Get rejection analysis data."""
     return _db.get_rejection_patterns()
 
 
 @app.get("/api/profile/completeness")
-async def api_profile_completeness():
+def api_profile_completeness():
     """Calculate profile completeness percentage."""
     return get_profile_completeness(_db.get_profile())
 
 
 # v1.7.0-beta.35 (#590 Aufgabe B): Profil-Typ-Erkennung + Quellen-Empfehlung
 @app.get("/api/sources/erstauswahl")
-async def api_sources_erstauswahl():
+def api_sources_erstauswahl():
     """Was PBP beim ersten Oeffnen ausgewaehlt hat (B69, #1087 C7).
 
     Die Oberflaeche zeigt es einmal an und fragt "Passt so?", statt die
@@ -7519,7 +7519,7 @@ async def api_sources_erstauswahl_bestaetigen():
 
 
 @app.get("/api/profile/recommended-sources")
-async def api_profile_recommended_sources():
+def api_profile_recommended_sources():
     """Heuristische Profil-Klassifikation + empfohlene Quellen-Liste.
 
     Liefert:
@@ -7540,7 +7540,7 @@ async def api_profile_recommended_sources():
 
 
 @app.get("/api/extractions")
-async def api_extraction_history():
+def api_extraction_history():
     """Get extraction history for the active profile."""
     profile_id = _db.get_active_profile_id()
     if not profile_id:
@@ -7554,7 +7554,7 @@ async def api_extraction_history():
 
 
 @app.get("/api/profile/export")
-async def api_export_profile():
+def api_export_profile():
     """Export active profile as JSON file download."""
     from .database import get_data_dir
     profile_id = _db.get_active_profile_id()
@@ -7584,7 +7584,7 @@ async def api_export_profile():
 # Friction beim Bug-Report-Workflow. Endpoint macht's einen Klick weg.
 
 @app.get("/api/system/logs/download")
-async def api_download_logs():
+def api_download_logs():
     """Liefert die aktuelle pbp.log als Download — fuer Bug-Reports (#542)."""
     from .logging_config import get_log_path
     from datetime import datetime as _dt
@@ -7604,7 +7604,7 @@ async def api_download_logs():
 
 
 @app.get("/api/system/logs/info")
-async def api_logs_info():
+def api_logs_info():
     """Kompakte Info zum Logfile (Groesse, letzte Warnungen) — fuer Settings-UI."""
     from .logging_config import get_log_path
     import os as _os
@@ -7688,7 +7688,7 @@ async def api_backup():
 
 
 @app.get("/api/sicherungen")
-async def api_sicherungen():
+def api_sicherungen():
     """Liste der Sicherungen, die letzte, der Platz und eine Vormerkung (#1098)."""
     from .services import sicherung as _sicherung
     alle = _sicherung.liste(_db)
@@ -7767,7 +7767,7 @@ async def api_sicherung_einspielen_quittieren():
 # === User Preferences (PBP v0.10.0) ===
 
 @app.get("/api/user-preferences/{key}")
-async def api_get_user_preference(key: str):
+def api_get_user_preference(key: str):
     value = _db.get_user_preference(key)
     return {"key": key, "value": value}
 
@@ -7782,7 +7782,7 @@ async def api_set_user_preference(key: str, request: Request):
 # === Search Status (PBP v0.10.0) ===
 
 @app.get("/api/search-status")
-async def api_search_status():
+def api_search_status():
     return _get_search_status_payload()
 
 
@@ -7991,7 +7991,7 @@ async def api_factory_reset(request: Request):
 # davon baut — das Muster, das dieses Projekt siebzehnmal gekostet hat.
 
 @app.get("/api/danger/bereiche")
-async def api_danger_bereiche(bereiche: str = "", profil_id: str = ""):
+def api_danger_bereiche(bereiche: str = "", profil_id: str = ""):
     """Was wuerde ein Leeren kosten — je Bereich, ohne etwas zu aendern.
 
     `profil_id` leer heisst ALLE Profile. Geteilte Bereiche (Quellen,
@@ -8143,7 +8143,7 @@ async def _dsgvo_loeschen() -> dict:
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
 
 @app.get("/api/danger/uninstaller")
-async def api_uninstaller_info():
+def api_uninstaller_info():
     """Wo der Deinstaller liegt und wie er heisst — je Plattform (#975).
 
     Die Gefahrenzone versprach auf jeder Plattform dasselbe ("Entfernt
@@ -8209,7 +8209,7 @@ async def api_clear_extraction_history():
 # === Runtime Log Viewer (v0.10.1) ===
 
 @app.get("/api/logs")
-async def api_get_logs(lines: int = 100):
+def api_get_logs(lines: int = 100):
     """Return the last N lines of the runtime log."""
     from .logging_config import get_log_path
     log_path = get_log_path()
@@ -8359,7 +8359,7 @@ _AUTO_UPDATE_ANTWORTEN = {
 
 
 @app.get("/api/auto-update")
-async def api_auto_update():
+def api_auto_update():
     """Alles zum Auto-Update in einer Antwort: Stufe, Stand, neue Version, laufender Lauf, Verlauf."""
     from .services.auto_update import lauf
     return lauf.uebersicht(_db)
@@ -8504,7 +8504,7 @@ GESUNDHEIT_MODULE = {
 
 
 @app.get("/api/health")
-async def api_health():
+def api_health():
     """System health information for diagnostics."""
     import platform
     import sys
@@ -8562,7 +8562,7 @@ def _schema_zu_neu():
 # === Datenschutz-Selbstauskunft (v1.7.0 #581) ===
 
 @app.get("/api/privacy/self-disclosure.pdf")
-async def api_privacy_self_disclosure():
+def api_privacy_self_disclosure():
     """Erstellt ein PDF mit allen ueber den User gespeicherten Daten (#581).
 
     DSGVO-Art-15-tauglich. Enthaelt keine sensitive Dokumente-Inhalte —
@@ -8584,7 +8584,7 @@ async def api_privacy_self_disclosure():
 # === Aktivitaets-Heatmap (v1.7.0 #579) ===
 
 @app.get("/api/stats/heatmap")
-async def api_stats_heatmap(days: int = 365):
+def api_stats_heatmap(days: int = 365):
     """Liefert Tages-Aktivitaet fuer die Heatmap (#579).
 
     Aggregiert pro Tag die Anzahl Aktionen aus:
@@ -8656,7 +8656,7 @@ async def api_stats_heatmap(days: int = 365):
 # === Skill-Zeitraeume API (v1.7.0 #572) ===
 
 @app.get("/api/skills/{skill_id}/periods")
-async def api_skill_periods(skill_id: str):
+def api_skill_periods(skill_id: str):
     """Liste der Zeitraeume eines Skills (#572)."""
     return {"periods": _db.get_skill_periods(skill_id)}
 
@@ -8687,7 +8687,7 @@ async def api_delete_skill_period(period_id: str):
 # === Application-Jobs / Aufwand / Stellen-Vergleich (v1.7.0-beta.11) ===
 
 @app.get("/api/applications/{app_id}/jobs")
-async def api_app_jobs(app_id: str):
+def api_app_jobs(app_id: str):
     """Alle Stellen, die mit einer Bewerbung verknuepft sind (#472)."""
     jobs = _db.get_jobs_for_application(app_id)
     return {"jobs": jobs, "count": len(jobs)}
@@ -8718,13 +8718,13 @@ async def api_unlink_app_job(app_id: str, job_hash: str):
 
 
 @app.get("/api/applications/{app_id}/aufwand")
-async def api_app_aufwand(app_id: str):
+def api_app_aufwand(app_id: str):
     """Aufwand-Aggregation pro Bewerbung (#568)."""
     return _db.get_aufwand_summary(application_id=app_id)
 
 
 @app.get("/api/applications/{app_id}/costs")
-async def api_app_costs(app_id: str):
+def api_app_costs(app_id: str):
     """Kosten-Liste pro Bewerbung (#568)."""
     return {"costs": _db.list_application_costs(application_id=app_id)}
 
@@ -8756,7 +8756,7 @@ async def api_delete_cost(cost_id: str):
 
 
 @app.get("/api/jobs/compare")
-async def api_jobs_compare(a: str, b: str):
+def api_jobs_compare(a: str, b: str):
     """Vergleicht zwei Stellen strukturiert (#580). Frontend-friendly Variante."""
     from .services.typed_ids import strip_prefix
     ha = strip_prefix(a)
@@ -8813,7 +8813,7 @@ async def api_jobs_compare(a: str, b: str):
 # /api/jobs/compare (oben) registriert, damit FastAPI die statische
 # Compare-Route zuerst matcht.
 @app.get("/api/jobs/{job_hash}")
-async def api_get_job_detail(job_hash: str):
+def api_get_job_detail(job_hash: str):
     """Liefert Job-Details unabhaengig von is_active.
 
     Anwendungsfall: Bewerbung verlinkt auf eine Stelle, die nach
@@ -8858,7 +8858,7 @@ def _notiz_fehler(erg: dict):
 
 
 @app.get("/api/jobs/{job_hash}/notizen")
-async def api_job_notizen(job_hash: str):
+def api_job_notizen(job_hash: str):
     from .services import stellen_notizen as _sn
     job = _db.get_job(job_hash)
     if not job:
@@ -8903,7 +8903,7 @@ async def api_job_notiz_loeschen(job_hash: str, notiz_id: int):
 # v1.7.0-beta.39 (#608): Kontakt-Kategorien CRUD
 
 @app.get("/api/contacts/categories")
-async def api_list_contact_categories():
+def api_list_contact_categories():
     items = _db.list_contact_categories()
     return {"categories": items, "count": len(items)}
 
@@ -8955,7 +8955,7 @@ async def api_migrate_legacy_tags():
 # v1.7.0-beta.39 (#606): Pending-Contact-Workflow
 
 @app.get("/api/contacts/pending")
-async def api_list_pending_contacts():
+def api_list_pending_contacts():
     """Liste aller LLM-extrahierten Kontakte, die User-Genehmigung
     benoetigen (is_pending=1)."""
     pid = _db.get_active_profile_id()
@@ -9028,14 +9028,14 @@ def _db_now():
 
 
 @app.get("/api/contacts")
-async def api_list_contacts(search: str = "", role: str = "", company: str = ""):
+def api_list_contacts(search: str = "", role: str = "", company: str = ""):
     """Liste aller Kontakte des aktiven Profils (#563)."""
     contacts = _db.list_contacts(search=search, role=role, company=company)
     return {"contacts": contacts, "count": len(contacts)}
 
 
 @app.get("/api/contacts/discover")
-async def api_contacts_discover():
+def api_contacts_discover():
     """Vorschau-Kandidaten fuer Kontakt-Import aus Bewerbungen + E-Mail-Dokumenten.
 
     v1.7.0-beta.19: User-Feedback — Kontakte als neues Feature brauchen
@@ -9353,7 +9353,7 @@ async def api_delete_contact(contact_id: str):
 
 
 @app.get("/api/contacts/{contact_id}/links")
-async def api_contact_links(contact_id: str):
+def api_contact_links(contact_id: str):
     """Alle Verknuepfungen eines Kontakts (#563), mit lesbarem Ziel (#1171): Titel, Firma, Status."""
     return {"links": _db.get_contact_links_mit_ziel(contact_id)}
 
@@ -9388,7 +9388,7 @@ async def api_unlink_contact(link_id: str):
 
 
 @app.get("/api/applications/{app_id}/contacts")
-async def api_application_contacts(app_id: str):
+def api_application_contacts(app_id: str):
     """Liste aller Kontakte zu einer Bewerbung (#563)."""
     contacts = _db.get_contacts_for_target("application", app_id)
     return {"contacts": contacts, "count": len(contacts)}
@@ -9454,7 +9454,7 @@ def _csv_response(rows: list[dict], columns: list[tuple[str, str]],
 
 
 @app.get("/api/applications/export.csv")
-async def api_applications_csv():
+def api_applications_csv():
     """Bewerbungen als CSV exportieren (#578)."""
     apps = _db.get_applications()
     columns = [
@@ -9474,7 +9474,7 @@ async def api_applications_csv():
 
 
 @app.get("/api/jobs/export.csv")
-async def api_jobs_csv(filter: str = "alle"):
+def api_jobs_csv(filter: str = "alle"):
     """Stellen als CSV exportieren (#578)."""
     if filter == "aussortiert":
         jobs = _db.get_dismissed_jobs()
@@ -9505,7 +9505,7 @@ async def api_jobs_csv(filter: str = "alle"):
 # je nach Reihenfolge als Kontakt-ID lesen (#578).
 
 @app.get("/api/references")
-async def api_references(art: str = "", application_id: str = "",
+def api_references(art: str = "", application_id: str = "",
                          project_id: str = "", contact_id: str = ""):
     from .services import referenzen
     try:
@@ -9534,7 +9534,7 @@ async def api_reference_create(request: Request):
 
 
 @app.get("/api/references/export")
-async def api_references_export(format: str = "docx", art: str = "",
+def api_references_export(format: str = "docx", art: str = "",
                                 application_id: str = "",
                                 project_id: str = "",
                                 mit_kontaktdaten: bool = False):
@@ -9595,7 +9595,7 @@ def _firmen_antwort(erg: dict):
 
 
 @app.get("/api/firmen")
-async def api_firmen_liste(suche: str = ""):
+def api_firmen_liste(suche: str = ""):
     from .services import firmen_stamm
     liste = firmen_stamm.firmen_liste(_db, suche)
     return {"firmen": liste, "anzahl": len(liste),
@@ -9603,13 +9603,13 @@ async def api_firmen_liste(suche: str = ""):
 
 
 @app.get("/api/firmen/ansicht")
-async def api_firmen_ansicht(name: str = "", id: str = ""):
+def api_firmen_ansicht(name: str = "", id: str = ""):
     from .services import firmen_ansicht
     return _firmen_antwort(firmen_ansicht.ansicht(_db, name=name, firma_id=id))
 
 
 @app.get("/api/firmen/vorschlaege")
-async def api_firmen_vorschlaege():
+def api_firmen_vorschlaege():
     from .services import firmen_stamm
     return firmen_stamm.vorschlaege(_db)
 
@@ -9712,13 +9712,13 @@ async def api_firma_kontakt_zuordnen(firma_id: str, request: Request):
 
 
 @app.get("/api/contacts/{contact_id}/firmen")
-async def api_kontakt_firmen(contact_id: str):
+def api_kontakt_firmen(contact_id: str):
     from .services import firmen_stamm
     return {"firmen": firmen_stamm.firmen_des_kontakts(_db, contact_id)}
 
 
 @app.get("/api/contacts/export.csv")
-async def api_contacts_csv():
+def api_contacts_csv():
     """Kontakte als CSV exportieren (#578)."""
     contacts = _db.list_contacts()
     columns = [
@@ -9744,7 +9744,7 @@ async def api_contacts_csv():
 # anderen Kontakt-Link. Steht bewusst NACH `/api/contacts/export.csv` (und den anderen festen Pfaden unter
 # /api/contacts/): FastAPI nimmt sonst "export.csv" als Kennung (derselbe Grund wie bei /api/meetings/export.csv).
 @app.get("/api/contacts/{contact_id}")
-async def api_get_contact(contact_id: str):
+def api_get_contact(contact_id: str):
     kontakt = _db.get_contact(contact_id)
     if not kontakt:
         return JSONResponse({"error": "Kontakt nicht gefunden"}, status_code=404)
@@ -9759,7 +9759,7 @@ async def api_get_contact(contact_id: str):
 # === Globale Suche (v1.7.0 #571) ===
 
 @app.get("/api/search")
-async def api_global_search(q: str = "", limit: int = 8):
+def api_global_search(q: str = "", limit: int = 8):
     """DB-weite Suche ueber alle Entitaeten (#571).
 
     Stufe 2: Eine Suche, gruppierte Treffer pro Entitaet.
@@ -11237,7 +11237,7 @@ def _run_auto_actions_inner(now: str, ausloeser: str = "knopf") -> dict:
 # === v1.7.0-beta.37 (#599): Elwosa API ============================
 
 @app.get("/api/elwosa/messages")
-async def api_elwosa_messages(limit: int = 20, since: str = ""):
+def api_elwosa_messages(limit: int = 20, since: str = ""):
     msgs = _db.get_elwosa_messages(
         limit=max(1, min(int(limit or 20), 100)),
         since_iso=since or None,
@@ -11275,7 +11275,7 @@ async def api_elwosa_dismiss(message_id: int):
 
 
 @app.get("/api/elwosa/settings")
-async def api_elwosa_settings_get():
+def api_elwosa_settings_get():
     return _db.get_elwosa_settings()
 
 
@@ -11307,7 +11307,7 @@ async def api_elwosa_pause(request: Request):
 
 
 @app.get("/api/elwosa/pending-lines")
-async def api_elwosa_pending():
+def api_elwosa_pending():
     items = _db.get_elwosa_pending_lines()
     return {"pending": items, "count": len(items)}
 
@@ -11572,7 +11572,7 @@ async def api_hilfe_frage(request: Request):
 
 
 @app.get("/api/hilfe/ki/{job_id}")
-async def api_hilfe_ki_lesen(job_id: str):
+def api_hilfe_ki_lesen(job_id: str):
     """Stand einer Kurzantwort: laeuft | fertig | verworfen | fehler | unbekannt."""
     from .services import hilfe_ki
     return hilfe_ki.lesen(job_id)
@@ -11600,7 +11600,7 @@ async def api_hilfe_ki_setzen(request: Request):
 # === #1187 (Stufe 3): was nach einem Browserlauf auf das Urteil des Menschen wartet ===
 
 @app.get("/api/stellen/zu-pruefen")
-async def api_stellen_zu_pruefen():
+def api_stellen_zu_pruefen():
     """Zaehlung fuer die Dashboard-Karte: ungeprueft (gesamt und neu) und von Claude nach dem Lesen aussortiert."""
     from .services import stellen_zu_pruefen
     return stellen_zu_pruefen.uebersicht(_db)
@@ -11609,7 +11609,7 @@ async def api_stellen_zu_pruefen():
 # === #1184 (d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind ===
 
 @app.get("/api/stellen-hinweise")
-async def api_stellen_hinweise(status: str = "offen", limit: int = 100, offset: int = 0):
+def api_stellen_hinweise(status: str = "offen", limit: int = 100, offset: int = 0):
     """Die Hinweise des aktiven Profils samt Zaehlung; je Hinweis die vorbereitete Suche nach dem Original.
 
     `offset` blaettert (#1205); `gesamt` ist die Zahl dieses Stands, `weitere` was hinter dieser Seite noch kommt."""
@@ -11643,7 +11643,7 @@ async def api_stellen_hinweis_zurueckholen(hinweis_id: str):
 
 
 @app.get("/api/auto-actions/status")
-async def api_auto_actions_status():
+def api_auto_actions_status():
     """Gibt Settings + Zeitpunkt des letzten Auto-Actions-Laufs zurueck (#1139: auch wer ihn ausgeloest hat)."""
     from .services import aufraeum_runde
     from .services.automatik_scheduler import compute_status
@@ -11723,7 +11723,7 @@ async def api_activity_track(request: Request):
 
 
 @app.get("/api/activity/stats")
-async def api_activity_stats():
+def api_activity_stats():
     """Liefert Anzahl + ein paar Aggregat-Daten fuer den Datenschutz-Tab."""
     pid = _db.get_active_profile_id()
     conn = _db.connect()
@@ -11916,7 +11916,7 @@ def _aggregate_user_activity(days: int = 30) -> dict:
 
 
 @app.get("/api/activity/aggregate")
-async def api_activity_aggregate(days: int = 30):
+def api_activity_aggregate(days: int = 30):
     """Gibt aggregierte Lern-Daten zurueck (#594 Stufe 2).
 
     Frontend nutzt das fuer Recap-Card und spaeter Stufe 3 als Input
@@ -11935,7 +11935,7 @@ async def api_activity_clear():
 
 
 @app.get("/api/settings/learning")
-async def api_get_learning_settings():
+def api_get_learning_settings():
     """Lern-System-Settings (Default On, User-Vorgabe)."""
     return {
         "learning_enabled": _db.is_learning_enabled(),
@@ -11955,7 +11955,7 @@ async def api_set_learning_settings(request: Request):
 
 
 @app.get("/api/settings/ki-features")
-async def api_get_ki_features():
+def api_get_ki_features():
     """Granulare KI-Steuerung (#425, beta.56). 8 Toggles, default True."""
     return {"features": _db.get_ki_features()}
 
@@ -11986,7 +11986,7 @@ async def api_set_ki_features(request: Request):
 
 
 @app.get("/api/local-ai/auto-dismissed")
-async def api_local_ai_auto_dismissed(limit: int = 50):
+def api_local_ai_auto_dismissed(limit: int = 50):
     """F21 (#689): Liste der von Ollama automatisch aussortierten Stellen.
 
     Die KI-Begruendung steckt im dismiss_reason-Format
@@ -12016,7 +12016,7 @@ async def api_local_ai_auto_dismissed(limit: int = 50):
 
 
 @app.get("/api/lernen/transparenz")
-async def api_lernen_transparenz(limit: int = 10):
+def api_lernen_transparenz(limit: int = 10):
     """#792: was fliesst ins Lernen ein, und was haben die letzten Laeufe
     ergeben — derselbe Inhalt wie `lernprotokoll_anzeigen`."""
     from .services.lernprotokoll import anzeigen
@@ -12026,7 +12026,7 @@ async def api_lernen_transparenz(limit: int = 10):
 
 
 @app.get("/api/lernen/export")
-async def api_lernen_export():
+def api_lernen_export():
     """#792: die Lerndaten als ZIP — derselbe Export wie
     `lerndaten_exportieren`. Er liegt danach auch im Ausgabe-Ordner."""
     from .services.lernprotokoll import export_erstellen
@@ -12036,7 +12036,7 @@ async def api_lernen_export():
 
 
 @app.get("/api/learning/insights")
-async def api_get_learning_insights(only_active: int = 1, limit: int = 20):
+def api_get_learning_insights(only_active: int = 1, limit: int = 20):
     """Liefert die LLM-generierten + heuristischen learning_insights
     (v1.7.0-beta.28 / #594 Stufe 3).
 
@@ -12241,7 +12241,7 @@ def _telemetry_should_trigger() -> dict:
 
 
 @app.get("/api/telemetry/settings")
-async def api_telemetry_settings():
+def api_telemetry_settings():
     return _db.get_telemetry_settings()
 
 
@@ -12259,7 +12259,7 @@ async def api_set_telemetry_settings(request: Request):
 
 
 @app.get("/api/telemetry/preview")
-async def api_telemetry_preview():
+def api_telemetry_preview():
     """Vorschau, was geshared wuerde — User MUSS das vor dem Senden
     sehen koennen (User-Vorgabe / Privacy First)."""
     payload = _build_telemetry_payload()
@@ -12284,7 +12284,7 @@ async def api_telemetry_mark_shared():
 
 # === v1.7.0-beta.94 (#677/#678): Automatik-Scheduler ==================
 @app.get("/api/automatik/settings")
-async def api_automatik_settings():
+def api_automatik_settings():
     """Status der Hintergrund-Automatik (Intervalle + letzter/naechster Lauf)."""
     from .services.automatik_scheduler import compute_status
     return compute_status(_db)
@@ -12327,7 +12327,7 @@ async def api_automatik_run_now(request: Request):
 
 
 @app.get("/api/learning/hints")
-async def api_get_learning_hints(page: str = "", limit: int = 3):
+def api_get_learning_hints(page: str = "", limit: int = 3):
     """v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints, gefiltert nach Page.
 
     Liefert max `limit` aktive Insights, deren `scope` zur uebergebenen Page
@@ -12358,7 +12358,7 @@ async def api_get_learning_hints(page: str = "", limit: int = 3):
 
 
 @app.get("/api/onboarding/hints")
-async def api_get_onboarding_hints(tab: str = ""):
+def api_get_onboarding_hints(tab: str = ""):
     """v1.7.5 (#652, G11): Onboarding-Hints fuer ungenutzte Features.
 
     Backend existierte seit beta.76 (services/onboarding_hints.py), war aber
@@ -12407,7 +12407,7 @@ async def api_run_learning_analysis(request: Request):
 
 
 @app.get("/api/recap")
-async def api_recap():
+def api_recap():
     """Liefert eine Zusammenfassung dessen, was seit dem letzten Besuch passiert ist.
 
     Gemessen wird gegen den Beginn des laufenden Besuchs (`services/besuch.py`,
@@ -12574,7 +12574,7 @@ def _modell_nachfolger(status) -> dict | None:
 
 
 @app.get("/api/llm/accuracy")
-async def api_llm_accuracy():
+def api_llm_accuracy():
     """v1.7.0-beta.66 (#638 Stufe 5): Genauigkeit der Ollama-Auto-Aussortierung.
 
     Wie oft hat der User eine automatische Aussortierung korrigiert?
@@ -12649,7 +12649,7 @@ def api_llm_start():
 
 
 @app.get("/api/expertenmodus")
-async def api_expertenmodus_lesen():
+def api_expertenmodus_lesen():
     """H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge sichtbar?"""
     from .services import werkzeug_katalog as _k
     an = _k.expertenmodus(_db)
@@ -12973,7 +12973,7 @@ def _refresh_freelancermap_descriptions(data: dict):
 
 
 @app.get("/api/llm/recommended-models")
-async def api_llm_recommended_models():
+def api_llm_recommended_models():
     """Liefert die kuratierte Liste der von PBP empfohlenen Modelle.
 
     UI nutzt das fuer den Setup-Wizard (drei Standardgroessen + Eigenes).
@@ -12992,7 +12992,7 @@ async def api_llm_recommended_models():
 # === Scraper Health (#432) ===
 
 @app.get("/api/scraper-health/{quelle}/meldung")
-async def api_quellen_meldung(quelle: str):
+def api_quellen_meldung(quelle: str):
     """#937: der fertige Meldetext plus Prefill-URL fuer eine Quelle.
 
     PBP sendet NICHTS. Der Mensch sieht den Text im Dialog und schickt
@@ -13019,7 +13019,7 @@ async def api_quellen_meldung(quelle: str):
 
 
 @app.get("/api/scraper-health")
-async def api_scraper_health():
+def api_scraper_health():
     """Return per-scraper health status for dashboard display."""
     return {"scrapers": _db.get_scraper_health()}
 
@@ -13036,7 +13036,7 @@ async def api_toggle_scraper(name: str, request: Request):
 # v1.7.0-beta.33 (#590 Aufgabe C): Auto-Reactivate-Mechanik
 
 @app.get("/api/scraper-health/probes-due")
-async def api_scraper_probes_due():
+def api_scraper_probes_due():
     """Liefert die Scraper, deren Auto-Reactivate-Probe-Run faellig ist."""
     return {"due": _db.get_scrapers_due_for_probe()}
 
@@ -13075,7 +13075,7 @@ async def api_scraper_retry_after(name: str, request: Request):
 # === Privacy / Data Info (v1.4.0, #287) ===
 
 @app.get("/api/privacy-info")
-async def api_privacy_info():
+def api_privacy_info():
     """Return data storage locations and statistics for privacy page."""
     import sys
     from .database import get_data_dir

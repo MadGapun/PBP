@@ -17,6 +17,14 @@ from .services.profile_service import stufe_heute
 logger = logging.getLogger("bewerbungs_assistent.export")
 
 
+def _stationsart_text(wert):
+    """Anstellungsart fuer den Lebenslauf: die Vorgabe bleibt unsichtbar (#1374)."""
+    from .services import stationsart
+    if str(wert or "").strip().lower() in ("", "festanstellung"):
+        return ""
+    return stationsart.bezeichnung(wert)
+
+
 def _project_display_name(proj: dict) -> str:
     """Return project name, anonymizing customer_name if is_confidential (#246)."""
     name = proj.get("name", "")
@@ -249,7 +257,7 @@ def generate_cv_docx(profile: dict, output_path: Path,
                                  else pos_idx, positions, overlaps)
             if hint:
                 period += f"  {hint}"
-            emp_type = dr.text(pos.get("employment_type"))
+            emp_type = dr.text(_stationsart_text(pos.get("employment_type")))
             type_str = f" ({emp_type})" if emp_type and emp_type != "festanstellung" else ""
 
             p = doc.add_paragraph()
@@ -527,7 +535,7 @@ def generate_tailored_cv_docx(
             period = dr.zeitraum(pos.get("start_date"), pos.get("end_date"),
                                  bool(pos.get("is_current")))
             hint = _overlap_hint(orig_idx, positions, overlaps) if orig_idx >= 0 else ""
-            emp_type = pos.get("employment_type", "")
+            emp_type = _stationsart_text(pos.get("employment_type", ""))
             type_str = f" | {emp_type}" if emp_type and emp_type != "festanstellung" else ""
             _ort = dr.text(pos.get("location"))
             location_str = f" | {_ort}" if _ort else ""
@@ -1617,7 +1625,7 @@ def generate_cv_markdown(profile: dict, output_path: Path) -> Path:
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
             period = dr.zeitraum(pos.get("start_date"), pos.get("end_date"),
                                  bool(pos.get("is_current")))
-            emp = pos.get("employment_type", "")
+            emp = _stationsart_text(pos.get("employment_type", ""))
             t = f" ({emp})" if emp and emp != "festanstellung" else ""
             lines.append(f"### {pos.get('title', '')} bei {pos.get('company', '')}{t}")
             lines.append(f"*{period}*")
