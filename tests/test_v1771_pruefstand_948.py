@@ -376,7 +376,7 @@ def test_948_der_dashboard_weg_nutzt_dieselbe_kriterien_basis():
     """
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "dashboard.py").read_text(encoding="utf-8-sig")
-    start = quelle.index("async def api_fit_analyse")
+    start = quelle.index("def api_fit_analyse")
     # Bis zum naechsten Endpunkt lesen statt eine feste Zeichenzahl —
     # ein Fenster aus Zeichen bricht, sobald jemand die Funktion
     # erweitert, und meldet dann einen Fehler, den es nicht gibt.
@@ -396,7 +396,7 @@ def test_948_der_recherche_kasten_liest_ueber_das_nadeloehr():
     """
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "dashboard.py").read_text(encoding="utf-8-sig")
-    start = quelle.index("async def api_fit_analyse")
+    start = quelle.index("def api_fit_analyse")
     # Bis zum naechsten Endpunkt lesen statt eine feste Zeichenzahl —
     # ein Fenster aus Zeichen bricht, sobald jemand die Funktion
     # erweitert, und meldet dann einen Fehler, den es nicht gibt.
@@ -413,7 +413,7 @@ def test_948_der_dialog_liest_den_stand_vor_dem_eigenen_vermerk():
     """
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "dashboard.py").read_text(encoding="utf-8-sig")
-    start = quelle.index("async def api_fit_analyse")
+    start = quelle.index("def api_fit_analyse")
     # Bis zum naechsten Endpunkt lesen statt eine feste Zeichenzahl —
     # ein Fenster aus Zeichen bricht, sobald jemand die Funktion
     # erweitert, und meldet dann einen Fehler, den es nicht gibt.

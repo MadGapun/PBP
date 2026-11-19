@@ -6640,6 +6640,41 @@ class Database:
             (pid,)
         ).fetchall()]
 
+    def fachwert_zeilen_aussortiert(self) -> list:
+        """(score, dismiss_reason) aller Aussortierten — nur zwei Spalten (#1407).
+
+        Dieselbe Menge wie `get_dismissed_jobs`, aber ohne die Anzeigentexte
+        und ohne Serialisierung. Die Schwellen-Stufen brauchten bisher je
+        Aufruf den ganzen Bestand (0,3 s bei 4.500 Stellen).
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        return [{"score": r["score"], "dismiss_reason": r["dismiss_reason"]}
+                for r in conn.execute(
+                    "SELECT score, dismiss_reason FROM jobs WHERE is_active=0 "
+                    "AND (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall()]
+
+    def fachwert_scores_beworben(self) -> list:
+        """Der gespeicherte Score der Stelle je Bewerbung (#1407).
+
+        `applications.job_hash` traegt den oeffentlichen Hash, `jobs.hash` den
+        profil-praefixierten — `_find_job_row` loest beide Formen auf. Eine
+        Bewerbung ohne auffindbare Stelle oder ohne Score faellt weg, wie bei
+        `get_job` in der Fassung bis 1.8.7.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        werte = []
+        for r in conn.execute(
+                "SELECT job_hash FROM applications "
+                "WHERE (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall():
+            if not r["job_hash"]:
+                continue
+            zeile = self._find_job_row(r["job_hash"])
+            if zeile is not None and zeile["score"] is not None:
+                werte.append(float(zeile["score"]))
+        return werte
+
     def count_dismissed_jobs(self) -> int:
         """Wie viele Stellen sind aussortiert — gezaehlt, nicht geladen (#1143).
 

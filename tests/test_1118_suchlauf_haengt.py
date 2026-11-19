@@ -132,7 +132,7 @@ def test_laufanzeige_schliesst_toten_lauf(db):
     import asyncio
     import bewerbungs_assistent.dashboard as dash
     tot = _toter_lauf(db, vor_minuten=170)
-    assert asyncio.run(dash.api_jobsuche_running()) == {"running": False}
+    assert dash.api_jobsuche_running() == {"running": False}
     assert db.get_background_job(tot)["status"] == "fehler"
 
 
@@ -140,7 +140,7 @@ def test_detailabfrage_schliesst_toten_lauf(db):
     import asyncio
     import bewerbungs_assistent.dashboard as dash
     tot = _toter_lauf(db, vor_minuten=170)
-    job = asyncio.run(dash.api_background_job(tot))
+    job = dash.api_background_job(tot)
     assert job["status"] == "fehler"
 
 
@@ -148,7 +148,7 @@ def test_laufanzeige_laesst_langen_linkedin_lauf(db):
     import asyncio
     import bewerbungs_assistent.dashboard as dash
     lebt = _toter_lauf(db, vor_minuten=25)
-    assert asyncio.run(dash.api_jobsuche_running())["running"] is True
+    assert dash.api_jobsuche_running()["running"] is True
     assert db.get_background_job(lebt)["status"] == "running"
 
 

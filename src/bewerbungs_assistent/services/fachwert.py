@@ -139,38 +139,34 @@ def _fachwerte(db, beworben: bool) -> list:
 
     `applications.job_hash` traegt den OEFFENTLICHEN Hash, `jobs.hash`
     den profil-praefixierten — ein rohes `WHERE hash=?` findet deshalb
-    nichts (v1.7.56 MERKE 4). `get_job` loest beide Formen auf.
+    nichts (v1.7.56 MERKE 4). Die Aufloesung bleibt bei `_find_job_row`
+    (beide Formen, auch der Kurz-Hash).
+
+    #1407: gelesen wird nur, was die Rechnung braucht. Vorher holte der
+    Zweig der Aussortierten ALLE Spalten samt Anzeigentexten
+    (`get_dismissed_jobs`) und serialisierte jede Zeile — bei 4.500
+    Aussortierten rund 0,3 s je Aufruf, und die Stufen riefen ihn je
+    Stelle mehrfach. Jetzt: zwei Spalten per SQL, dieselbe Menge.
     """
     werte = []
     if beworben:
         try:
-            bewerbungen = db.get_applications() or []
+            return db.fachwert_scores_beworben()
         except Exception:
             return []
-        for bew in bewerbungen:
-            hash_ = bew.get("job_hash")
-            if not hash_:
-                continue
-            try:
-                stelle = db.get_job(hash_)
-            except Exception:
-                continue
-            if stelle and stelle.get("score") is not None:
-                werte.append(float(stelle["score"]))
-        return werte
 
     try:
-        aussortiert = db.get_dismissed_jobs() or []
+        zeilen = db.fachwert_zeilen_aussortiert()
     except Exception:
         return []
-    for stelle in aussortiert:
+    for zeile in zeilen:
         # Wer sich beworben hat, hat die Stelle nicht abgelehnt — der
         # Grund `bewerbung_erstellt` ist das Gegenteil einer Ablehnung
         # (#941). Er gehoert nicht in die Negativ-Menge.
-        if "bewerbung_erstellt" in str(stelle.get("dismiss_reason") or ""):
+        if "bewerbung_erstellt" in str(zeile.get("dismiss_reason") or ""):
             continue
-        if stelle.get("score") is not None:
-            werte.append(float(stelle["score"]))
+        if zeile.get("score") is not None:
+            werte.append(float(zeile["score"]))
     return werte
 
 
