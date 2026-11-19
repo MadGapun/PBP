@@ -4607,6 +4607,12 @@ def api_get_email(email_id: str):
     em = _get_email_for_active_profile(email_id)
     if not em:
         return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    if not em.get("application_id"):
+        from .duplicate_detection import firmen_kanon
+        from .services.email_service import titel_firma_kandidaten
+        em["kandidaten"] = titel_firma_kandidaten(
+            {"subject": em.get("subject"), "sender": em.get("sender")},
+            _db.get_applications(), firmen_kanon(_db))
     return em
 
 
