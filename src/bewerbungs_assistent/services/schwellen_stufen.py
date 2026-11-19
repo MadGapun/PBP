@@ -124,8 +124,56 @@ def _werte(db) -> tuple[list, list]:
         return [], []
 
 
+def _daten_stand(db):
+    """Ein Schluessel, der sich aendert, sobald sich IRGENDETWAS in der DB aendert (#1407).
+
+    `total_changes` zaehlt jede Zeilenaenderung dieser Connection (auch
+    noch nicht festgeschriebene), `PRAGMA data_version` jede Festschreibung
+    einer ANDEREN Connection — eines anderen Threads oder Prozesses. Beides
+    zusammen ist exakt: Schreibt jemand in jobs.score, jobs.is_active,
+    applications oder die Stufen-Einstellung, aendert sich der Schluessel.
+    Keine Liste von Schreibstellen, die man fortschreiben muesste.
+
+    None heisst "nicht bestimmbar" — dann wird nicht zwischengespeichert.
+    Auch waehrend einer offenen Transaktion: ein Rollback senkt
+    `total_changes` nicht, ein dort berechneter Wert bliebe sonst stehen.
+    """
+    try:
+        conn = db.connect()
+        if conn.in_transaction:
+            return None
+        return (str(db.db_path), db.get_active_profile_id(),
+                conn.total_changes,
+                conn.execute("PRAGMA data_version").fetchone()[0])
+    except Exception:
+        return None
+
+
 def stufen(db) -> dict:
     """Die sechs Stufen mit ihren heutigen Werten und Folgen.
+
+    #1407: das Ergebnis haengt nur am Datenstand, und `wert_fuer` wird je
+    Stelle der Liste gerufen (159 mal je Anfrage, je 0,34 s). Je Thread und
+    Datenstand wird einmal gerechnet; jeder Aufrufer bekommt eine Kopie.
+    """
+    import copy
+    stand = _daten_stand(db)
+    local = getattr(db, "_local", None)
+    if stand is not None and local is not None:
+        zwischen = getattr(local, "stufen_zwischenspeicher", None)
+        if zwischen is not None and zwischen[0] == stand:
+            return copy.deepcopy(zwischen[1])
+    antwort = _stufen_rechnen(db)
+    if stand is not None and local is not None:
+        # Der Stand wird NACH dem Rechnen noch einmal gelesen: hat das
+        # Rechnen selbst etwas geschrieben, gilt der Zwischenspeicher nicht.
+        if _daten_stand(db) == stand:
+            local.stufen_zwischenspeicher = (stand, copy.deepcopy(antwort))
+    return antwort
+
+
+def _stufen_rechnen(db) -> dict:
+    """Die Rechnung hinter `stufen` — ohne Zwischenspeicher.
 
     Returns:
         {"stufen": [...], "belastbar": bool, "grund": str|None}

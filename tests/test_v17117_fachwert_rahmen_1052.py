@@ -155,6 +155,13 @@ class _DB:
         return [{"score": w, "dismiss_reason": "falsches_fachgebiet"}
                 for w in self._a]
 
+    def fachwert_zeilen_aussortiert(self):
+        return self.get_dismissed_jobs()
+
+    def fachwert_scores_beworben(self):
+        return [float(self.get_job(b["job_hash"])["score"])
+                for b in self.get_applications()]
+
 
 def test_schwellen_verlangen_genug_bewerbungen():
     """Die Zahl steht im Modul, nicht im Test — sonst pruefte der Test
