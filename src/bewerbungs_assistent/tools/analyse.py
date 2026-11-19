@@ -3434,7 +3434,7 @@ def register(mcp, db, logger):
     def ki_lernstand() -> dict:
         """Wie gut bewertet die lokale KI, und wo irrt sie? (#1396)
 
-        Vergleicht jedes Urteil der lokalen KI mit der Entscheidung von
+        Vergleicht jede Bewertung der lokalen KI mit der Entscheidung von
         Mensch oder Claude: Trefferquote (Ergebnis und Grund getrennt), Verlauf
         je Woche, die häufigsten Fehlerbilder und die Stellen mit der
         größten Abweichung. Nur lesend; es gibt nichts einzustellen — die KI

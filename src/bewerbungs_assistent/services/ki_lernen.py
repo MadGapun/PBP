@@ -408,7 +408,7 @@ def _satz(gesehen, bewertet, richtig, quote, genug, min_basis, falsch) -> str:
     """Ein Satz fuer den Menschen: was die Zahl bedeutet und was er tun kann."""
     if not gesehen:
         return ("Die lokale KI hat noch keine Stelle beurteilt. Sobald sie das "
-                "tut, vergleicht PBP ihr Urteil mit deinen Entscheidungen.")
+                "tut, vergleicht PBP ihre Bewertung mit deinen Entscheidungen.")
     if not genug:
         return (f"Die lokale KI hat {gesehen} Stellen beurteilt; verglichen mit "
                 f"deiner Entscheidung sind es erst {bewertet} (ab {min_basis} "
