@@ -7164,7 +7164,7 @@ async def api_mail_quelle_zuruecksetzen():
 # {"sichtbar": false}: die Oberflaeche zeigt dann nichts. Der Schluessel selbst steht in keiner Antwort.
 
 @app.get("/api/api-weg")
-async def api_api_weg_lesen():
+def api_api_weg_lesen():
     from .services import api_backend
     return api_backend.uebersicht(_db)
 
