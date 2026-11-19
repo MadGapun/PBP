@@ -15,6 +15,10 @@ import { buildMailto, buildReplyMailto, extractEmailAddress, formatDate } from "
 export default function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate }) {
   const [assignApp, setAssignApp] = useState(email.application_id || "");
   const [applying, setApplying] = useState(false);
+  // #1412 D2: Bewerbungen, die zu Stellentitel und Firma der Mail passen, stehen oben.
+  const kandidatenIds = new Set(email.kandidaten || []);
+  const kandidaten = (applications || []).filter((app) => kandidatenIds.has(app.id));
+  const uebrige = (applications || []).filter((app) => !kandidatenIds.has(app.id));
 
   async function confirmMatch() {
     if (!assignApp) return;
@@ -177,7 +181,12 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
               onChange={(e) => setAssignApp(e.target.value)}
             >
               <option value="">— Nicht zugeordnet —</option>
-              {(applications || []).map((app) => (
+              {kandidaten.map((app) => (
+                <option key={app.id} value={app.id}>
+                  {`Passt: ${app.title} @ ${app.company}`}
+                </option>
+              ))}
+              {uebrige.map((app) => (
                 <option key={app.id} value={app.id}>
                   {app.title} @ {app.company}
                 </option>
@@ -187,6 +196,11 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
               Zuordnen
             </Button>
           </div>
+          {kandidaten.length > 1 && (
+            <p className="mt-1 text-xs text-amber" data-mehrdeutig>
+              Mehrere Bewerbungen passen zu dieser Mail – bitte eine wählen (oben in der Liste, mit „Passt“).
+            </p>
+          )}
           {email.match_confidence > 0 && email.match_confidence < 1 && (
             <p className="mt-1 text-xs text-muted">
               Auto-Match Konfidenz: {Math.round(email.match_confidence * 100)}%
