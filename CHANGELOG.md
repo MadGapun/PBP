@@ -42,6 +42,78 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.8] - 2026-11-19 — Stellen-Tab und Statistik sind wieder schnell; Ehrenamt und Auszeiten im Lebenslauf; neue Zeiträume machen Bewertungen veraltet
+
+<!-- anwender -->
+Der Stellen-Tab, das Dashboard und die Statistik laden wieder in Sekundenbruchteilen statt in Minuten.
+Ehrenamt, Elternzeit, Pflegezeit, Weiterbildung und Auszeiten lassen sich als Station im Lebenslauf eintragen und erscheinen lesbar.
+Fügst du einer Kompetenz einen neuen Zeitraum hinzu, merkt PBP, dass eine gespeicherte Bewertung neu geprüft werden sollte.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
+
+**Neu und behoben (kurz)**
+
+- **Stellen-Tab, Dashboard und Statistik wieder flott** (#1407): Bei einem großen Bestand (rund 4.500 aussortierte Stellen) brauchte die Stellenliste über 50 Sekunden und blockierte dabei auch Statistik und Startseite. PBP rechnet die Schwellen-Stufen jetzt einmal je Datenstand und liest dafür nur noch Punkte und Gründe statt aller Anzeigentexte; lesende Seiten laufen parallel. Gemessen auf einem Testbestand (60 aktive, 5.000 aussortierte Stellen, 126 Bewerbungen): Stellenliste von rund 35 Sekunden auf 0,13 Sekunden, Berechnung der Suchkriterien von 289 auf 14 Millisekunden, Statistik 0,12 bis 0,17 Sekunden.
+- **Ehrenamt, Elternzeit, Pflegezeit, Weiterbildung, Auszeit** (#1374): Die Anstellungsart einer Station kennt jetzt diese Arten; bekannte Schreibweisen werden vereinheitlicht, Unbekanntes bleibt erhalten und Claude bekommt einen Hinweis. Dashboard und Lebenslauf-Export zeigen die Arten lesbar.
+- **Neuer Zeitraum macht die Bewertung veraltet** (#1389): `skill_zeitraum_hinzufuegen` gab bisher keinen Hinweis, dass eine gespeicherte Bewertung nicht mehr zum Profil passt; jetzt zählt jede Profiländerung.
+
+### Fixed
+
+- #1407, #1374, #1389 wie oben.
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10592 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.8.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.8.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.8 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.8` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.7] - 2026-11-17 — Die lokale KI lernt aus deinen Entscheidungen; Unterlagen hängen an der Bewerbung; Quellen liefern weniger Fachfremdes
 
 <!-- anwender -->
