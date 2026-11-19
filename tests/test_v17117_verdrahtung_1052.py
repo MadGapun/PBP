@@ -79,6 +79,13 @@ class _DB:
     def get_dismissed_jobs(self):
         return []
 
+    def fachwert_zeilen_aussortiert(self):
+        return self.get_dismissed_jobs()
+
+    def fachwert_scores_beworben(self):
+        return [float(self.get_job(b["job_hash"])["score"])
+                for b in self.get_applications()]
+
     def get_search_criteria(self):
         return _krit()
 

@@ -166,6 +166,24 @@ def _felder_uebersetzen(bereich, daten):
     return uebersetzt, ignoriert
 
 
+def _stationsart(felder):
+    """Prueft und normalisiert die Anstellungsart in `felder` (#1374).
+
+    Liefert den Hinweis (oder ""). Ein unbekannter Wert bleibt erhalten.
+    """
+    if not isinstance(felder, dict) or "employment_type" not in felder:
+        return ""
+    from ..services import stationsart as _sa
+    felder["employment_type"], hinweis = _sa.pruefen(felder["employment_type"])
+    return hinweis
+
+
+def _hinweis_dazu(antwort, hinweis):
+    if hinweis:
+        antwort["hinweis_anstellungsart"] = hinweis
+    return antwort
+
+
 def _skill_nicht_angelegt(name, grund):
     """Antwort fuer einen abgewiesenen Skill — mit dem echten Grund (#1073)."""
     return {
@@ -1545,33 +1563,40 @@ def register(mcp, db, logger):
                     return _nichts_zu_schreiben(
                         db, "position", element_id,
                         ignoriert or list(daten.keys()))
+                _ah = _stationsart(felder)
                 ok = db.update_position(element_id, felder)
                 return _schreibbefund(db, "position", element_id, ok,
-                                      _feld_rueckmeldung("position", {
+                                      _hinweis_dazu(_feld_rueckmeldung("position", {
                                           "status": "aktualisiert",
                                           "bereich": "position",
                                           "id": element_id,
                                           "geaenderte_felder":
-                                              list(felder.keys())}, ignoriert))
+                                              list(felder.keys())}, ignoriert), _ah))
             elif aktion == "hinzufuegen":
                 felder, ignoriert = _felder_uebersetzen("position", daten)
                 _schon = _doppelt(db, "position", felder)  # #1148
                 if _schon:
                     return _schon
+                _ah = _stationsart(felder)
                 pid = db.add_position(felder)
-                return _feld_rueckmeldung("position", {
+                return _hinweis_dazu(_feld_rueckmeldung("position", {
                     "status": "hinzugefuegt", "bereich": "position",
-                    "id": pid}, ignoriert)
+                    "id": pid}, ignoriert), _ah)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
-                ids, schon = [], []
+                ids, schon, _ahs = [], [], []
                 for d in daten:
                     vorhanden = _doppelt(db, "position", d)  # #1148
                     if vorhanden:
                         schon.append(vorhanden["id"])
                     else:
+                        _h = _stationsart(d)
+                        if _h:
+                            _ahs.append(_h)
                         ids.append(db.add_position(d))
                 antwort = {"status": "hinzugefuegt" if ids or not schon else "bereits_vorhanden",
                            "bereich": "position", "anzahl": len(ids), "ids": ids}
+                if _ahs:
+                    antwort["hinweis_anstellungsart"] = " ".join(dict.fromkeys(_ahs))
                 if schon:
                     antwort["schon_vorhanden"] = schon
                     antwort["hinweis"] = (f"{len(schon)} von {len(daten)} Positionen gab es "
@@ -1949,7 +1974,7 @@ def register(mcp, db, logger):
             end_date: Enddatum (leer wenn aktuell)
             is_current: Aktuelle Position?
             location: Arbeitsort
-            employment_type: festanstellung, freelance, praktikum, werkstudent
+            employment_type: festanstellung, teilzeit, freelance, praktikum, werkstudent, ehrenamt, elternzeit, pflegezeit, weiterbildung, auszeit
             industry: Branche
             description: Allgemeine Beschreibung der Rolle
             tasks: Hauptaufgaben (kommasepariert oder als Text)
@@ -1961,6 +1986,8 @@ def register(mcp, db, logger):
                                            "start_date": start_date})
         if _schon:
             return _schon
+        from ..services import stationsart as _sa
+        employment_type, _ah = _sa.pruefen(employment_type)
         pid = db.add_position({
             "company": company, "title": title, "location": location,
             "start_date": start_date, "end_date": end_date,
@@ -1968,14 +1995,14 @@ def register(mcp, db, logger):
             "industry": industry, "description": description,
             "tasks": tasks, "achievements": achievements, "technologies": technologies,
         })
-        return {
+        return _hinweis_dazu({
             "status": "gespeichert",
             "position_id": pid,
             "naechster_schritt": f"Position '{title}' bei {company} hinzugefügt. "
                                 "Frage jetzt nach Projekten bei dieser Position: "
                                 "projekt_hinzufuegen(). Nutze STAR: Situation, Task, Action, Result. "
                                 "Frage am Ende: 'Gab es noch ein weiteres Projekt bei dieser Firma?'"
-        }
+        }, _ah)
 
     @mcp.tool()
     def projekt_hinzufuegen(
