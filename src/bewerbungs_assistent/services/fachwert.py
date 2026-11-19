@@ -139,38 +139,53 @@ def _fachwerte(db, beworben: bool) -> list:
 
     `applications.job_hash` traegt den OEFFENTLICHEN Hash, `jobs.hash`
     den profil-praefixierten — ein rohes `WHERE hash=?` findet deshalb
-    nichts (v1.7.56 MERKE 4). `get_job` loest beide Formen auf.
+    nichts (v1.7.56 MERKE 4). Die Aufloesung bleibt bei `_find_job_row`
+    (beide Formen, auch der Kurz-Hash).
+
+    #1407: gelesen wird nur, was die Rechnung braucht. Vorher holte der
+    Zweig der Aussortierten ALLE Spalten samt Anzeigentexten
+    (`get_dismissed_jobs`) und serialisierte jede Zeile — bei 4.500
+    Aussortierten rund 0,3 s je Aufruf, und die Stufen riefen ihn je
+    Stelle mehrfach. Jetzt: zwei Spalten per SQL, dieselbe Menge.
     """
     werte = []
     if beworben:
         try:
-            bewerbungen = db.get_applications() or []
+            conn = db.connect()
+            pid = db.get_active_profile_id()
+            hashes = [r["job_hash"] for r in conn.execute(
+                "SELECT job_hash FROM applications "
+                "WHERE (profile_id=? OR profile_id IS NULL) "
+                "ORDER BY applied_at DESC", (pid,)).fetchall()]
         except Exception:
             return []
-        for bew in bewerbungen:
-            hash_ = bew.get("job_hash")
+        for hash_ in hashes:
             if not hash_:
                 continue
             try:
-                stelle = db.get_job(hash_)
+                zeile = db._find_job_row(hash_)
             except Exception:
                 continue
-            if stelle and stelle.get("score") is not None:
-                werte.append(float(stelle["score"]))
+            if zeile is not None and zeile["score"] is not None:
+                werte.append(float(zeile["score"]))
         return werte
 
     try:
-        aussortiert = db.get_dismissed_jobs() or []
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        zeilen = conn.execute(
+            "SELECT score, dismiss_reason FROM jobs WHERE is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall()
     except Exception:
         return []
-    for stelle in aussortiert:
+    for zeile in zeilen:
         # Wer sich beworben hat, hat die Stelle nicht abgelehnt — der
         # Grund `bewerbung_erstellt` ist das Gegenteil einer Ablehnung
         # (#941). Er gehoert nicht in die Negativ-Menge.
-        if "bewerbung_erstellt" in str(stelle.get("dismiss_reason") or ""):
+        if "bewerbung_erstellt" in str(zeile["dismiss_reason"] or ""):
             continue
-        if stelle.get("score") is not None:
-            werte.append(float(stelle["score"]))
+        if zeile["score"] is not None:
+            werte.append(float(zeile["score"]))
     return werte
 
 
