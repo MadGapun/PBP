@@ -143,11 +143,14 @@ def test_stufenwerte_identisch_zur_alten_rechnung(bestand, monkeypatch):
 
 
 def test_get_search_criteria_liest_nicht_alle_aussortierten(bestand, monkeypatch):
-    def verboten(*a, **k):
-        raise AssertionError("get_dismissed_jobs darf hier nicht laufen")
-    monkeypatch.setattr(type(bestand), "get_dismissed_jobs", verboten)
+    aufrufe = []
+    original = type(bestand).get_dismissed_jobs
+    # Aufrufe zaehlen statt werfen: `_fachwerte` faengt jede Ausnahme ab.
+    monkeypatch.setattr(type(bestand), "get_dismissed_jobs",
+                        lambda self: (aufrufe.append(1), original(self))[1])
     bestand._local.__dict__.pop("stufen_zwischenspeicher", None)
     krit = bestand.get_search_criteria()
+    assert aufrufe == [], "get_dismissed_jobs darf hier nicht laufen"
     assert krit.get("_schwelle_stufe") == "locker"
     assert bestand.get_scoring_threshold() >= 0
 
@@ -347,11 +350,13 @@ def test_langsame_anfrage_blockiert_andere_nicht(client, monkeypatch):
 
             async def schnell():
                 await asyncio.sleep(0.2)          # erst NACHDEM die langsame laeuft
-                t0 = time.perf_counter()
                 r = await ac.get("/api/jobsuche/last")
-                return r.status_code, time.perf_counter() - t0
+                # Ab dem Start BEIDER Aufgaben gemessen: haelt die langsame den
+                # Loop an, vergeht diese Zeit, bevor die schnelle ueberhaupt drankommt.
+                return r.status_code, time.perf_counter() - start
+            start = time.perf_counter()
             return await asyncio.gather(langsam(), schnell())
     lang, (status, kurz) = asyncio.run(lauf())
     assert status == 200
     assert lang >= 1.4
-    assert kurz < 0.9, f"/api/jobsuche/last wartete {kurz:.2f} s auf die langsame Anfrage"
+    assert kurz < 1.1, f"/api/jobsuche/last wartete {kurz:.2f} s auf die langsame Anfrage"
