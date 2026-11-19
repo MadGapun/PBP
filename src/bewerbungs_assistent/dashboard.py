@@ -6046,9 +6046,16 @@ async def api_upload_document(
 
     # Smart detection: auto-detect doc_type if "sonstiges"
     if doc_type == "sonstiges":
-        detected = _detect_doc_type(stored_filename, extracted)
-        if detected:
-            doc_type = detected
+        if email_context is not None:
+            # #1412 D4: eine Mail wird nach Inhalt und erkanntem Status
+            # eingeordnet, nicht nach ihrem Dateinamen.
+            from .services.email_service import mail_dokumenttyp
+            doc_type = mail_dokumenttyp(email_context.get("detected_status"),
+                                        bool(email_context.get("meeting_count")))
+        else:
+            detected = _detect_doc_type(stored_filename, extracted)
+            if detected:
+                doc_type = detected
 
     did = _db.add_document({
         "filename": stored_filename,
@@ -6183,11 +6190,28 @@ async def api_upload_document(
             logger.debug("Newsletter-Erkennung uebersprungen fuer %s: %s",
                          stored_filename, exc)
 
+    # #1412 D5: was PBP in der Mail erkannt hat, gehoert in die Antwort — der
+    # Status wird nur ANGEBOTEN, nie gesetzt.
+    erkannt = None
+    if email_context is not None:
+        from .services.email_service import status_angebot
+        aktuell = None
+        if linked_app:
+            app_row = _db.get_application(linked_app)
+            aktuell = (app_row or {}).get("status")
+        erkannt = {
+            "status": email_context.get("detected_status"),
+            "angebot": status_angebot(email_context.get("detected_status"), aktuell) if linked_app else None,
+            "termine": len(stored_meetings),
+            "dokumenttyp_sicher": doc_type != "sonstiges",
+        }
+
     antwort = {
         "status": "ok",
         "id": did,
         "filename": stored_filename,
         "doc_type": doc_type,
+        "mail_erkannt": erkannt,
         "extracted_length": len(extracted),
         "linked_application": linked_app,
         "email_context": email_context,

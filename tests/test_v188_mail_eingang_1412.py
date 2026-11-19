@@ -52,6 +52,10 @@ ABSAGE = ("Guten Tag,\n\nleider müssen wir Ihnen mitteilen, dass wir uns für "
           "andere Bewerber entschieden haben. Wir bedauern, Ihnen eine Absage erteilen zu müssen.")
 
 
+ABSAGE_KNAPP = ("Guten Tag,"+chr(10)*2+"die Stelle wurde besetzt, wir können Sie "
+                "nicht weiter berücksichtigen. Alles Gute.")
+
+
 def _bewerbung(db, titel="Fachkraft Lagerlogistik", firma="Musterbau GmbH", **extra):
     return db.add_application({"title": titel, "company": firma,
                                "status": "beworben", **extra})
@@ -106,3 +110,64 @@ def test_d1_zweite_zuordnung_legt_keinen_zweiten_termin_an(db):
                        json={"application_id": app_id})
     termine = db.get_meetings_for_application(app_id)
     assert len(termine) == 1
+
+
+# ── D4: Dokumenttyp aus Inhalt, nicht aus dem Namen ─────────────────────
+
+def _dokument_hochladen(client, inhalt, name, app_id=None):
+    data = {"link_application_id": app_id} if app_id else {}
+    return client.post("/api/documents/upload", data=data,
+                       files={"file": (name, inhalt, "message/rfc822")})
+
+
+def test_d4_absage_mit_irrefuehrendem_namen_ist_absage(db):
+    r = _dokument_hochladen(_client(), eml("Ihre Bewerbung als Fachkraft", ABSAGE_KNAPP),
+                            "Ihre Bewerbung als Fachkraft Lagerlogistik.eml")
+    assert r.status_code == 200, r.text
+    assert r.json()["doc_type"] == "absage"
+
+
+def test_d4_einladung_ohne_das_wort_im_namen(db):
+    r = _dokument_hochladen(_client(), eml("Ihre Bewerbung", EINLADUNG), "Nachricht.eml")
+    assert r.json()["doc_type"] == "interview_einladung"
+
+
+def test_d4_unklarer_inhalt_ist_sonstiges_nicht_anschreiben(db):
+    r = _dokument_hochladen(_client(), eml("Hallo", "Kurze Frage zum Wetter."),
+                            "Anschreiben Lagerlogistik.eml")
+    assert r.json()["doc_type"] == "sonstiges"
+    assert r.json()["mail_erkannt"]["dokumenttyp_sicher"] is False
+
+
+# ── D5: Meldung nennt Termin und Status, Status nur auf Bestaetigung ────
+
+def test_d5_absage_im_dialog_wird_angeboten_nicht_gesetzt(db):
+    app_id = _bewerbung(db)
+    r = _dokument_hochladen(_client(), eml("Ihre Bewerbung als Fachkraft", ABSAGE),
+                            "mail.eml", app_id=app_id)
+    j = r.json()
+    assert j["mail_erkannt"]["angebot"] == {"status": "abgelehnt", "name": "Absage"}
+    assert db.get_application(app_id)["status"] == "beworben", "nie still gesetzt"
+    # erst auf Bestaetigung (der Dialog ruft den Status-Weg)
+    s = _client().put(f"/api/applications/{app_id}/status", json={"status": "abgelehnt"})
+    assert s.status_code == 200
+    assert db.get_application(app_id)["status"] == "abgelehnt"
+
+
+def test_d5_einladung_nennt_den_angelegten_termin(db):
+    app_id = _bewerbung(db)
+    j = _dokument_hochladen(_client(), eml("Einladung", EINLADUNG), "mail.eml",
+                            app_id=app_id).json()
+    assert j["mail_erkannt"]["termine"] == 1
+    assert j["mail_erkannt"]["angebot"]["status"] == "interview"
+    assert len(db.get_meetings_for_application(app_id)) == 1
+
+
+def test_d5_gleicher_status_wird_nicht_angeboten(db):
+    app_id = _bewerbung(db)
+    assert _client().put(f"/api/applications/{app_id}/status",
+                         json={"status": "interview"}).status_code == 200
+    j = _dokument_hochladen(_client(), eml("Einladung", EINLADUNG), "mail.eml",
+                            app_id=app_id).json()
+    assert db.get_application(app_id)["status"] == "interview"
+    assert j["mail_erkannt"]["angebot"] is None
