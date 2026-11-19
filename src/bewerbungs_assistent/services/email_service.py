@@ -636,6 +636,38 @@ def detect_email_status(subject: str, body_text: str) -> tuple[Optional[str], fl
     return None, 0.0
 
 
+_STATUS_ZU_DOKUMENTTYP = {
+    "abgelehnt": "absage",
+    "interview": "interview_einladung",
+    "angebot": "angebot",
+    "beworben": "eingangsbestaetigung",
+}
+
+
+def mail_dokumenttyp(detected_status, hat_termin: bool = False) -> str:
+    """Dokumenttyp einer Mail aus INHALT und erkanntem Status (#1412 D4),
+    nie aus dem Dateinamen: „Ihre Bewerbung als ...“ ist eine Absage, eine
+    Einladung oder eine Eingangsbestaetigung, aber kein Anschreiben. Ist
+    der Inhalt unklar, bleibt es `sonstiges` (der Zustand „unbekannt“)."""
+    typ = _STATUS_ZU_DOKUMENTTYP.get(detected_status or "")
+    if typ:
+        return typ
+    return "interview_einladung" if hat_termin else "sonstiges"
+
+
+STATUS_NAMEN = {"abgelehnt": "Absage", "interview": "Interview",
+                "angebot": "Angebot"}
+
+
+def status_angebot(detected_status, aktueller_status):
+    """Welchen Status PBP nach einer Mail ANBIETET (#1412 D5): einen, der
+    sich vom jetzigen unterscheidet und eine Aenderung ist (die
+    Eingangsbestaetigung aendert nichts). Gesetzt wird er nie von selbst."""
+    if detected_status not in STATUS_NAMEN or detected_status == aktueller_status:
+        return None
+    return {"status": detected_status, "name": STATUS_NAMEN[detected_status]}
+
+
 # =====================================================================
 # Meeting extraction
 # =====================================================================
