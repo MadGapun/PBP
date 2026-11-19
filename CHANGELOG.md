@@ -76,7 +76,7 @@ Antwort-Mails einer Firma behalten ihren Termin, auch wenn du sie erst später e
 - #1407, #1374, #1389 wie oben.
 - #1412 D1 (Termin bei später Zuordnung: `meeting_extracted` hieß „Termine gefunden“, jetzt „gespeichert“; `confirm-match` liest die Quelldatei neu und legt nichts doppelt an), D2 (`titel_firma_kandidaten`, Auswahl aus allen Bewerbungen statt der Filterliste des Dokumente-Bereichs), D3 (`_decode_header` fängt `unknown-8bit`/unbekannte Zeichensätze ab), D4 (`mail_dokumenttyp` aus Inhalt und Status), D5 (`mail_erkannt` in der Antwort von `/api/documents/upload`, Status nur per Klick), D7 (`TODO_ERLEDIGEN_HINWEIS` aus einer Konstante), D8 (`DatumFeld`). D6 (gemischte Zeitstempel) ist mit #1386 in 1.8.7 behoben und im Mail-Verlauf nicht mehr nachstellbar.
 
-*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10592 Tests.*
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10617 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
