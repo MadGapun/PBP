@@ -9,6 +9,12 @@ Zwei Regeln, beide gegen das, was ein Mensch im Dashboard liest:
 2. **Ein Wort je Begriff.** Woerter aus `GLOSSAR_VERBOTEN` sind ein Fund
    (Follow-up statt Nachfassen, Todo statt Aufgabe, Docs statt
    Dokumente ...).
+3. **Bewertung und Urteil (#1391).** Was Claude ueber eine Stelle sagt
+   (empfohlen, bedingt, nicht empfohlen), ist eine BEWERTUNG; das URTEIL
+   gibt es nur einmal, und es kommt vom Menschen. "Urteil" steht in
+   sichtbaren Texten nur mit dem Menschen ("dein Urteil", "Urteil des
+   Menschen"); in Texten fuer Claude gar nicht als Claudes Ergebnis.
+   Werkzeug- und Feldnamen (`stelle_urteil_speichern`, `urteil`) bleiben.
 
 Gelesen werden JSX-Textknoten und Zeichenketten-Literale in den
 Oberflaechen-Dateien sowie Titel und Beschreibung im Prompt-Katalog.
@@ -167,6 +173,22 @@ def _texte_roh(pfad: Path):
             t = m.group(1) if m.group(1) is not None else m.group(2)
             if t and _sieht_aus_wie_text(t):
                 yield nr, t
+
+
+HILFE_WISSEN = REPO / "src" / "bewerbungs_assistent" / "content" / "hilfe_wissen.json"
+
+
+def wissen_texte():
+    """(pfad, nr, text) je Titel und Text der Hilfe-Wissensbasis (#1391). Die Datei ist aus Hilfe, Wiki und Prompt-Katalog
+    gebaut; ein Fund dort heisst: die Quelle (meist eine Wiki-Seite) und dann die Datei neu bauen."""
+    if not HILFE_WISSEN.exists():
+        return
+    daten = json.loads(HILFE_WISSEN.read_text(encoding="utf-8"))
+    eintraege = daten.get("abschnitte", daten) if isinstance(daten, dict) else daten
+    for nr, e in enumerate(eintraege, 1):
+        for feld in ("titel", "text"):
+            if isinstance(e, dict) and e.get(feld):
+                yield HILFE_WISSEN, nr, e[feld]
 
 
 def katalog_texte():
@@ -437,6 +459,42 @@ def umlaut_funde(text: str):
             yield wort
 
 
+# ── Bewertung und Urteil (#1391) ─────────────────────────────────────
+#
+# "Urteil" und "urteilen" nur als Wort des Menschen. Bezeichner bleiben:
+# alles mit Unterstrich (`stelle_urteil_speichern`, `urteil_begruendung`)
+# und das kleingeschriebene Einzelwort `urteil` (der Parametername; das
+# Nomen schreibt man gross). "beurteilt" und "Vorurteil" sind andere Woerter.
+URTEIL_ERLAUBTE_WOERTER = {"gattungsurteil", "gattungsurteile", "kategorienurteil",
+                           "pauschalurteil", "pauschalurteile"}
+_URTEIL_WORT = re.compile(r"[A-Za-zÄÖÜäöüß_]+")
+# Das Urteil des MENSCHEN: "dein Urteil", "dein eigenes Urteil", "auf dein Urteil".
+_URTEIL_MENSCH_DAVOR = re.compile(r"(?i)(?<![a-zäöüß])(?:dein\w*|euer\w*)\s+(?:\w+\s+)?$")
+_URTEIL_MENSCH_DANACH = re.compile(
+    r"(?i)^\w*\s+(?:des|der)\s+(?:menschen|nutzers|nutzerin|bewerbers|bewerberin)(?![a-zäöüß])"
+    r"|^\w*\s+(?:ueber|über)\s+(?:dich|dein\w*)(?![a-zäöüß])")
+
+
+def urteil_funde(text: str, fuer_claude: bool = False):
+    """Woerter mit "urteil", die kein Wort des Menschen sind (#1391).
+
+    `fuer_claude`: in einem Text, der an Claude geht, ist "dein Urteil" Claudes
+    Urteil (du = Claude) und deshalb ein Fund; erlaubt bleibt nur das Urteil
+    "des Menschen"."""
+    for m in _URTEIL_WORT.finditer(text):
+        wort = m.group(0)
+        klein = wort.lower()
+        if ("urteil" not in klein or "_" in wort or wort == "urteil"
+                or "beurteil" in klein or "vorurteil" in klein
+                or klein in URTEIL_ERLAUBTE_WOERTER):
+            continue
+        if not fuer_claude and _URTEIL_MENSCH_DAVOR.search(text[max(0, m.start() - 40):m.start()]):
+            continue
+        if _URTEIL_MENSCH_DANACH.search(wort + text[m.end():m.end() + 40]):
+            continue
+        yield wort
+
+
 def glossar_funde(text: str):
     klein = text.lower()
     for verboten, statt in {**GLOSSAR_VERBOTEN, **SCHREIBWEISE}.items():
@@ -454,16 +512,27 @@ def pruefen():
     for eintrag in backend_texte():
         quellen.append(eintrag)
         backend.add(id(eintrag[2]))
+    angezeigt = {(p, z, t) for p, z, t in quellen}
+    # Die Wissensbasis stammt zum Teil aus dem Wiki (Umschrift dort ist Sache der Wiki-Pflege): nur die Begriffsregel.
+    for pfad, zeile, text in wissen_texte():
+        for wort in urteil_funde(text):
+            funde.append(f"{pfad.relative_to(REPO).as_posix()}:{zeile}: '{wort}' — Claudes Ergebnis heisst Bewertung, "
+                         "Urteil nur dein eigenes (#1391); Quelle (Wiki, Hilfe) aendern und die Datei neu bauen")
     for pfad, zeile, text in claude_texte():
         name = pfad.relative_to(REPO).as_posix()
         for wort in claude_umlaut_funde(text):
             funde.append(f"{name}:{zeile}: Umschrift '{wort}' im Claude-Text — echter Umlaut")
+        if (pfad, zeile, text) not in angezeigt:
+            for wort in urteil_funde(text, fuer_claude=True):
+                funde.append(f"{name}:{zeile}: '{wort}' im Claude-Text — Claudes Ergebnis heisst Bewertung (#1391)")
     for pfad, zeile, text in quellen:
         name = pfad.relative_to(REPO).as_posix()
         ist_backend = id(text) in backend
         text = re.sub(r"\$\{[^}]*\}", " ", text)
         for wort in umlaut_funde(text):
             funde.append(f"{name}:{zeile}: Umschrift '{wort}' — echter Umlaut")
+        for wort in urteil_funde(text):
+            funde.append(f"{name}:{zeile}: '{wort}' — Claudes Ergebnis heisst Bewertung, Urteil nur dein eigenes (#1391)")
         if ist_backend:
             # Das Glossar gilt fuer die Oberflaeche; Backend-Texte nennen
             # Werkzeugnamen und Server-Begriffe, die bleiben.

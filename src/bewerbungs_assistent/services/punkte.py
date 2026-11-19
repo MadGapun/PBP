@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 SCORE_BEDEUTUNG = (
     "Die Punkte zeigen, wie gut eine Anzeige deine Suchbegriffe trifft "
     "(Pflicht- und Wunschbegriffe, abzüglich Ausschlussbegriffe). Mehr "
-    "ist besser. Sie sind kein Urteil darüber, ob du passt — dein "
+    "ist besser. Sie sind keine Bewertung darüber, ob du passt — dein "
     "Lebenslauf geht nicht ein, und Ort, Gehalt und Arbeitsmodell stehen "
     "getrennt daneben. Es gibt keine Prozentangabe und keine feste Skala; "
     "wo ein Höchstwert erreichbar ist, steht er dabei."

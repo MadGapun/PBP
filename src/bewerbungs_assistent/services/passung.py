@@ -130,7 +130,7 @@ def urteil(ko_gruende=None, beschreibung_vorhanden: bool = True,
             gruende = gespeicherte_analyse.get("veraltet_text") or [
                 "Dein Profil hat sich seither geändert"]
             antwort["hinweis"] = (
-                "; ".join(gruende) + " — das Urteil kann überholt sein.")
+                "; ".join(gruende) + " — die Bewertung kann überholt sein.")
         return antwort
 
     if not beschreibung_vorhanden:
@@ -189,7 +189,7 @@ BEURTEILT = "beurteilt"
 
 ZUSTAND_TEXT = {
     UNGEPRUEFT: "Noch nicht angesehen",
-    GESICHTET: "Angesehen, kein Urteil hinterlegt",
+    GESICHTET: "Angesehen, keine Bewertung hinterlegt",
     BEURTEILT: "Beurteilt",
 }
 

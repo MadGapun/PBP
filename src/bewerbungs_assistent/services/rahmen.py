@@ -214,7 +214,7 @@ def _gehalts_befund(job: dict, criteria: dict) -> dict:
         # gar nicht — und darf hier keinen Ausschluss tragen.
         return {"stufe": MITTEL, "belegt": False,
                 "grund": "Das Gehalt ist geschätzt oder fehlt — daraus "
-                         "folgt kein Urteil (#827)."}
+                         "folgt keine Bewertung (#827)."}
     betrag = _zahl(job.get("salary_min"))
     if str(job.get("salary_type") or "jaehrlich") != "jaehrlich":
         return {"stufe": MITTEL, "belegt": False,

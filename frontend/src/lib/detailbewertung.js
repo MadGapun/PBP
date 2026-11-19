@@ -52,7 +52,7 @@ export function detailbewertungKnopf(job) {
   if (!vorhanden) {
     return {
       text: "Bewerten",
-      titel: "Prompt für Claude kopieren: Stelle gegen dein Profil lesen und das Urteil speichern",
+      titel: "Prompt für Claude kopieren: Stelle gegen dein Profil lesen und die Bewertung speichern",
       befund: "",
     };
   }

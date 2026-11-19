@@ -1863,7 +1863,7 @@ export default function JobsPage() {
               >
                 <option value="">Prüfstand: alle</option>
                 <option value="ungeprueft">Nur ungeprüfte</option>
-                <option value="gesichtet">Nur angesehene ohne Urteil</option>
+                <option value="gesichtet">Nur angesehene ohne Bewertung</option>
                 <option value="beurteilt">Nur beurteilte</option>
               </SelectInput>
               {filters.pruefstand && (
@@ -2468,7 +2468,7 @@ export default function JobsPage() {
           {fitDialog.analysis?.analyse?.urteil ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Gelesenes Urteil</p>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Gelesene Bewertung</p>
                 <Badge
                   tone={
                     fitDialog.analysis.analyse.urteil === "EMPFOHLEN" ? "success"
@@ -2488,7 +2488,7 @@ export default function JobsPage() {
               ) : null}
               {fitDialog.analysis.pruefstand?.ueberholt ? (
                 <p className="mt-2 text-xs text-amber">
-                  {`Seit dem Urteil hat sich die Grundlage geändert${
+                  {`Seit der Bewertung hat sich die Grundlage geändert${
                     (fitDialog.analysis.pruefstand.ueberholt.gruende_text || []).length
                       ? ` — ${fitDialog.analysis.pruefstand.ueberholt.gruende_text.join("; ")}`
                       : ""
@@ -3020,7 +3020,7 @@ export default function JobsPage() {
                 <Card className="rounded-xl border-amber/20 bg-amber/10 shadow-none">
                   <p className="text-sm font-semibold text-ink">Beschreibung zuerst nachziehen</p>
                   <p className="mt-1 text-sm text-muted">
-                    Für diese Stelle fehlt eine belastbare Beschreibung. Der Score ist deshalb nur eine Vororientierung und kein sauberes Urteil.
+                    Für diese Stelle fehlt eine belastbare Beschreibung. Der Score ist deshalb nur eine Vororientierung und keine saubere Bewertung.
                   </p>
                   {/* v1.7.0-beta.44 (#622): Per-Klick-Refetch via Backend (1 HTTP-GET) */}
                   <div className="mt-3 flex flex-wrap gap-2">

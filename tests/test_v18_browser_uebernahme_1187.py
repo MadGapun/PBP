@@ -263,7 +263,7 @@ def test_ein_urteil_wird_nur_mit_gelesenem_volltext_gespeichert(umgebung):
     assert not (db.get_job(ohne["hash"]).get("analyse_urteil") or "").strip()
     assert gespeichert[TITEL[2]]["urteil"] == "NICHT_BEURTEILBAR", "'noch nicht gelesen' braucht keinen Text"
     falsch = gespeichert[TITEL[3]]
-    assert "kein Urteil" in falsch["urteil_nicht_gespeichert"] and "urteil" not in falsch
+    assert "keine gültige Bewertung" in falsch["urteil_nicht_gespeichert"] and "urteil" not in falsch
 
 
 def test_die_vorschau_speichert_weder_urteil_noch_aussortieren(umgebung):

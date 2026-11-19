@@ -64,7 +64,7 @@ STRENG = "streng"
 UMGANG_MIT_UNBEKANNT = {
     MITMISCHEN: (
         "Ungeprüftes mischt sich unter das Geprüfte — der Stand bis "
-        "v1.7.38. Ehrlich nur, wenn man weiss, dass Score 0 kein Urteil "
+        "v1.7.38. Ehrlich nur, wenn man weiss, dass Score 0 keine Bewertung "
         "ist."),
     NACHRANGIG: (
         "Vorgabe. Der Score bleibt unverändert, aber eine Stelle ohne "

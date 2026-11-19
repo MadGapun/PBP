@@ -161,7 +161,7 @@ def _kategorienurteil_hinweis(grund: str):
     if not treffer:
         return None
     return (
-        f"Der Grund klingt nach einem Urteil über eine ganze Gattung "
+        f"Der Grund klingt nach einer Pauschalaussage über eine ganze Gattung "
         f"('{treffer.strip()}'). Blacklist-Gruende werden bei späteren "
         "Bewertungen mitgelesen — ein Kategorienurteil färbt dann auf "
         "unbeteiligte Firmen derselben Art ab. Präziser ist, was mit "
@@ -1872,7 +1872,7 @@ def register(mcp, db, logger):
         Browser-Übernahme aus — beim Anlegen selbst nichts: die Antwort
         zeigt, was sie heute treffen würde; den Bestand nimmt
         aktion='anwenden' mit dry_run=False. Zurückgeholte Stellen, Stellen
-        mit gelesenem Urteil (empfohlen/bedingt) und Stellen mit Bewerbung
+        mit gelesener Bewertung (empfohlen/bedingt) und Stellen mit Bewerbung
         sortiert eine Regel nie aus; eine Stelle mit unbekannter Sprache
         trifft eine Sprach-Regel nie.
 

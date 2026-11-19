@@ -116,7 +116,7 @@ KERNSAETZE = (
     "Eine Stelle zu viel in PBP ist besser als eine zu wenig",
     "entscheidet der Mensch in PBP, nicht du im Chat",
     "auch wenn ein einzelner Punkt dagegen spricht",
-    "Schreibe dein Urteil und den Zweifelsgrund an die Stelle (stelle_urteil_speichern)",
+    "Schreibe deine Bewertung und den Zweifelsgrund an die Stelle (stelle_urteil_speichern)",
     "Anzeige offen: ja, nein oder unklar",
     "hole sie mit stelle_reaktivieren zurück, statt sie nur im Chat zu erwähnen",
     "Sortiere nur aus (stelle_einordnen), was offensichtlich fachfremd oder geschlossen ist, und nenne den Grund",
@@ -199,7 +199,7 @@ def test_1187_der_plan_trennt_vorfilter_und_urteil(env):
     _, mcp = env
     plan = _call(mcp, "linkedin_lauf_plan", {"max_begriffe": 3})
     ablauf = " ".join(plan["ablauf"])
-    assert "spart nur Requests und urteilt nicht" in ablauf
+    assert "spart nur Requests und bewertet nicht" in ablauf
     assert "dry_run=True" in ablauf and "dry_run=False" in ablauf
     assert plan["regel"] == bh.REGEL_IM_ZWEIFEL
 

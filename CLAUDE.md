@@ -439,12 +439,9 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ## Bericht-Designprinzip
 
-Kennzahlen, deren Datenbasis nicht ALLE beitragenden Pfade abdeckt, kommen
-nicht in den Bewerbungsbericht — lieber eine Sektion weglassen als eine
-irrefuehrende Zahl drucken. v1.6.8 entfernte „Aktive Filter-Arbeit“,
-„Geschaetzter Zeitaufwand“ und „Bewerbungs-Trichter“, weil Bewerbungen auch
-per Direct-Add aus dem Chat entstehen und der Aufwand Groessenordnungen
-unterschaetzt war.
+Kennzahlen, deren Datenbasis nicht ALLE beitragenden Pfade abdeckt (auch
+Direct-Add aus dem Chat), kommen nicht in den Bewerbungsbericht — lieber
+eine Sektion weglassen als eine irrefuehrende Zahl drucken (v1.6.8).
 
 ## Anti-DB-Bypass (#514)
 
@@ -500,11 +497,14 @@ direkt zitieren, keine Weichspueler.
 - **`NICHT_BEURTEILBAR` ist der Normalfall**, solange niemand Anzeige und
   Profil gelesen hat: „noch nicht gelesen“, nicht „passt nicht“ (#989). Der
   naechste Schritt ist die Detailanalyse.
-- **Gelesen? Urteil zurueckschreiben:**
+- **Gelesen? Bewertung zurueckschreiben:**
   `stelle_urteil_speichern(job_hash, urteil, begruendung)` (alter Name
-  `stelle_analyse_speichern`) — es haengt an der Stelle und ueberlebt das
-  Gespraech. Ein aus dem Score abgeleitetes Urteil waere der Fehler aus
+  `stelle_analyse_speichern`) — sie haengt an der Stelle und ueberlebt das
+  Gespraech. Eine aus dem Score abgeleitete Bewertung waere der Fehler aus
   #1003, nur von Hand.
+- **Bewertung ist Claudes Ergebnis, Urteil gibt es nur vom Menschen (#1391).**
+  Sichtbare Texte sagen „Bewertung“; „Urteil“ nur mit dem Menschen („dein
+  Urteil“). Werkzeug- und Feldnamen bleiben. `ui_texte_pruefen.py` prueft es.
 - **`NICHT_EMPFOHLEN` aus einem k.o.-Kriterium** (Wiedergaenger mit
   fachlichem Grund, ausserhalb des Rechtsraums, kein MUSS-Anker) schlaegt
   auch eine gute Analyse.

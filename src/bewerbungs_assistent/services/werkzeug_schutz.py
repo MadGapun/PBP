@@ -88,7 +88,7 @@ ZWEISTUFIG: dict[str, str] = {
 KLEIN_SOFORT: dict[str, str] = {
     "kosten_loeschen": "eine einzelne Kostenzeile",
     "skill_zeitraum_loeschen": "ein einzelner Zeitraum an einem Skill",
-    "stelle_analyse_loeschen": "ein gespeichertes Urteil; die Stelle bleibt",
+    "stelle_analyse_loeschen": "eine gespeicherte Bewertung; die Stelle bleibt",
     "bewerbung_stelle_entknuepfen": "nur die Verknüpfung, beide Seiten bleiben",
     "kontakt_entknuepfen": "nur die Verknüpfung, beide Seiten bleiben",
     "referenz_entfernen": "nur die Referenz-Markierung, der Kontakt bleibt",

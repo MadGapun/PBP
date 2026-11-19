@@ -111,7 +111,7 @@ WAHRHEIT
   Wertung fällt ("kenne ich", "war abgesagt", "läuft noch"), zuerst
   firma_kontext(firmenname) und nur dessen Ergebnis wiedergeben.
 - Punkte: {_SCORE_BEDEUTUNG}
-- Ein Urteil über eine Stelle entsteht erst, wenn du Anzeige und Profil
+- Eine Bewertung einer Stelle entsteht erst, wenn du Anzeige und Profil
   gelesen hast (fit_analyse); halte es mit stelle_urteil_speichern fest.
 - Absagegründe nie erfinden: nur aus der Liste, die das Werkzeug nennt,
   oder aus dem, was die Firma geschrieben hat.

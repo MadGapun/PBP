@@ -67,7 +67,7 @@ export const HILFE = {
   suche: {
     abschnitte: [
       { titel: "Suchbegriffe", text: "MUSS-Begriffe muss eine Stelle treffen, PLUS-Begriffe bringen zusätzliche Punkte, MINUS-Begriffe ziehen welche ab, und AUSSCHLUSS-Begriffe blenden eine Stelle ganz aus." },
-      { titel: "Punkte", text: "Die Punkte sagen, wie gut eine Anzeige deine Suchbegriffe trifft. Sie sind keine Prozentzahl und kein Urteil darüber, ob die Stelle zu dir passt — das entsteht erst, wenn jemand Anzeige und Profil gelesen hat." },
+      { titel: "Punkte", text: "Die Punkte sagen, wie gut eine Anzeige deine Suchbegriffe trifft. Sie sind keine Prozentzahl und keine Bewertung darüber, ob die Stelle zu dir passt — das entsteht erst, wenn jemand Anzeige und Profil gelesen hat." },
       { titel: "Entfernung", text: "Trag je Anstellungsform eine Grenze in Kilometern ein. Ein leeres Feld nimmt die grau angezeigte Vorgabe, 0 heißt „nur am Wohnort oder remote“. Innerhalb der Grenze gilt: je näher, desto besser. Gerechnet wird mit der Luftlinie — so, wie die Jobbörsen sie angeben." },
       { titel: "Fahrstrecke und Fahrzeit", text: "Mit einem kostenlosen Routing-Schlüssel (Einstellungen › Erweitert › Quellen im Detail) und dem Haken „Echte Fahrstrecke und Fahrzeit verwenden“ rechnet PBP mit der Fahrstrecke. Sie gilt fürs Auto, nicht für Bus und Bahn — wer so pendelt, lässt den Haken aus." },
       { titel: "Feinabstimmung", text: "Die Regler für Entfernung, Remote-Anteil und Gehalt ändern die Reihenfolge der Liste. Du brauchst sie nicht, um anzufangen." },
@@ -85,10 +85,10 @@ export const HILFE = {
   stellen: {
     abschnitte: [
       { titel: "Stellen finden", text: "Wähle die Quellen in den Einstellungen und starte die Suche mit „Jobsuche mit Claude“ oder mit „Jobsuche in PBP starten“. Jede Stelle bekommt Punkte." },
-      { titel: "Punkte und Urteil", text: "Die Punkte zeigen, wie gut die Anzeige deine Suchbegriffe trifft. Ob die Stelle zu dir passt, sagt erst die Detailbewertung: sie liest Anzeige und Profil und bleibt an der Stelle stehen." },
+      { titel: "Punkte und Bewertung", text: "Die Punkte zeigen, wie gut die Anzeige deine Suchbegriffe trifft. Ob die Stelle zu dir passt, sagt erst die Detailbewertung: sie liest Anzeige und Profil und bleibt an der Stelle stehen." },
       { titel: "Aussortieren", text: "„Passt nicht“ nimmt eine Stelle mit Grund aus der Liste. Das Aussortier-Protokoll zeigt, was weg ist, und holt es zurück. Eine Firma, die du nie sehen willst, kommt auf die Blacklist." },
       { titel: "Der Kopf der Liste", text: "Die erste Zeile nennt die Zahlen und den einen Hinweis, der jetzt dran ist, mit seinem Knopf. Ein Klick auf die Zeile klappt die Kennzahlen und die Erklärung auf; PBP merkt sich, wie du es zuletzt gelassen hast. So beginnt die Liste ohne Scrollen." },
-      { titel: "Die ganze Liste prüfen", text: "„Liste abgleichen mit Claude“ über der Liste kopiert eine Anleitung: Claude liest jede Stelle gegen dein Profil, sortiert aus, was deine Grenzen verletzt, und schreibt zu jeder Stelle ein Urteil mit Begründung. An deinen Suchkriterien ändert Claude dabei nichts." },
+      { titel: "Die ganze Liste prüfen", text: "„Liste abgleichen mit Claude“ über der Liste kopiert eine Anleitung: Claude liest jede Stelle gegen dein Profil, sortiert aus, was deine Grenzen verletzt, und schreibt zu jeder Stelle eine Bewertung mit Begründung. An deinen Suchkriterien ändert Claude dabei nichts." },
     ],
     prompts: ["jobsuche_workflow", "stellen_abgleich", "auto_bewerbung"],
   },

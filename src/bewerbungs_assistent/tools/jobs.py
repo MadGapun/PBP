@@ -34,7 +34,7 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
        einer lesbaren Anzeige)
 
     Eine FEHLENDE oder KURZE Beschreibung ist KEIN k.o.: Unbekannt ist ein
-    eigener Zustand. Das Urteil ist dann NICHT_BEURTEILBAR, mit dem
+    eigener Zustand. Die Bewertung ist dann NICHT_BEURTEILBAR, mit dem
     `datenlage_hinweis` (Volltext nachladen), nie "nicht empfohlen".
 
     Sonst entscheidet NICHT der Score (#1003): eine gelesene, gespeicherte
@@ -722,23 +722,23 @@ def register(mcp, db, logger):
                 NICHT_BEURTEILBAR.
             begruendung: warum — in einem oder zwei Sätzen, so wie du
                 es dem Menschen sagen würdest.
-            grundlage: woher das Urteil stammt. Vorgabe
+            grundlage: woher die Bewertung stammt. Vorgabe
                 'detailanalyse' (du hast Anzeige und Profil gelesen).
 
         **Wofür das da ist.** Bis v1.7.60 kam die Empfehlung aus dem
         Suchbegriff-Score — in den geht der Lebenslauf nicht ein. Seit
         #1003 sagt PBP ohne gelesene Analyse ehrlich
-        `NICHT_BEURTEILBAR`. Dein Urteil hier ist das, was diese Lücke
+        `NICHT_BEURTEILBAR`. Deine Bewertung hier ist das, was diese Lücke
         schliesst: es hängt danach an der Stelle, steht in der
         Trefferliste und überlebt das Gespräch.
 
         **Voraussetzung: du hast die Anzeige WIRKLICH gegen das Profil
-        gelesen.** Ein Urteil, das aus dem Score abgeleitet ist, wäre
+        gelesen.** Eine Bewertung, die aus dem Score abgeleitet ist, wäre
         genau der Fehler, den #1003 behebt — nur diesmal von Hand.
         Nutze `fit_analyse` für die Fakten und `projekte_anzeigen` /
         `profil_zusammenfassung` für das Profil.
 
-        Ein Urteil ausserhalb der vier Kategorien wird abgewiesen, nicht
+        Eine Bewertung ausserhalb der vier Kategorien wird abgewiesen, nicht
         stillschweigend umgedeutet.
         """
         try:
@@ -775,8 +775,8 @@ def register(mcp, db, logger):
                     f"passt nicht in eine Antwort (Grenze "
                     f"{AUSGABE_NOTBREMSE}). Falls du ihn nur bis dahin "
                     "gelesen hast: den Rest mit "
-                    "fit_analyse(hash, beschreibung_ab=...) holen und das "
-                    "Urteil danach erneut speichern.")
+                    "fit_analyse(hash, beschreibung_ab=...) holen und die "
+                    "Bewertung danach erneut speichern.")
         except Exception as exc:  # pragma: no cover — nie das Urteil kippen
             logger.debug("Laengenhinweis (#1064) fehlgeschlagen: %s", exc)
         return antwort
@@ -785,9 +785,9 @@ def register(mcp, db, logger):
     def stelle_analyse_loeschen(job_hash: str) -> dict:
         """Entfernt den gespeicherten Analyse-Befund einer Stelle (#1007).
 
-        Für den Fall, dass das Urteil falsch war. Danach steht die
+        Für den Fall, dass die Bewertung falsch war. Danach steht die
         Stelle wieder auf `NICHT_BEURTEILBAR` — also auf "noch nicht
-        gelesen", was ehrlicher ist als ein Urteil, dem niemand traut.
+        gelesen", was ehrlicher ist als eine Bewertung, der niemand traut.
         """
         if not db.clear_job_analysis(job_hash):
             return {"fehler": "Stelle nicht gefunden oder kein Befund "
@@ -1918,7 +1918,7 @@ def register(mcp, db, logger):
                     # Urteil — die Stelle wurde schlicht nicht bewertet.
                     entry["score_status"] = "unbewertet"
                     entry["score_hinweis"] = (
-                        "Score 0 ist KEIN Urteil — ohne Beschreibung wurde "
+                        "Score 0 ist KEINE Bewertung — ohne Beschreibung wurde "
                         "nicht bewertet. Erst stellenbeschreibung_nachladen"
                         f"('{_kurz(j['hash'])}'), dann entscheiden."
                     )
@@ -2042,7 +2042,7 @@ def register(mcp, db, logger):
             result["unbewertet_anzahl"] = unbewertet_gesamt
             result["unbewertet_hinweis"] = (
                 f"{unbewertet_gesamt} Stellen haben Score 0 nur weil die "
-                "Beschreibung fehlt — das ist KEIN Urteil. Vor dem "
+                "Beschreibung fehlt — das ist KEINE Bewertung. Vor dem "
                 "Aussortieren: stellenbeschreibung_nachladen(hash)."
             )
 
@@ -3469,10 +3469,10 @@ def register(mcp, db, logger):
         Claude führt ihn in einem Tab auf linkedin.com aus, und
         `linkedin_treffer_uebernehmen` schreibt das Ergebnis nach PBP.
 
-        **Der Volltext gehört zum Urteil.** Titel und Kurzbeschreibung
+        **Der Volltext gehört zur Bewertung.** Titel und Kurzbeschreibung
         sagen zu wenig: im Lauf vom 17.08.2026 verlangte der beste
         Titel-Treffer im Fliesstext ein System von der harten
-        Ausschlussliste. Gelesen wird, um das Urteil an die Stelle zu
+        Ausschlussliste. Gelesen wird, um die Bewertung an die Stelle zu
         schreiben, nicht um auszusortieren (#1187): im Zweifel eintragen;
         die Regel steht im Ergebnis unter `regel`.
 
@@ -3531,14 +3531,14 @@ def register(mcp, db, logger):
                 "Skript 2 wiederholt aufrufen, bis 'fertig' true ist.",
                 "Titel sichten und die Job-IDs wählen, deren Volltext "
                 "geholt werden soll. Der Vorfilter spart nur Requests und "
-                "urteilt nicht: im Zweifel holen.",
+                "bewertet nicht: im Zweifel holen.",
                 "Skript 3 mit diesen IDs starten, danach wieder Skript 2.",
                 "Skript 4 rendert das Ergebnis in die Seite; mit "
                 "get_page_text abholen — javascript_tool kappt bei rund "
                 "1000 Zeichen.",
                 "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen: erst "
                 "als Vorschau (dry_run=True, dieselben Prüfungen wie der "
-                "echte Lauf), dann mit dry_run=False; danach die Urteile "
+                "echte Lauf), dann mit dry_run=False; danach die Bewertungen "
                 "an die Stellen schreiben (siehe `regel`).",
             ],
             "stolpersteine": [
@@ -3829,7 +3829,7 @@ def register(mcp, db, logger):
         ausbildung; ohne Angabe erkennt PBP sie aus Portal und Titel), `kontakt_name`,
         `kontakt_email`, `kontakt_telefon`, `urteil` (EMPFOHLEN | BEDINGT | NICHT_EMPFOHLEN) mit
         `urteil_begruendung` — ein Hinweis an der Stelle, kein Filter; ohne gelesenen Volltext wird
-        kein Urteil gespeichert — und `aussortieren_grund` (ein Wert aus der Liste der
+        keine Bewertung gespeichert — und `aussortieren_grund` (ein Wert aus der Liste der
         Ablehnungsgründe): nach dem Lesen offensichtlich fachfremd oder geschlossen. Die Stelle wird
         angelegt und gleich aussortiert, mit diesem Grund und der Herkunft „von Claude“: der nächste
         Lauf liest sie nicht noch einmal, und der Mensch findet sie unter Stellen › Aussortiert
@@ -3971,10 +3971,10 @@ def register(mcp, db, logger):
                 urteil = str(e.get("urteil") or "").strip().upper()
                 if urteil and not dry_run:
                     if urteil not in _bu.URTEILE:
-                        eintrag["urteil_nicht_gespeichert"] = f"'{urteil}' ist kein Urteil ({', '.join(_bu.URTEILE)})"
+                        eintrag["urteil_nicht_gespeichert"] = f"'{urteil}' ist keine gültige Bewertung ({', '.join(_bu.URTEILE)})"
                     elif len(beschreibung) < MIN_BESCHREIBUNG and urteil != "NICHT_BEURTEILBAR":
                         eintrag["urteil_nicht_gespeichert"] = (
-                            "ohne gelesenen Volltext kein Urteil — die Anzeige gegen das Profil lesen, dann "
+                            "ohne gelesenen Volltext keine Bewertung — die Anzeige gegen das Profil lesen, dann "
                             "stelle_urteil_speichern")
                     else:
                         try:
@@ -7019,7 +7019,7 @@ def register(mcp, db, logger):
 
         Gemeldet wurde eine Stelle in **9,2 km**, die als "zu weit
         entfernt" aussortiert wurde — bei einem Wunschwert von 20 km,
-        und die Zahl stand in derselben Datenbankzeile wie das Urteil.
+        und die Zahl stand in derselben Datenbankzeile wie die Bewertung.
 
         Am hiesigen Bestand gemessen: 245 Zeilen tragen einen
         Wiedergänger-Vermerk, 83 davon (34 %) mit einem Grund, der

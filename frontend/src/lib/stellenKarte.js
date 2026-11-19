@@ -81,7 +81,7 @@ export function kartenGrund(job, datenguete = null) {
   }
   if (job?.muss_tor) return "Keiner deiner Pflichtbegriffe kommt vor";
   if (job?.pruefstand?.art === "beurteilt" && job?.pruefstand?.ueberholt) {
-    return "Das Urteil ist älter als Profil oder Anzeige";
+    return "Die Bewertung ist älter als Profil oder Anzeige";
   }
   const offen = (datenguete?.ungeprueft || [])
     .filter((d) => d !== "beschreibung")

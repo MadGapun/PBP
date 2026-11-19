@@ -307,7 +307,7 @@ def vorschau(db, f: dict) -> dict:
         if t["geschuetzt"]:
             antwort["geschuetzt"] = len(t["geschuetzt"])
             antwort["geschuetzt_hinweis"] = (
-                "Zurückgeholte Stellen und Stellen mit gelesenem Urteil (empfohlen/bedingt) "
+                "Zurückgeholte Stellen und Stellen mit gelesener Bewertung (empfohlen/bedingt) "
                 "sortiert eine Regel nie aus.")
         if t["mit_bewerbung"]:
             antwort["mit_bewerbung"] = len(t["mit_bewerbung"])

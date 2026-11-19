@@ -149,7 +149,7 @@ def test_stellen_anzeigen_markiert_unbewertet(tmp_db):
     unbewertet = by_title["PLM Consultant"]
     assert unbewertet["beschreibung_fehlt"] is True
     assert unbewertet["score_status"] == "unbewertet"
-    assert "KEIN Urteil" in unbewertet["score_hinweis"]
+    assert "KEINE Bewertung" in unbewertet["score_hinweis"]
     assert "stellenbeschreibung_nachladen" in unbewertet["score_hinweis"]
 
     nur_titel = by_title["PLM Manager"]
@@ -162,7 +162,7 @@ def test_stellen_anzeigen_markiert_unbewertet(tmp_db):
     assert "score_hinweis" not in voll
 
     assert result["unbewertet_anzahl"] == 1
-    assert "KEIN Urteil" in result["unbewertet_hinweis"]
+    assert "KEINE Bewertung" in result["unbewertet_hinweis"]
 
 
 def test_stellen_anzeigen_ohne_unbewertete_kein_hinweis(tmp_db):

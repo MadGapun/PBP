@@ -60,7 +60,7 @@ MARKE_IM_ZWEIFEL = "Trage im Zweifel ein."
 REGEL_IM_ZWEIFEL = (
     MARKE_IM_ZWEIFEL + " Eine Stelle zu viel in PBP ist besser als eine zu wenig; ob sie taugt, entscheidet der Mensch in PBP, "
     "nicht du im Chat. Lege jede Stelle an, die fachlich passt, möglich ist oder nahezu interessant sein könnte, auch wenn "
-    "ein einzelner Punkt dagegen spricht (Standort, Gehalt, Ebene). Schreibe dein Urteil und den Zweifelsgrund an die "
+    "ein einzelner Punkt dagegen spricht (Standort, Gehalt, Ebene). Schreibe deine Bewertung und den Zweifelsgrund an die "
     "Stelle (stelle_urteil_speichern); in die Begründung gehört auch „Anzeige offen: ja, nein oder unklar“ — nach dem Lesen: "
     "Hinweis „nicht mehr verfügbar“ oder „keine Bewerbungen mehr“, fehlender Bewerben-Knopf. Ist die Stelle in PBP schon "
     "als aussortiert bekannt und passt nach dem Lesen fachlich, hole sie mit stelle_reaktivieren zurück, statt sie nur im "
@@ -253,7 +253,7 @@ def prompt(eintraege: list[dict]) -> str:
         "",
         "Regeln:",
         "- Lies bei jedem Treffer den VOLLTEXT der Anzeige, bevor du dein "
-        "Urteil schreibst. Der Titel allein sagt zu wenig über Systeme und "
+        "Bewertung schreibst. Der Titel allein sagt zu wenig über Systeme und "
         "Anforderungen.",
         f"- {REGEL_IM_ZWEIFEL}",
         "- Übernimm die Ernte einer Quelle in einem Zug mit "
