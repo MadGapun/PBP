@@ -215,7 +215,8 @@ PARAMETER_BELIEBIG = frozenset({"element_id", "ziel_id", "nur_id"})
 #: Steht ein neuer Kennungs-Parameter weder hier noch oben, schlaegt ein Test an: dann ist zu
 #: entscheiden, ob es eine typisierte Form gibt.
 OHNE_TYPISIERUNG = frozenset({
-    "todo_id", "grund_id", "zeitraum_id", "referenz_id", "reflexion_id", "kosten_id", "titel_id",
+    "todo_id", "task_id",  # task_id: Alias von todo_id (#1412 D7)
+    "grund_id", "zeitraum_id", "referenz_id", "reflexion_id", "kosten_id", "titel_id",
     "kategorie_id", "link_id", "entry_id", "extraction_id", "version_id", "befund_id", "hint_id",
     "erkenntnis_id", "geo_id", "job_id",
     # nur 1.8-Linie: `custom_quelle_loeschen(quelle_id)` — die Kennung einer Custom-Quelle ist frei vergeben
