@@ -145,6 +145,25 @@ MONTH_DE = {
 }
 
 
+def _bytes_dekodieren(daten: bytes, charset) -> str:
+    """Bytes einer Kopfzeile lesen (#1412 D3). Unkodierte Umlaute meldet
+    die Standardbibliothek als `unknown-8bit`, ein kaputtes Wort mit einem
+    Namen, den Python nicht kennt: beides kostete bisher den ganzen Import.
+    Ersatz: UTF-8, danach Latin-1 (jedes Byte ist dort lesbar)."""
+    name = (charset or "utf-8")
+    if isinstance(name, bytes):
+        name = name.decode("ascii", errors="replace")
+    if name.lower() not in ("unknown-8bit", "unknown", "x-unknown"):
+        try:
+            return daten.decode(name, errors="replace")
+        except (LookupError, ValueError):
+            pass
+    try:
+        return daten.decode("utf-8")
+    except UnicodeDecodeError:
+        return daten.decode("latin-1")
+
+
 def _decode_header(value):
     """Decode a possibly encoded email header value."""
     if not value:
@@ -153,7 +172,7 @@ def _decode_header(value):
     parts = []
     for part, charset in decoded_parts:
         if isinstance(part, bytes):
-            parts.append(part.decode(charset or "utf-8", errors="replace"))
+            parts.append(_bytes_dekodieren(part, charset))
         else:
             parts.append(part)
     return " ".join(parts)

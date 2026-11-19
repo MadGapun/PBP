@@ -1,0 +1,108 @@
+"""#1412: Mail-Eingang behaelt Termin, Status und Dokumenttyp (Hotfix 1.8.8).
+
+Alle Daten sind erfunden; jede Probe laeuft auf einer isolierten Datenbank.
+"""
+from __future__ import annotations
+
+import os
+
+import pytest
+
+
+@pytest.fixture
+def db(tmp_path):
+    os.environ["BA_DATA_DIR"] = str(tmp_path)
+    from bewerbungs_assistent.database import Database
+    d = Database(db_path=tmp_path / "test.db")
+    d.initialize()
+    assert str(tmp_path) in str(d.db_path), f"DB nicht isoliert: {d.db_path}"
+    d.save_profile({"name": "Mail Eingang", "email": "bewerber@example.com"})
+    import bewerbungs_assistent.dashboard as dash
+    dash._db = d
+    yield d
+    d.close()
+    os.environ.pop("BA_DATA_DIR", None)
+
+
+def _client():
+    import bewerbungs_assistent.dashboard as dash
+    from fastapi.testclient import TestClient
+    return TestClient(dash.app)
+
+
+def eml(betreff, text, absender="Erika Beispiel <erika@personal.example.org>",
+        roh=False, anhang_ics=None):
+    """Baut eine .eml. roh=True: Kopfzeilen als unkodiertes UTF-8 (wie manche
+    Programme sie speichern), sonst RFC-2047-kodiert."""
+    kopf = [f"From: {absender}", "To: bewerber@example.com",
+            "Date: Mon, 16 Nov 2026 09:00:00 +0100"]
+    if roh:
+        kopf.append(f"Subject: {betreff}")
+    else:
+        import email.header
+        kopf.append("Subject: " + email.header.Header(betreff, "utf-8").encode())
+    kopf += ["MIME-Version: 1.0", "Content-Type: text/plain; charset=utf-8",
+             "Content-Transfer-Encoding: 8bit"]
+    return ("\r\n".join(kopf) + "\r\n\r\n" + text + "\r\n").encode("utf-8")
+
+
+EINLADUNG = ("Guten Tag,\n\nwir laden Sie herzlich zum Vorstellungsgespräch "
+             "am 01.12.2099 um 10:00 Uhr per Videocall ein.\n\nMit freundlichen Grüßen")
+ABSAGE = ("Guten Tag,\n\nleider müssen wir Ihnen mitteilen, dass wir uns für "
+          "andere Bewerber entschieden haben. Wir bedauern, Ihnen eine Absage erteilen zu müssen.")
+
+
+def _bewerbung(db, titel="Fachkraft Lagerlogistik", firma="Musterbau GmbH", **extra):
+    return db.add_application({"title": titel, "company": firma,
+                               "status": "beworben", **extra})
+
+
+def _hochladen(client, inhalt, name="mail.eml"):
+    r = client.post("/api/emails/upload", files={"file": (name, inhalt, "message/rfc822")})
+    return r
+
+
+# ── D3: Roh-UTF-8 in Kopfzeilen ────────────────────────────────────────
+
+@pytest.mark.parametrize("roh", [True, False])
+def test_d3_kopfzeilen_roh_und_kodiert(db, roh):
+    r = _hochladen(_client(), eml("Ihre Bewerbung als Fachkraft für Lagerlogistik",
+                                  EINLADUNG, roh=roh))
+    assert r.status_code == 200, r.text
+    assert "Lagerlogistik" in r.json()["parsed"]["subject"]
+    assert "für" in r.json()["parsed"]["subject"]
+
+
+def test_d3_unbekannter_zeichensatz_stuerzt_nicht_ab():
+    from bewerbungs_assistent.services.email_service import _decode_header
+    import email.header
+    # unbekannter Zeichensatz in einem kodierten Wort
+    assert "abc" in _decode_header("=?x-gibtesnicht?q?abc?=")
+    assert "Gespräch" in _decode_header("Gespräch")
+
+
+# ── D1: Termin geht bei spaeter Zuordnung nicht verloren ────────────────
+
+def test_d1_termin_nach_spaeter_zuordnung(db):
+    app_id = _bewerbung(db)
+    r = _hochladen(_client(), eml("Einladung zum Gespräch", EINLADUNG))
+    assert r.status_code == 200
+    j = r.json()
+    assert j["match"]["application"] is None, "Testvoraussetzung: keine Zuordnung"
+    assert db.get_meetings_for_application(app_id) == []
+    c = _client().post(f"/api/emails/{j['email_id']}/confirm-match",
+                       json={"application_id": app_id})
+    assert c.status_code == 200
+    termine = db.get_meetings_for_application(app_id)
+    assert len(termine) == 1, termine
+    assert "2099-12-01" in str(termine[0]["meeting_date"])
+
+
+def test_d1_zweite_zuordnung_legt_keinen_zweiten_termin_an(db):
+    app_id = _bewerbung(db)
+    j = _hochladen(_client(), eml("Einladung zum Gespräch", EINLADUNG)).json()
+    for _ in range(2):
+        _client().post(f"/api/emails/{j['email_id']}/confirm-match",
+                       json={"application_id": app_id})
+    termine = db.get_meetings_for_application(app_id)
+    assert len(termine) == 1

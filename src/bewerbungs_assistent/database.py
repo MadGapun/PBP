@@ -13060,7 +13060,8 @@ class Database:
         """Update email fields (e.g., assign to application)."""
         conn = self.connect()
         allowed = {"application_id", "is_processed", "detected_status",
-                    "detected_status_confidence", "match_confidence"}
+                    "detected_status_confidence", "match_confidence",
+                    "meeting_extracted"}
         sets = []
         vals = []
         for k, v in data.items():

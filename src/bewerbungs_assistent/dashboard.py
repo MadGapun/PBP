@@ -868,6 +868,43 @@ def _termin_aus_mail(daten: dict):
         return None
 
 
+def _mail_termine_speichern(meetings: list, app_id: str, email_id: str | None) -> list:
+    """Termine einer Mail an eine Bewerbung haengen (#1412 D1). EINE Stelle
+    fuer Upload und spaetes Zuordnen: `meeting_type` nur mit Beleg (#922),
+    und ein Termin, den diese Mail schon angelegt hat, kommt nicht doppelt."""
+    vorhanden = set()
+    if email_id:
+        for m in _db.get_meetings_for_application(app_id):
+            if m.get("email_id") == email_id:
+                vorhanden.add((str(m.get("meeting_date") or "")[:16], m.get("title")))
+    gespeichert = []
+    for m in meetings:
+        if not m.get("start"):
+            continue
+        titel = m.get("title", "Termin")
+        if (str(m["start"])[:16], titel) in vorhanden:
+            continue
+        mid = _termin_aus_mail({
+            "application_id": app_id,
+            "email_id": email_id,
+            "title": titel,
+            "meeting_date": m["start"],
+            "meeting_end": m.get("end"),
+            "location": m.get("location", ""),
+            "meeting_url": m.get("meeting_url"),
+            "platform": m.get("platform"),
+            # v1.7.17 (#922): 'interview' nur mit Beleg (ICS oder
+            # Konferenzlink); eine Zeitangabe aus Fliesstext ist ein
+            # Termin unbekannter Art.
+            "meeting_type": ("interview"
+                             if m.get("source") != "text" or m.get("meeting_url")
+                             else "sonstiges"),
+        })
+        if mid:
+            gespeichert.append({"id": mid, **m})
+    return gespeichert
+
+
 def _enrich_document_for_prompt(document: dict) -> dict:
     """Laedt Bewerbungs-Kontext (Firma/Stelle) zum Dokument, falls verknuepft."""
     enriched = dict(document)
@@ -4352,35 +4389,17 @@ async def api_upload_email(file: UploadFile = File(...)):
         "detected_status_confidence": status_confidence,
         "match_confidence": match_confidence,
         "attachments_meta": attachments_meta,
-        "meeting_extracted": bool(meetings),
+        "meeting_extracted": False,
     })
 
     # Store meetings if matched to an application
     stored_meetings = []
     if match_app_id and meetings:
-        for m in meetings:
-            if m.get("start"):
-                mid = _termin_aus_mail({
-                    "application_id": match_app_id,
-                    "email_id": email_id,
-                    "title": m.get("title", "Termin"),
-                    "meeting_date": m["start"],
-                    "meeting_end": m.get("end"),
-                    "location": m.get("location", ""),
-                    "meeting_url": m.get("meeting_url"),
-                    "platform": m.get("platform"),
-                    # v1.7.17 (#922): 'interview' nur mit Beleg (ICS oder
-                    # Konferenzlink). Eine aus Fliesstext abgeleitete
-                    # Zeitangabe ist ein Termin unbekannter Art — sie
-                    # pauschal als Interview zu fuehren hat die
-                    # Aufwands-Statistik und firma_kontext verfaelscht.
-                    "meeting_type": ("interview"
-                                     if m.get("source") != "text"
-                                     or m.get("meeting_url")
-                                     else "sonstiges"),
-                })
-                if mid:
-                    stored_meetings.append({"id": mid, **m})
+        stored_meetings = _mail_termine_speichern(meetings, match_app_id, email_id)
+    # #1412 D1: "Termine geholt" heisst "Termine gespeichert" — bei einer
+    # unzugeordneten Mail bleibt das Feld offen, das spaetere Zuordnen holt nach.
+    if stored_meetings:
+        _db.update_email(email_id, {"meeting_extracted": 1})
 
     # Add timeline event if matched
     if match_app_id:
@@ -4492,29 +4511,31 @@ async def api_confirm_email_match(email_id: str, request: Request):
             except Exception:
                 pass
 
-    # Re-extract and store meetings if not yet done
+    # Termine nachziehen, wenn noch keine gespeichert sind (#1412 D1). Die
+    # Quelldatei wird neu gelesen, damit auch ein Termin im ICS-Anhang
+    # ankommt; der Mailtext allein ist der Rueckfall.
+    termine = []
     if not em.get("meeting_extracted"):
-        from .services.email_service import extract_meetings_from_email
-        meetings = extract_meetings_from_email({
-            "subject": em.get("subject", ""),
-            "body_text": em.get("body_text", ""),
-            "body_html": em.get("body_html", ""),
-            "attachments": [],
-        })
-        for m in meetings:
-            if m.get("start"):
-                _termin_aus_mail({
-                    "application_id": app_id,
-                    "email_id": email_id,
-                    "title": m.get("title", "Termin"),
-                    "meeting_date": m["start"],
-                    "meeting_end": m.get("end"),
-                    "location": m.get("location", ""),
-                    "meeting_url": m.get("meeting_url"),
-                    "platform": m.get("platform"),
-                })
+        from .services.email_service import extract_meetings_from_email, parse_email_file
+        parsed_mail = None
+        if em.get("filepath") and Path(em["filepath"]).exists():
+            try:
+                parsed_mail = parse_email_file(em["filepath"])
+            except Exception as exc:  # noqa: BLE001 — Rueckfall auf den Text
+                logger.warning("Mail %s nicht neu gelesen: %s", email_id, exc)
+        if parsed_mail is None:
+            parsed_mail = {"subject": em.get("subject", ""),
+                           "body_text": em.get("body_text", ""),
+                           "body_html": em.get("body_html", ""),
+                           "attachments": []}
+        meetings = extract_meetings_from_email(parsed_mail)
+        termine = _mail_termine_speichern(meetings, app_id, email_id)
+        if termine or not meetings:
+            _db.update_email(email_id, {"meeting_extracted": 1}, profile_id=profile_id)
 
-    return {"status": "ok"}
+    return {"status": "ok",
+            "meetings": [{k: v for k, v in m.items() if k != "payload"} for m in termine],
+            "detected_status": em.get("detected_status")}
 
 
 @app.post("/api/emails/{email_id}/apply-status")
