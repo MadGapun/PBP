@@ -133,7 +133,7 @@ def test_977_dashboard_reicht_die_ueberfaelligen_aufgaben_durch():
     quelle = (WURZEL / "src" / "bewerbungs_assistent" / "dashboard.py").read_text(
         encoding="utf-8")
     block = quelle[quelle.index("def _get_daily_impulse"):]
-    block = block[:block.index("async def api_daily_impulse")]
+    block = block[:block.index("def api_daily_impulse")]
     assert "get_overdue_tasks" in block
     assert "overdue_tasks=overdue_tasks" in block
 

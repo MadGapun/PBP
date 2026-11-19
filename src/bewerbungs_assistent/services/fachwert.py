@@ -151,40 +151,21 @@ def _fachwerte(db, beworben: bool) -> list:
     werte = []
     if beworben:
         try:
-            conn = db.connect()
-            pid = db.get_active_profile_id()
-            hashes = [r["job_hash"] for r in conn.execute(
-                "SELECT job_hash FROM applications "
-                "WHERE (profile_id=? OR profile_id IS NULL) "
-                "ORDER BY applied_at DESC", (pid,)).fetchall()]
+            return db.fachwert_scores_beworben()
         except Exception:
             return []
-        for hash_ in hashes:
-            if not hash_:
-                continue
-            try:
-                zeile = db._find_job_row(hash_)
-            except Exception:
-                continue
-            if zeile is not None and zeile["score"] is not None:
-                werte.append(float(zeile["score"]))
-        return werte
 
     try:
-        conn = db.connect()
-        pid = db.get_active_profile_id()
-        zeilen = conn.execute(
-            "SELECT score, dismiss_reason FROM jobs WHERE is_active=0 "
-            "AND (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall()
+        zeilen = db.fachwert_zeilen_aussortiert()
     except Exception:
         return []
     for zeile in zeilen:
         # Wer sich beworben hat, hat die Stelle nicht abgelehnt — der
         # Grund `bewerbung_erstellt` ist das Gegenteil einer Ablehnung
         # (#941). Er gehoert nicht in die Negativ-Menge.
-        if "bewerbung_erstellt" in str(zeile["dismiss_reason"] or ""):
+        if "bewerbung_erstellt" in str(zeile.get("dismiss_reason") or ""):
             continue
-        if zeile["score"] is not None:
+        if zeile.get("score") is not None:
             werte.append(float(zeile["score"]))
     return werte
 
