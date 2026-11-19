@@ -208,6 +208,33 @@ def _gehalt_gesund(s_min, s_max):
     return gesund(s_min, s_max)
 
 
+def _stempelt_profil(fn):
+    """Markiert eine Schreibmethode, die ins Profil schreibt (#1389).
+
+    Eine gespeicherte Bewertung einer Stelle merkt sich den Stand des Profils
+    (`passung.profil_stand`). Der bestand aus Zahl der Kompetenzen, Zahl der
+    Stationen und `updated_at` - ein neuer ZEITRAUM einer Kompetenz aendert
+    keines davon, die Bewertung galt weiter als aktuell
+    (`skill_zeitraum_hinzufuegen`). Jetzt erhoeht jede erfolgreiche
+    Schreibmethode ein Zaehlwerk (`profile.stand_nr`); der Registrierungstest
+    haelt fest, dass keine Schreibmethode fehlt.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        erg = fn(self, *args, **kwargs)
+        ok = erg[0] if isinstance(erg, tuple) and erg else erg
+        if ok:
+            try:
+                self._profil_stempeln()
+            except Exception as exc:  # nie das Schreiben selbst kippen
+                logger.debug("Profilstand nicht gestempelt: %s", exc)
+        return erg
+    wrapper._stempelt_profil = True
+    return wrapper
+
+
 class Database:
     """Synchronous SQLite database manager."""
 
@@ -959,6 +986,17 @@ class Database:
                         "bleibt, Stellenart ist wieder sichtbar", _n_ign)
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
+
+        # #1389: Zaehlwerk fuer den Profilstand (additiv, kein Schema-Bump)
+        try:
+            conn.execute("SELECT stand_nr FROM profile LIMIT 1")
+        except Exception:
+            try:
+                conn.execute("ALTER TABLE profile ADD COLUMN stand_nr INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("Safety-Net: profile.stand_nr nachgezogen (#1389)")
+            except Exception:
+                pass
 
         # #1382: Unterlagen, die nur als Pfad an der Bewerbung stehen
         # (cv_path/cover_letter_path), als Dokument der Bewerbung nachziehen.
@@ -3646,6 +3684,17 @@ class Database:
             positions.append(pos)
         return positions
 
+    def _profil_stempeln(self, profile_id: str = None) -> None:
+        """Erhoeht den Stand-Zaehler des Profils (#1389)."""
+        conn = self.connect()
+        if profile_id:
+            conn.execute("UPDATE profile SET stand_nr=COALESCE(stand_nr,0)+1 WHERE id=?",
+                         (profile_id,))
+        else:
+            conn.execute("UPDATE profile SET stand_nr=COALESCE(stand_nr,0)+1 WHERE is_active=1")
+        conn.commit()
+
+    @_stempelt_profil
     def add_position(self, data: dict) -> str:
         conn = self.connect()
         pid = _gen_id()
@@ -3667,6 +3716,7 @@ class Database:
         conn.commit()
         return pid
 
+    @_stempelt_profil
     def add_project(self, position_id: str, data: dict) -> str:
         conn = self.connect()
         pid = _gen_id()
@@ -3688,6 +3738,7 @@ class Database:
         conn.commit()
         return pid
 
+    @_stempelt_profil
     def update_project(self, project_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["name", "description", "role", "situation", "task",
@@ -3710,6 +3761,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def delete_project(self, project_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         query = "DELETE FROM projects WHERE id = ?"
@@ -3721,6 +3773,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def update_position(self, position_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["company", "title", "location", "start_date", "end_date",
@@ -3742,6 +3795,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def update_education(self, education_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["institution", "degree", "field_of_study", "start_date",
@@ -3762,6 +3816,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def update_skill(self, skill_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         # #511: start_year, end_year, level_current dazu
@@ -3783,6 +3838,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    @_stempelt_profil
     def delete_position(self, position_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         # Projects are deleted automatically via ON DELETE CASCADE
@@ -3808,6 +3864,7 @@ class Database:
             "SELECT * FROM education ORDER BY end_date DESC"
         ).fetchall()]
 
+    @_stempelt_profil
     def add_education(self, data: dict) -> str:
         conn = self.connect()
         eid = _gen_id()
@@ -3825,6 +3882,7 @@ class Database:
         conn.commit()
         return eid
 
+    @_stempelt_profil
     def delete_education(self, education_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         query = "DELETE FROM education WHERE id = ?"
@@ -4006,6 +4064,7 @@ class Database:
             (pid, sauber)).fetchone()
         return dict(row) if row else None
 
+    @_stempelt_profil
     def add_skill_mit_befund(self, data: dict,
                              quelle: str = "extraktion") -> tuple:
         """Wie `add_skill`, liefert aber `(id, grund)` (#1073).
@@ -4066,6 +4125,7 @@ class Database:
         conn.commit()
         return sid, None
 
+    @_stempelt_profil
     def delete_skill(self, skill_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         query = "DELETE FROM skills WHERE id = ?"
@@ -4466,6 +4526,7 @@ class Database:
 
     # === Skill-Zeitraeume (v1.7.0 #572) ===
 
+    @_stempelt_profil
     def add_skill_period(self, skill_id: str, start_year: int = None,
                           end_year: int = None, level: int = None,
                           notes: str = "") -> str:
@@ -4491,6 +4552,7 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    @_stempelt_profil
     def delete_skill_period(self, period_id: str) -> bool:
         conn = self.connect()
         cur = conn.execute("DELETE FROM skill_periods WHERE id=?", (period_id,))
