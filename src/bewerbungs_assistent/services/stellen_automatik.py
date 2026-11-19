@@ -38,6 +38,7 @@ from .wiedergaenger import (
     _domain_tokens,
     _reasons_of,
     find_wiedergaenger_pattern,
+    ist_beleg,
     normalize_company,
 )
 
@@ -234,6 +235,8 @@ def bereits_aussortierte_schluessel(dismissed: list) -> set:
     for j in dismissed or []:
         if not _handlungsgruende(j):
             continue
+        if not ist_beleg(j):  # #1395: die Automatik belegt sich nicht selbst
+            continue
         k = _domain_schluessel(j.get("company"), j.get("title"),
                                j.get("location"))
         if not k:
@@ -332,6 +335,8 @@ def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
         gruende = [g for g in _handlungsgruende(j)
                    if g in UEBERTRAGBARE_GRUENDE]
         if not gruende:
+            continue
+        if not ist_beleg(j):  # #1395
             continue
         gemeinsam = tokens & _domain_tokens(j.get("title"),
                                             orte=(j.get("location"),))

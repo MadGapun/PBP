@@ -145,6 +145,25 @@ MONTH_DE = {
 }
 
 
+def _bytes_dekodieren(daten: bytes, charset) -> str:
+    """Bytes einer Kopfzeile lesen (#1412 D3). Unkodierte Umlaute meldet
+    die Standardbibliothek als `unknown-8bit`, ein kaputtes Wort mit einem
+    Namen, den Python nicht kennt: beides kostete bisher den ganzen Import.
+    Ersatz: UTF-8, danach Latin-1 (jedes Byte ist dort lesbar)."""
+    name = (charset or "utf-8")
+    if isinstance(name, bytes):
+        name = name.decode("ascii", errors="replace")
+    if name.lower() not in ("unknown-8bit", "unknown", "x-unknown"):
+        try:
+            return daten.decode(name, errors="replace")
+        except (LookupError, ValueError):
+            pass
+    try:
+        return daten.decode("utf-8")
+    except UnicodeDecodeError:
+        return daten.decode("latin-1")
+
+
 def _decode_header(value):
     """Decode a possibly encoded email header value."""
     if not value:
@@ -153,7 +172,7 @@ def _decode_header(value):
     parts = []
     for part, charset in decoded_parts:
         if isinstance(part, bytes):
-            parts.append(part.decode(charset or "utf-8", errors="replace"))
+            parts.append(_bytes_dekodieren(part, charset))
         else:
             parts.append(part)
     return " ".join(parts)
@@ -385,7 +404,64 @@ def _is_recruiter_domain(domain: str) -> bool:
     return bool(d) and any(k in d for k in RECRUITER_DOMAIN_KEYWORDS)
 
 
-def match_email_to_application(parsed_email: dict, applications: list) -> tuple[Optional[str], float]:
+def match_email_to_application(parsed_email: dict, applications: list,
+                                 kanon=None) -> tuple[Optional[str], float]:
+    """Ordnet eine Mail einer Bewerbung zu: erst das Domain-Verfahren
+    (#523/#743), danach - wenn es nichts findet - Stellentitel UND Firmenname
+    im Betreff (#1412 D2). Mehrere Treffer sind `mehrdeutig`: dann bleibt die
+    Mail unzugeordnet (die Kandidaten liefert `titel_firma_kandidaten`)."""
+    app_id, konfidenz = _match_ueber_domain(parsed_email, applications)
+    if app_id:
+        return app_id, konfidenz
+    kandidaten = titel_firma_kandidaten(parsed_email, applications, kanon)
+    if len(kandidaten) == 1:
+        return kandidaten[0], 0.9
+    return None, 0.0
+
+
+_TEXT_UMSCHRIFT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def _text_norm(text) -> str:
+    """Klein, Umlaute umgeschrieben, nur Woerter und einfache Leerzeichen."""
+    t = (text or "").lower().translate(_TEXT_UMSCHRIFT)
+    t = re.sub(r"\(?\s*[mwfd]\s*[/|*]\s*[mwfd]\s*(?:[/|*]\s*[mwfdx])?\s*\)?", " ", t)
+    return " ".join(re.sub(r"[^\w\s]", " ", t).split())
+
+
+def titel_firma_kandidaten(parsed_email: dict, applications: list, kanon=None) -> list:
+    """Bewerbungen, deren Stellentitel UND Firmenname in der Mail stehen (#1412 D2).
+
+    Titel als ganze Wortfolge im Betreff, Firma (Name oder eine bestaetigte
+    Schreibweise aus `firmen_kanon`) im Betreff oder Absender. Recall vor
+    Praezision: die Liste kann mehrere enthalten, nie entscheidet sie
+    zwischen ihnen. Archivierte Bewerbungen zaehlen nicht (#743).
+    """
+    from .bewerbung_status import ARCHIV as _archiv
+    from ..duplicate_detection import normalize_company_name as _firma_norm
+    betreff = _text_norm(parsed_email.get("subject"))
+    absender = _text_norm(parsed_email.get("sender"))
+    if not betreff:
+        return []
+    treffer = []
+    for app in applications or []:
+        if (app.get("status") or "").lower() in _archiv:
+            continue
+        titel = _text_norm(app.get("title"))
+        firma = (app.get("company") or "").strip()
+        if len(titel) < 5 or not firma or f" {titel} " not in f" {betreff} ":
+            continue
+        formen = {_text_norm(firma), _text_norm(_firma_norm(firma))}
+        if kanon is not None:
+            for f in list(formen):
+                formen.update(_text_norm(x) for x in kanon.formen_von(f))
+        formen = {f for f in formen if len(f) >= 3}
+        if any(f" {f} " in f" {betreff} " or f" {f} " in f" {absender} " for f in formen):
+            treffer.append(app.get("id"))
+    return treffer
+
+
+def _match_ueber_domain(parsed_email: dict, applications: list) -> tuple[Optional[str], float]:
     """Try to match an email to an existing application.
 
     Returns (application_id, confidence) or (None, 0.0) if no match.
@@ -615,6 +691,38 @@ def detect_email_status(subject: str, body_text: str) -> tuple[Optional[str], fl
     if best_status:
         return status_map.get(best_status, best_status), round(best_score, 2)
     return None, 0.0
+
+
+_STATUS_ZU_DOKUMENTTYP = {
+    "abgelehnt": "absage",
+    "interview": "interview_einladung",
+    "angebot": "angebot",
+    "beworben": "eingangsbestaetigung",
+}
+
+
+def mail_dokumenttyp(detected_status, hat_termin: bool = False) -> str:
+    """Dokumenttyp einer Mail aus INHALT und erkanntem Status (#1412 D4),
+    nie aus dem Dateinamen: „Ihre Bewerbung als ...“ ist eine Absage, eine
+    Einladung oder eine Eingangsbestaetigung, aber kein Anschreiben. Ist
+    der Inhalt unklar, bleibt es `sonstiges` (der Zustand „unbekannt“)."""
+    typ = _STATUS_ZU_DOKUMENTTYP.get(detected_status or "")
+    if typ:
+        return typ
+    return "interview_einladung" if hat_termin else "sonstiges"
+
+
+STATUS_NAMEN = {"abgelehnt": "Absage", "interview": "Interview",
+                "angebot": "Angebot"}
+
+
+def status_angebot(detected_status, aktueller_status):
+    """Welchen Status PBP nach einer Mail ANBIETET (#1412 D5): einen, der
+    sich vom jetzigen unterscheidet und eine Aenderung ist (die
+    Eingangsbestaetigung aendert nichts). Gesetzt wird er nie von selbst."""
+    if detected_status not in STATUS_NAMEN or detected_status == aktueller_status:
+        return None
+    return {"status": detected_status, "name": STATUS_NAMEN[detected_status]}
 
 
 # =====================================================================

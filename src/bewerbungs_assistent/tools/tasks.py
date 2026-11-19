@@ -19,6 +19,15 @@ will, nutzt todo_anlegen.
 
 from ..services.nutzerfuehrung import leer
 
+# #1412 D7: EIN Name fuer die ID einer Aufgabe — Antwort und Hinweis nennen
+# denselben Parameter, den todo_erledigen wirklich hat. `task_id` bleibt als
+# Alias (Antworten trugen ihn bis 1.8.7, Claude hat ihn zurueckgeschickt).
+TODO_ID_PARAMETER = "todo_id"
+TODO_ERLEDIGEN_HINWEIS = (
+    f"Task ist offen. Mit todo_erledigen({TODO_ID_PARAMETER}, notiz='...') "
+    "abhaken oder mit todo_reaktivieren wieder öffnen."
+)
+
 
 def register(mcp, db, logger):
     """Registriert Task/Todo-Tools."""
@@ -69,6 +78,7 @@ def register(mcp, db, logger):
                 "todo", _schon, f"Die offene Aufgabe '{titel.strip()}'",
                 "Abhaken: todo_erledigen(todo_id=...).")
             antwort["task_id"] = _schon
+            antwort[TODO_ID_PARAMETER] = _schon
             return antwort
         try:
             tid = db.add_task({
@@ -83,13 +93,11 @@ def register(mcp, db, logger):
         result = {
             "status": "angelegt",
             "task_id": tid,
+            TODO_ID_PARAMETER: tid,
             "titel": titel,
             "faellig_am": faellig_am or None,
             "typ": typ or "custom",
-            "hinweis": (
-                "Task ist offen. Mit todo_erledigen(task_id, notiz='...') "
-                "abhaken oder mit todo_reaktivieren wieder öffnen."
-            ),
+            "hinweis": TODO_ERLEDIGEN_HINWEIS,
         }
         if app:
             result["bewerbung"] = app.get("title", "")
@@ -99,13 +107,17 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
-    def todo_erledigen(todo_id: str, notiz: str = "") -> dict:
+    def todo_erledigen(todo_id: str = "", notiz: str = "", task_id: str = "") -> dict:
         """Markiert einen Todo als erledigt (#666, D19).
 
         Args:
             todo_id: ID des Todos (aus todos_anzeigen / todo_anlegen)
             notiz: Optionale Abschluss-Notiz (z.B. "Recruiter hat angerufen")
+            task_id: Alias für todo_id
         """
+        todo_id = todo_id or task_id
+        if not todo_id:
+            return {"fehler": "todo_id fehlt (aus todos_anzeigen oder todo_anlegen)."}
         task = db.get_task(todo_id)
         if not task:
             return {"fehler": "Todo nicht gefunden."}

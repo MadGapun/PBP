@@ -42,8 +42,9 @@ def _passt_zu_keywords(text: str, keywords: list) -> bool:
     """
     if not keywords:
         return True
-    low = (text or "").lower()
-    return any(str(k).lower() in low for k in keywords if k)
+    # #1394: Wortgrenzen statt Teilwort; der Text hat keinen eigenen Titel.
+    from .stichwort_abgleich import passt
+    return passt([k for k in keywords if k], "", "", text or "", quelle="ferchau")
 
 
 def _aus_offers(html: str, keywords: list) -> list:

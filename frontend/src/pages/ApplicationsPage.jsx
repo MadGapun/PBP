@@ -1,5 +1,6 @@
 ﻿import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
+import { uploadMeldung } from "@/lib/mailErkannt";
 import { lokalesDatum } from "@/lib/lokaleZeit";
 import { Briefcase, Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
@@ -12,6 +13,7 @@ import {
   Badge,
   Button,
   Card,
+  DatumFeld,
   EmptyState,
   Field,
   LinkButton,
@@ -518,6 +520,32 @@ export default function ApplicationsPage() {
       const tasks = await api(`/api/applications/${appId}/tasks`);
       setTimelineTasks(Array.isArray(tasks) ? tasks : []);
     } catch { /* silent */ }
+  }
+
+  // #1412 D5: die Meldung nennt, was PBP in einer Mail erkannt hat; der
+  // erkannte Status wird nur auf Klick uebernommen.
+  function meldeUpload(dateiname, ergebnis, bewerbungId) {
+    const { text, angebot } = uploadMeldung(dateiname, ergebnis);
+    if (!angebot || !bewerbungId) {
+      pushToast(text, "success");
+      return;
+    }
+    pushToast(text, "amber", {
+      duration: 15000,
+      dedupe: false,
+      action: {
+        label: `Status „${angebot.name}“ übernehmen`,
+        onClick: async () => {
+          try {
+            await putJson(`/api/applications/${bewerbungId}/status`, { status: angebot.status });
+            pushToast(`Status „${angebot.name}“ übernommen.`, "success");
+            await reloadTimeline(bewerbungId);
+          } catch (err) {
+            pushToast(`Status konnte nicht geändert werden: ${err.message}`, "danger");
+          }
+        },
+      },
+    });
   }
 
   async function addTimelineTask() {
@@ -1796,8 +1824,7 @@ export default function ApplicationsPage() {
                     // v1.6.9 (#570): applicationId direkt mitgeben — Backend
                     // verknuepft automatisch und dedupliziert per Datei-Hash.
                     const result = await uploadDocumentFile(file, "sonstiges", { applicationId: appId });
-                    const note = result?.duplicate_of ? "verknüpft (war schon vorhanden)" : "hochgeladen und verknüpft";
-                    pushToast(`'${file.name}' ${note}.`, "success");
+                    meldeUpload(file.name, result, appId);
                   } catch (err) {
                     pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
                   }
@@ -1816,8 +1843,7 @@ export default function ApplicationsPage() {
                     try {
                       // v1.6.9 (#570): applicationId direkt mitgeben (siehe Drop-Handler oben).
                       const result = await uploadDocumentFile(file, "sonstiges", { applicationId: appId });
-                      const note = result?.duplicate_of ? "verknüpft (war schon vorhanden)" : "hochgeladen und verknüpft";
-                      pushToast(`'${file.name}' ${note}.`, "success");
+                      meldeUpload(file.name, result, appId);
                     } catch (err) {
                       pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
                     }
@@ -1934,12 +1960,12 @@ export default function ApplicationsPage() {
                   }
                 }}
               />
-              <input
-                type="date"
+              <DatumFeld
                 value={newTaskDue}
-                onChange={(event) => setNewTaskDue(event.target.value)}
+                onChange={setNewTaskDue}
                 title="Erledigt bis (optional)"
-                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm text-ink [color-scheme:dark]"
+                aria-label="Erledigt bis"
+                className="w-32 shrink-0 !px-2 !py-1.5 text-sm"
               />
               <Button aria-label="Aufgabe hinzufügen" type="button" variant="secondary" onClick={addTimelineTask} disabled={!newTaskTitle.trim()}>
                 <Plus size={14} />

@@ -2092,6 +2092,15 @@ def run_search(db, job_id: str, params: dict):
             if len((j.get("description") or "").strip()) < _MIN_TEXT)
     except Exception:  # pragma: no cover
         pass
+    # #1394: Quellen ohne eigene Suche: geliefert / durch den Filter / mit
+    # Pflichttreffer im Titel. Ein undichter Filter faellt so sofort auf
+    # (177 von 300 bei 3 echten Treffern wuerde hier ins Auge springen).
+    try:
+        _bilanz = _rohtreffer.bilanz()
+        if _bilanz:
+            result_data["quellen_abgleich"] = _bilanz
+    except Exception:  # pragma: no cover
+        pass
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
     if any(filterstufen.values()):

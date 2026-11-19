@@ -781,7 +781,21 @@ def _build_match_job_to_skills_prompt(payload: dict) -> str:
     # Prompt nicht zu sprengen.
     recent_dismissals = payload.get("recent_dismissals") or []
     fewshot_block = ""
-    if recent_dismissals:
+    lern_beispiele = payload.get("lern_beispiele")
+    if lern_beispiele is not None:
+        # #1396: Beispiele nach Aehnlichkeit, gemischt aus passt/passt nicht, nur
+        # Entscheidungen von Mensch und Claude (`services/ki_beispiele`). Gibt es
+        # keine, steht auch kein Block da - die alte Liste greift dann NICHT.
+        from .ki_beispiele import als_zeile
+        zeilen = [als_zeile(b) for b in lern_beispiele[:8]]
+        if zeilen:
+            fewshot_block = (
+                "\nBEISPIELE — echte Entscheidungen des Bewerbers und von Claude "
+                "zu ähnlichen Stellen (nie automatische):\n"
+                + "\n".join(zeilen) + "\n"
+                "Achte darauf, WARUM entschieden wurde, nicht nur auf den Titel.\n"
+            )
+    elif recent_dismissals:
         examples = []
         for d in recent_dismissals[:5]:
             t = (d.get("title") or "").strip()
@@ -857,6 +871,10 @@ def _parse_match_job_to_skills(raw: str) -> dict:
     parts = [p.strip() for p in line.split("|", 1)]
     decision = parts[0].upper().strip(".,;:'\"`")
     reason = _clean_match_reason(parts[1] if len(parts) > 1 else "")
+    # #1396: wie klar war die Antwort? "klar" = das verlangte Format mit
+    # Begruendung; alles andere ist "schwach" (geraten aus dem Rohtext oder ohne Grund).
+    sicherheit = "klar" if (decision in ("PASST", "PASST_NICHT", "UNSICHER")
+                            and reason) else "schwach"
     if decision not in ("PASST", "PASST_NICHT", "UNSICHER"):
         # Versuche Auto-Heuristik aus dem Roh-Text
         lower = raw_clean.lower()
@@ -869,6 +887,7 @@ def _parse_match_job_to_skills(raw: str) -> dict:
     return {
         "decision": decision,
         "reason": reason,
+        "sicherheit": sicherheit,
         "raw": raw,
     }
 

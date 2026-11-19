@@ -25,6 +25,9 @@ import EmailUploadButton from "@/components/EmailUploadButton";
 export default function EmailListe({ pushToast, applications = [], anzahl = 8, oeffnen = "", beiGeoeffnet }) {
   const [emails, setEmails] = useState([]);
   const [detail, setDetail] = useState(null);
+  // #1412 D2: `applications` der Seite sind nur die Bewerbungen MIT Dokumenten (Filterliste).
+  // Zum Zuordnen einer Mail braucht es ALLE; die Auswahl blieb sonst fast leer.
+  const [alleBewerbungen, setAlleBewerbungen] = useState(null);
 
   // #1177 (G88): ein Treffer „E-Mail“ der Suche oeffnet das Fenster dieser Mail (auch wenn sie nicht unter den ersten acht der
   // Liste steht, auch wenn sie zu keiner Bewerbung gehoert). `oeffnen` ist die Kennung; danach meldet `beiGeoeffnet` zurueck.
@@ -37,6 +40,9 @@ export default function EmailListe({ pushToast, applications = [], anzahl = 8, o
   }, [oeffnen]);
 
   const laden = useCallback(() => {
+    api("/api/applications?limit=500&include_archived=true")
+      .then((d) => setAlleBewerbungen(Array.isArray(d) ? d : (d?.applications || [])))
+      .catch(() => {});
     api("/api/emails")
       .then((d) => setEmails(Array.isArray(d) ? d : (d?.emails || [])))
       .catch(() => {});
@@ -103,7 +109,7 @@ export default function EmailListe({ pushToast, applications = [], anzahl = 8, o
       {detail && (
         <EmailDetailModal
           email={detail}
-          applications={applications}
+          applications={alleBewerbungen || applications}
           onClose={() => setDetail(null)}
           pushToast={pushToast}
           onUpdate={() => { setDetail(null); laden(); }}

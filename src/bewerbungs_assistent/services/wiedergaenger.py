@@ -52,6 +52,8 @@ _COMPANY_SUFFIXES = {
 _TITLE_STOPS = {
     # Gender / Grammatik
     "m", "w", "d", "x", "mwd", "wmd", "divers", "in", "innen",
+    # #1395: "(all gender)" steht im Titel jeder Anzeige mancher Anbieter - gemeinsame Woerter ohne jede Bedeutung
+    "all", "gender",
     "und", "der", "die", "das", "ein", "eine", "fuer", "im", "mit",
     "bei", "von", "zu", "an", "the", "and", "for", "with", "of",
     # Seniority-Abkuerzungen (#754 — "sr" hatte den Praxis-Fehlmatch vom 13.07. getragen)
@@ -365,6 +367,26 @@ def _reasons_of(job: dict) -> list[str]:
     return out
 
 
+#: Zaehlt eine Aussortierung OHNE gespeicherte Herkunft (Altbestand vor v1.7.64) als Beleg? Ja: der Bestand ist ueberwiegend
+#: vom Menschen (gemessen 17.10.2026: 2.488 von 3.586 ohne Herkunft) und die Wiedergaenger-Pruefung wuerde sonst fuer ihn
+#: verstummen. Anders als bei den KI-Beispielen (#1239, `UNBEKANNTE_HERKUNFT_ZAEHLT`), wo "unbekannt" nie als Urteil des
+#: Menschen gezeigt wird. Die AUTOMATIK dagegen ist nie ein Beleg (#1395).
+UNBEKANNTE_HERKUNFT_ALS_BELEG = True
+
+
+def ist_beleg(job: dict) -> bool:
+    """Darf diese aussortierte Stelle ein Wiedergaenger-Beleg sein? (#1395)
+
+    Nur Entscheidungen von Mensch oder Claude. Eine automatische Aussortierung
+    (Herkunft `automatik` oder Praefix `auto:`) ist ein Urteil der Maschine
+    ueber die Stelle, nicht ueber die Passung: zaehlte sie als Beleg, bestaetigte
+    die Automatik sich selbst und verstaerkte jeden eigenen Fehler.
+    """
+    from .aussortier_protokoll import herkunft
+    wer = herkunft(job)
+    return wer in ("ich", "claude") or (wer == "unbekannt" and UNBEKANNTE_HERKUNFT_ALS_BELEG)
+
+
 def urteilsgruende(job: dict) -> list[str]:
     """Die Gruende einer aussortierten Stelle, die ein URTEIL ueber die Passung sind (#1234).
 
@@ -386,12 +408,24 @@ FACHLICHE_KO_GRUENDE = frozenset({
 })
 
 
-def ist_fachlicher_ko(muster: Optional[dict]) -> bool:
+#: Gruende, die das MUSS-Tor widerlegt: trifft die Stelle einen Pflichtbegriff des Profils, ist sie fachlich nicht fremd (#1310).
+FACHGEBIET_GRUENDE = frozenset({"falsches_fachgebiet"})
+
+
+def ist_fachlicher_ko(muster: Optional[dict], *, tor_offen: bool = False) -> bool:
     """Macht dieses Wiedergaenger-Muster die Stelle zu einem k.o.? (#1234)
 
     Mindestens zwei Belege, und der fuehrende Grund ist ein fachlicher.
+
+    #1395: EINE Regel fuer Anbieter mit hunderten fachlich verschiedener Stellen.
+    Ein Firmen-k.o. "falsches Fachgebiet" ueber gemeinsame Woerter wie "plm"
+    widerspricht "Gruende gelten je STELLE, nicht fuer die Firma" (#757): oeffnet
+    das Pflicht-Tor fuer DIESE Stelle (`tor_offen`, dieselbe Frage wie in der
+    Automatik, #1310), gilt der Beleg nicht als k.o.
     """
     if not muster:
+        return False
+    if tor_offen and muster.get("top_grund") in FACHGEBIET_GRUENDE:
         return False
     return (muster.get("anzahl", 0) >= 2
             and muster.get("top_grund") in FACHLICHE_KO_GRUENDE)
@@ -559,6 +593,9 @@ def find_wiedergaenger_pattern(
         # #1234: eine Stelle, die nur wegen einer Bewerbung, einer Dublette oder
         # einer toten Anzeige aus der Liste ging, ist kein Beleg.
         if not urteilsgruende(j):
+            continue
+        # #1395: eine automatische Aussortierung ist kein Beleg.
+        if not ist_beleg(j):
             continue
         jt = _domain_tokens(j.get("title"), orte=(j.get("location"),))
         shared = target_tokens & jt

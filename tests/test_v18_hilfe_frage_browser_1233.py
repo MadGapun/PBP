@@ -521,14 +521,20 @@ DRUMHERUM = """
 """
 
 
+def _drumherum(seite):
+    """Wartet, bis Chat UND Verlauf da sind (beim Neuaufbau liefert querySelector kurz null), und misst dann."""
+    seite.wait_for_function("() => !!document.querySelector('[data-elwosa-chat]') && !!document.querySelector('[data-elwosa-liste]')")
+    return seite.evaluate(DRUMHERUM)
+
+
 def test_1254_der_elwosa_verlauf_behaelt_seine_hoehe_wenn_antworten_dazukommen(live, browser):
     kontext, seite = _seite_mit_verlauf(browser, live)
     try:
-        vorher = seite.evaluate(DRUMHERUM)
+        vorher = _drumherum(seite)
         _gefragt(seite, "Wie aktualisiere ich PBP?")
-        nach_eins = seite.evaluate(DRUMHERUM)
+        nach_eins = _drumherum(seite)
         _gefragt(seite, "Wie lege ich eine Bewerbung an?")
-        nach_zwei = seite.evaluate(DRUMHERUM)
+        nach_zwei = _drumherum(seite)
         assert abs(nach_eins - vorher) <= 2 and abs(nach_zwei - vorher) <= 2, (
             f"neben dem Verlauf braucht Elwosa {vorher:.0f} px, nach der ersten Frage {nach_eins:.0f}, nach der zweiten {nach_zwei:.0f}: "
             "die Antworten nehmen dem Verlauf die Hoehe")

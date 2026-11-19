@@ -2,6 +2,7 @@ import { Children, createContext, useContext, useEffect, useId, useRef, useState
 import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 
+import { deZuIso, isoZuDe } from "@/lib/datumDe";
 import { cn } from "@/utils";
 
 const BUTTON_STYLES = {
@@ -174,6 +175,39 @@ const INPUT_BASE =
 
 export function TextInput({ className, ...props }) {
   return <input className={cn(INPUT_BASE, className)} {...props} />;
+}
+
+/** #1412 D8: deutsches Datumsfeld (TT.MM.JJJJ), gibt ISO (JJJJ-MM-TT) weiter. */
+export function DatumFeld({ value, onChange, className, ...props }) {
+  const [text, setText] = useState(isoZuDe(value));
+  const [ungueltig, setUngueltig] = useState(false);
+  useEffect(() => {
+    setText((aktuell) => (deZuIso(aktuell) === (value || null) ? aktuell : isoZuDe(value)));
+  }, [value]);
+  function aendern(ereignis) {
+    const neu = ereignis.target.value;
+    setText(neu);
+    if (!neu.trim()) {
+      setUngueltig(false);
+      onChange("");
+      return;
+    }
+    const iso = deZuIso(neu);
+    setUngueltig(iso === null && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(neu.trim()));
+    if (iso) onChange(iso);
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder="TT.MM.JJJJ"
+      value={text}
+      onChange={aendern}
+      aria-invalid={ungueltig || undefined}
+      className={cn(INPUT_BASE, ungueltig && "border-coral/60", className)}
+      {...props}
+    />
+  );
 }
 
 export function TextArea({ className, rows = 4, ...props }) {

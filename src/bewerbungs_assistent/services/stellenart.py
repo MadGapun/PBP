@@ -16,6 +16,9 @@ Am Bestand gemessen: **0 von 1.282 Stellen tragen `teilzeit`**, waehrend
 `freelance`, muss jede Erkennung eine Entscheidung treffen, die es
 nicht zu treffen gibt.
 
+Abgrenzung: die Art einer Station im LEBENSLAUF (Ehrenamt, Pflegezeit ...)
+steht in `services/stationsart.py` (#1374), nicht hier.
+
 Deshalb jetzt **zwei Dimensionen**:
 
 * `ANSTELLUNGSFORMEN` — festanstellung, zeitarbeit, freelance,
