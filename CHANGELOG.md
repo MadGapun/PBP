@@ -42,12 +42,13 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.8] - 2026-11-19 — Stellen-Tab und Statistik sind wieder schnell; Ehrenamt und Auszeiten im Lebenslauf; neue Zeiträume machen Bewertungen veraltet
+## [1.8.8] - 2026-11-19 — Stellen-Tab und Statistik sind wieder schnell; Mails verlieren keine Termine mehr; Ehrenamt und Auszeiten im Lebenslauf; neue Zeiträume machen Bewertungen veraltet
 
 <!-- anwender -->
 Der Stellen-Tab, das Dashboard und die Statistik laden wieder in Sekundenbruchteilen statt in Minuten.
 Ehrenamt, Elternzeit, Pflegezeit, Weiterbildung und Auszeiten lassen sich als Station im Lebenslauf eintragen und erscheinen lesbar.
 Fügst du einer Kompetenz einen neuen Zeitraum hinzu, merkt PBP, dass eine gespeicherte Bewertung neu geprüft werden sollte.
+Antwort-Mails einer Firma behalten ihren Termin, auch wenn du sie erst später einer Bewerbung zuordnest; PBP schlägt dafür passende Bewerbungen vor, nennt beim Hochladen, was es erkannt hat (Termin, Absage, Interview), und ändert den Status nur, wenn du es bestätigst.
 <!-- /anwender -->
 
 ### Das Wichtigste für dich
@@ -62,9 +63,18 @@ Fügst du einer Kompetenz einen neuen Zeitraum hinzu, merkt PBP, dass eine gespe
 - **Ehrenamt, Elternzeit, Pflegezeit, Weiterbildung, Auszeit** (#1374): Die Anstellungsart einer Station kennt jetzt diese Arten; bekannte Schreibweisen werden vereinheitlicht, Unbekanntes bleibt erhalten und Claude bekommt einen Hinweis. Dashboard und Lebenslauf-Export zeigen die Arten lesbar.
 - **Neuer Zeitraum macht die Bewertung veraltet** (#1389): `skill_zeitraum_hinzufuegen` gab bisher keinen Hinweis, dass eine gespeicherte Bewertung nicht mehr zum Profil passt; jetzt zählt jede Profiländerung.
 
+- **Mail-Eingang verliert keinen Termin mehr** (#1412): Eine Einladung, die du erst später einer Bewerbung zuordnest, legt jetzt ihren Termin an (auch aus dem Kalenderanhang); bisher ging er still verloren.
+- **Mails mit Umlauten im Betreff brechen den Import nicht mehr ab** (#1412): Dateien, die Thunderbird & Co. mit unkodierten Umlauten speichern, lassen sich importieren.
+- **PBP sagt, was es in einer Mail erkannt hat** (#1412): Ziehst du eine Mail in den Dialog einer Bewerbung, nennt die Meldung den angelegten Termin und den erkannten Status („Absage“, „Interview“). Der Status ändert sich erst nach einem Klick auf „übernehmen“.
+- **Mails bekommen den richtigen Dokumenttyp** (#1412): Eine Absage heißt Absage, auch wenn die Datei „Ihre Bewerbung als …“ heißt; ist der Inhalt unklar, steht „Sonstiges“ statt eines geratenen Typs.
+- **Zuordnen einer Mail ist einfacher** (#1412): Passen Stellentitel und Firma im Betreff zu einer Bewerbung, wird sie zugeordnet; passen mehrere, stehen sie mit „Passt“ oben in der Auswahl, PBP wählt nie selbst. Die Auswahl zeigt jetzt alle Bewerbungen (bisher nur die mit Dokumenten).
+- **Aufgabe: Datum auf Deutsch** (#1412): Das Fälligkeitsfeld nimmt TT.MM.JJJJ, unabhängig von der Sprache des Browsers.
+- **Claude erledigt Aufgaben ohne Umweg** (#1412): `todo_anlegen` und `todo_erledigen` nennen denselben Parameter (`todo_id`); `task_id` wird als Alias angenommen.
+
 ### Fixed
 
 - #1407, #1374, #1389 wie oben.
+- #1412 D1 (Termin bei später Zuordnung: `meeting_extracted` hieß „Termine gefunden“, jetzt „gespeichert“; `confirm-match` liest die Quelldatei neu und legt nichts doppelt an), D2 (`titel_firma_kandidaten`, Auswahl aus allen Bewerbungen statt der Filterliste des Dokumente-Bereichs), D3 (`_decode_header` fängt `unknown-8bit`/unbekannte Zeichensätze ab), D4 (`mail_dokumenttyp` aus Inhalt und Status), D5 (`mail_erkannt` in der Antwort von `/api/documents/upload`, Status nur per Klick), D7 (`TODO_ERLEDIGEN_HINWEIS` aus einer Konstante), D8 (`DatumFeld`). D6 (gemischte Zeitstempel) ist mit #1386 in 1.8.7 behoben und im Mail-Verlauf nicht mehr nachstellbar.
 
 *Schema v52 (unverändert), 284 MCP-Werkzeuge, 10592 Tests.*
 
