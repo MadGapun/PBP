@@ -171,3 +171,44 @@ def test_d5_gleicher_status_wird_nicht_angeboten(db):
                             app_id=app_id).json()
     assert db.get_application(app_id)["status"] == "interview"
     assert j["mail_erkannt"]["angebot"] is None
+
+
+# ── D7: ein Parametername fuer die Aufgaben-ID ──────────────────────────
+
+def _tasks(db):
+    import logging
+    from bewerbungs_assistent.tools.tasks import register
+
+    class FakeMCP:
+        def __init__(self):
+            self.tools = {}
+
+        def tool(self, name=None, **_kw):
+            def deko(fn):
+                self.tools[name or fn.__name__] = fn
+                return fn
+            return deko
+    m = FakeMCP()
+    register(m, db, logging.getLogger("test"))
+    return m.tools
+
+
+def test_d7_hinweis_nennt_einen_echten_parameter(db):
+    import inspect
+    import re
+    t = _tasks(db)
+    antwort = t["todo_anlegen"](titel="Unterlagen prüfen")
+    param = re.search(r"todo_erledigen\((\w+)", antwort["hinweis"]).group(1)
+    assert param in inspect.signature(t["todo_erledigen"]).parameters
+    assert antwort[param]
+
+
+def test_d7_task_id_wird_als_alias_angenommen(db):
+    t = _tasks(db)
+    tid = t["todo_anlegen"](titel="Rückruf")["todo_id"]
+    erg = t["todo_erledigen"](task_id=tid, notiz="erledigt")
+    assert erg["status"] == "erledigt"
+
+
+def test_d7_ohne_id_kommt_eine_klare_meldung(db):
+    assert "todo_id" in _tasks(db)["todo_erledigen"]()["fehler"]
