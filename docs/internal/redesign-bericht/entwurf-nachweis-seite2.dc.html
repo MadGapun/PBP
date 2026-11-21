@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Nachweis fürs Amt, Seite 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1d4f91}a:hover{color:#163b6d}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 56px 60px 44px; background: #ffffff; color: #1b2430; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">Was an welchem Tag geschah</h2>
+<table style="width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.4">
+<thead>
+<tr style="text-align: left; border-bottom: 2px solid #1b2430">
+<th style="padding: 6px 8px 6px 0; width: 86px">Tag</th>
+<th style="padding: 6px 8px; width: 120px">Art</th>
+<th style="padding: 6px 0 6px 8px">Was</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{tage}}" as="t" hint-placeholder-count="12">
+<tr style="border-bottom: 1px solid #b8c0cb; vertical-align: top">
+<td style="padding: 6px 8px 6px 0; white-space: nowrap">{{t.tag}}</td>
+<td style="padding: 6px 8px; font-weight: 600">{{t.art}}</td>
+<td style="padding: 6px 0 6px 8px">{{t.was}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">Bewerbungskosten im Zeitraum</h2>
+<table style="width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.4">
+<thead>
+<tr style="text-align: left; border-bottom: 2px solid #1b2430">
+<th style="padding: 6px 8px 6px 0; width: 86px">Datum</th>
+<th style="padding: 6px 8px; width: 120px">Art</th>
+<th style="padding: 6px 8px">Wofür</th>
+<th style="padding: 6px 0 6px 8px; width: 80px; text-align: right">Betrag</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-bottom: 1px solid #b8c0cb"><td style="padding: 6px 8px 6px 0">03.11.2026</td><td style="padding: 6px 8px">Sonstiges</td><td style="padding: 6px 8px">Bewerbungsfotos</td><td style="padding: 6px 0 6px 8px; text-align: right">24,90 €</td></tr>
+<tr style="border-bottom: 1px solid #b8c0cb"><td style="padding: 6px 8px 6px 0">20.11.2026</td><td style="padding: 6px 8px">Reise</td><td style="padding: 6px 8px">Bahnfahrt zum Zweitgespräch, Steinfeld Hydraulik GmbH</td><td style="padding: 6px 0 6px 8px; text-align: right">38,40 €</td></tr>
+<tr style="border-bottom: 2px solid #1b2430; font-weight: 700"><td style="padding: 6px 8px 6px 0"></td><td style="padding: 6px 8px"></td><td style="padding: 6px 8px">Summe</td><td style="padding: 6px 0 6px 8px; text-align: right">63,30 €</td></tr>
+</tbody>
+</table>
+<div style="font-size: 12px; color: #5a6675">Die Aufstellung ist kein Antrag auf Erstattung. Belege liegen beim Bewerber.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">Notizen aus dem Beratungsgespräch</h2>
+<div style="display: flex; flex-direction: column">
+<div style="height: 30px; border-bottom: 1px solid #8b96a3"></div>
+<div style="height: 30px; border-bottom: 1px solid #8b96a3"></div>
+<div style="height: 30px; border-bottom: 1px solid #8b96a3"></div>
+<div style="height: 30px; border-bottom: 1px solid #8b96a3"></div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 18px">
+<div style="border-top: 1px solid #1b2430; padding-top: 6px; font-size: 12px; color: #5a6675">Ort, Datum</div>
+<div style="border-top: 1px solid #1b2430; padding-top: 6px; font-size: 12px; color: #5a6675">Unterschrift</div>
+</div>
+<div style="font-size: 12px; color: #5a6675; line-height: 1.5">Dieser Nachweis enthält nur Angaben, die der Bewerber selbst erfasst hat. Er enthält bewusst keine Bewertungen, keine Punktzahlen und keine geschätzten Zeiten.</div>
+<div style="margin-top: auto; border-top: 1px solid #1b2430; padding-top: 8px; display: flex; justify-content: space-between; font-size: 12px; color: #5a6675">
+<span>Bob Mustermann · Nachweis 01.11.2026 bis 30.11.2026</span>
+<span>Seite 2 von 2 · erstellt mit PBP</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+tage: [
+{ tag: 'So 01.11.', art: 'Bewerbung', was: 'Aller Metallbau GmbH, Industriemeister Metall, Fertigung' },
+{ tag: 'Mi 04.11.', art: 'Gespräch', was: 'Leibniz Schaltanlagen GmbH, Vorstellungsgespräch vor Ort (Bewerbung vom 18.10.)' },
+{ tag: 'Do 05.11.', art: 'Bewerbung', was: 'Calenberg Maschinenfabrik AG, Produktionsplaner Zerspanung' },
+{ tag: 'Do 05.11.', art: 'Nachfassen', was: 'Mühlenberg Werkzeugbau GmbH, Nachfrage per E-Mail (Bewerbung vom 15.10.)' },
+{ tag: 'Fr 06.11.', art: 'Rückmeldung', was: 'Calenberg Maschinenfabrik AG, Eingang bestätigt' },
+{ tag: 'So 08.11.', art: 'Bewerbung', was: 'Steinfeld Hydraulik GmbH, Fertigungssteuerer (m/w/d)' },
+{ tag: 'Mo 09.11.', art: 'Rückmeldung', was: 'Aller Metallbau GmbH, Einladung zum Vorstellungsgespräch' },
+{ tag: 'Mi 11.11.', art: 'Bewerbung', was: 'Steinfeld Hydraulik GmbH, Teamleiter Arbeitsvorbereitung, über Personalvermittler' },
+{ tag: 'Fr 13.11.', art: 'Gespräch', was: 'Aller Metallbau GmbH, Vorstellungsgespräch vor Ort' },
+{ tag: 'Mo 16.11.', art: 'Rückmeldung', was: 'Steinfeld Hydraulik GmbH, Einladung zum Zweitgespräch' },
+{ tag: 'Do 19.11.', art: 'Rückmeldung', was: 'Okertal Getriebe GmbH, Absage (Bewerbung vom 25.10.)' },
+{ tag: 'Fr 20.11.', art: 'Gespräch', was: 'Steinfeld Hydraulik GmbH, Zweitgespräch vor Ort' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

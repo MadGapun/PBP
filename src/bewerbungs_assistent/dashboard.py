@@ -8816,6 +8816,45 @@ async def api_app_add_cost(app_id: str, request: Request):
     return {"status": "created", "id": cid}
 
 
+@app.get("/api/costs")
+def api_costs_list():
+    """Alle Kostenposten des Profils, auch die ohne Bewerbung (#1422)."""
+    posten = _db.list_application_costs()
+    ohne_datum = sum(1 for p in posten if not (p.get("incurred_at") or "")[:10])
+    summe = round(sum(float(p.get("amount") or 0) for p in posten), 2)
+    return {"costs": posten, "summe_eur": summe, "ohne_datum": ohne_datum}
+
+
+@app.post("/api/costs")
+async def api_add_cost(request: Request):
+    """Kosten ohne Bewerbung erfassen (#1422): Abo, Pruefungsgebuehr, Reise."""
+    data = await request.json()
+    try:
+        betrag = float(data.get("amount") or 0)
+    except (TypeError, ValueError):
+        betrag = 0.0
+    if betrag <= 0:
+        return JSONResponse({"error": "Bitte einen Betrag über 0 € angeben."},
+                            status_code=400)
+    tag = str(data.get("incurred_at") or "").strip()[:10]
+    if tag:
+        try:
+            datetime.strptime(tag, "%Y-%m-%d")
+        except ValueError:
+            return JSONResponse({"error": "Das Datum muss TT.MM.JJJJ sein."},
+                                status_code=400)
+    try:
+        cid = _db.add_application_cost({
+            "kind": data.get("kind") or "sonstiges",
+            "amount": betrag,
+            "description": data.get("description"),
+            "incurred_at": tag or None,
+        })
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"status": "created", "id": cid}
+
+
 @app.delete("/api/costs/{cost_id}")
 async def api_delete_cost(cost_id: str):
     """Kosten-Eintrag loeschen (#568)."""

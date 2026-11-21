@@ -111,3 +111,17 @@ def quelle_text(schluessel) -> str:
     except Exception:
         pass
     return roh or "unbekannt"
+
+
+# #1420: die Art einer Nachfass-Erinnerung (`follow_up_type`) als Wort.
+FOLLOWUP_TEXT = {
+    "nachfass": "Nachfassen",
+    "erinnerung": "Erinnerung",
+}
+
+
+def followup_text(wert) -> str:
+    roh = str(wert or "").strip()
+    if not roh:
+        return FOLLOWUP_TEXT["nachfass"]
+    return FOLLOWUP_TEXT.get(_schluessel(roh), roh.replace("_", " ").capitalize())
