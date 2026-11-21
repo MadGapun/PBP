@@ -210,7 +210,10 @@ def cmd_installieren(a) -> None:
     t0 = time.monotonic()
     with open(ausgabe, "wb") as f:
         # Eingabe aus NUL: jede Frage nimmt die Vorgabe, jedes `pause` endet sofort (wie ein Mensch, der Enter drueckt).
-        r = subprocess.run(["cmd", "/c", "INSTALLIEREN.bat"], cwd=str(ordner), stdin=subprocess.DEVNULL, stdout=f,
+        # #1425: wie ein Doppelklick, ohne den Modulpfad von PowerShell 7. Die vorige
+        # Veroeffentlichung kennt die Korrektur im Installer noch nicht.
+        umgebung = {k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"}
+        r = subprocess.run(["cmd", "/c", "INSTALLIEREN.bat"], cwd=str(ordner), env=umgebung, stdin=subprocess.DEVNULL, stdout=f,
                            stderr=subprocess.STDOUT, timeout=a.frist, creationflags=KEIN_FENSTER)
     melde(f"  Installer endete nach {time.monotonic() - t0:.0f} s mit {r.returncode}")
     text = lies(ausgabe)
