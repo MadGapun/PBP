@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Nachweis fürs Amt, Seite 1</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1d4f91}a:hover{color:#163b6d}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 56px 60px 44px; background: #ffffff; color: #1b2430; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; justify-content: space-between; gap: 32px; align-items: flex-start">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4f91">Nachweis der Bewerbungsbemühungen</div>
+<h1 style="margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700">Bob Mustermann</h1>
+<div style="font-size: 16px; font-weight: 600">Zeitraum 01.11.2026 bis 30.11.2026</div>
+<div style="font-size: 12px; color: #5a6675">Erstellt am 21.11.2026. Alle Angaben auf diesem Nachweis gelten für diesen Zeitraum.</div>
+</div>
+<div style="border: 1px solid #1b2430; padding: 12px 14px; font-size: 12px; line-height: 1.6; min-width: 230px">
+<div style="display: flex; justify-content: space-between; gap: 16px"><span style="color: #5a6675">Kundennummer</span><span style="font-weight: 600">987M654321</span></div>
+<div style="display: flex; justify-content: space-between; gap: 16px"><span style="color: #5a6675">Aktenzeichen</span><span style="font-weight: 600">M-2026/04711</span></div>
+<div style="display: flex; justify-content: space-between; gap: 16px"><span style="color: #5a6675">Beratung</span><span style="font-weight: 600">Frau Beispiel</span></div>
+<div style="display: flex; justify-content: space-between; gap: 16px"><span style="color: #5a6675">Stelle</span><span style="font-weight: 600">Agentur für Arbeit Musterstadt</span></div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{kacheln}}" as="k" hint-placeholder-count="4">
+<div style="border-top: 3px solid #1b2430; padding: 10px 0 0; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 34px; font-weight: 700; line-height: 1">{{k.wert}}</div>
+<div style="font-size: 13px; font-weight: 600">{{k.name}}</div>
+<div style="font-size: 12px; color: #5a6675">{{k.hinweis}}</div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">Aktivität je Kalenderwoche</h2>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{wochen}}" as="w" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="height: 12px; background: #e6eaef; position: relative"><div style="position: absolute; left: 0; top: 0; bottom: 0; background: #1d4f91; width: {{w.breite}}"></div></div>
+<div style="font-size: 12px"><span style="font-weight: 600">{{w.kw}}</span> <span style="color: #5a6675">{{w.text}}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">Bewerbungen im Zeitraum</h2>
+<table style="width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.4">
+<thead>
+<tr style="text-align: left; border-bottom: 2px solid #1b2430">
+<th style="padding: 6px 8px 6px 0; width: 22px">Nr.</th>
+<th style="padding: 6px 8px; width: 70px">Datum</th>
+<th style="padding: 6px 8px">Arbeitgeber und Stelle</th>
+<th style="padding: 6px 8px; width: 150px">Weg</th>
+<th style="padding: 6px 0 6px 8px; width: 190px">Stand am 21.11.2026</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{bewerbungen}}" as="b" hint-placeholder-count="4">
+<tr style="border-bottom: 1px solid #b8c0cb; vertical-align: top">
+<td style="padding: 9px 8px 9px 0">{{b.nr}}</td>
+<td style="padding: 9px 8px; white-space: nowrap">{{b.datum}}</td>
+<td style="padding: 9px 8px"><div style="font-weight: 600">{{b.firma}}</div><div>{{b.stelle}}</div><div style="color: #5a6675">{{b.ort}}</div></td>
+<td style="padding: 9px 8px"><div>{{b.weg}}</div><div style="color: #5a6675">{{b.art}}</div></td>
+<td style="padding: 9px 0 9px 8px"><div style="font-weight: 600">{{b.stand}}</div><div style="color: #5a6675">{{b.detail}}</div></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">Laufende Verfahren aus früheren Zeiträumen</h2>
+<table style="width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.4">
+<thead>
+<tr style="text-align: left; border-bottom: 2px solid #1b2430">
+<th style="padding: 6px 8px 6px 0; width: 70px">Beworben</th>
+<th style="padding: 6px 8px">Arbeitgeber und Stelle</th>
+<th style="padding: 6px 0 6px 8px; width: 290px">Stand am 21.11.2026</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{laufend}}" as="l" hint-placeholder-count="5">
+<tr style="border-bottom: 1px solid #b8c0cb; vertical-align: top">
+<td style="padding: 6px 8px 6px 0; white-space: nowrap">{{l.datum}}</td>
+<td style="padding: 6px 8px"><span style="font-weight: 600">{{l.firma}}</span>, {{l.stelle}}</td>
+<td style="padding: 6px 0 6px 8px">{{l.stand}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="margin-top: auto; border-top: 1px solid #1b2430; padding-top: 8px; display: flex; justify-content: space-between; font-size: 12px; color: #5a6675">
+<span>Bob Mustermann · Nachweis 01.11.2026 bis 30.11.2026</span>
+<span>Seite 1 von 2 · erstellt mit PBP</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+kacheln: [
+{ wert: '4', name: 'Bewerbungen', hinweis: 'im Zeitraum abgeschickt' },
+{ wert: '3', name: 'Gespräche', hinweis: 'im Zeitraum geführt' },
+{ wert: '4', name: 'Rückmeldungen', hinweis: 'von Arbeitgebern erhalten' },
+{ wert: '9', name: 'Laufende Verfahren', hinweis: 'am 21.11.2026, mit früheren' }
+],
+wochen: [
+{ kw: 'KW 44', text: '1 Bewerbung', breite: '33%' },
+{ kw: 'KW 45', text: '2 Bewerbungen, 1 Gespräch', breite: '100%' },
+{ kw: 'KW 46', text: '1 Bewerbung, 1 Gespräch', breite: '66%' },
+{ kw: 'KW 47', text: '1 Gespräch, 1 Absage', breite: '33%' },
+{ kw: 'KW 48', text: 'noch offen', breite: '0%' }
+],
+bewerbungen: [
+{ nr: '1', datum: '01.11.2026', firma: 'Aller Metallbau GmbH', stelle: 'Industriemeister Metall, Fertigung', ort: 'Musterstadt', weg: 'Jobbörse der Bundesagentur', art: 'online, mit Unterlagen', stand: 'Vorstellungsgespräch', detail: 'Gespräch am 13.11.2026' },
+{ nr: '2', datum: '05.11.2026', firma: 'Calenberg Maschinenfabrik AG', stelle: 'Produktionsplaner Zerspanung', ort: 'Musterstadt', weg: 'StepStone', art: 'online, mit Unterlagen', stand: 'Eingang bestätigt', detail: 'Bestätigung vom 06.11.2026' },
+{ nr: '3', datum: '08.11.2026', firma: 'Steinfeld Hydraulik GmbH', stelle: 'Fertigungssteuerer (m/w/d)', ort: 'Musterstadt', weg: 'Jobbörse der Bundesagentur', art: 'online, mit Unterlagen', stand: 'Beworben', detail: 'noch keine Antwort, Nachfassen am 26.11.' },
+{ nr: '4', datum: '11.11.2026', firma: 'Steinfeld Hydraulik GmbH', stelle: 'Teamleiter Arbeitsvorbereitung', ort: 'Musterstadt', weg: 'Personalvermittler', art: 'über den Vermittler', stand: 'Zweitgespräch', detail: 'Zweitgespräch am 20.11.2026' }
+],
+laufend: [
+{ datum: '24.09.2026', firma: 'Deistervilla Feinmechanik GmbH', stelle: 'Produktionsplaner (m/w/d)', stand: 'Angebot liegt vor, Entscheidung offen' },
+{ datum: '15.10.2026', firma: 'Mühlenberg Werkzeugbau GmbH', stelle: 'Arbeitsvorbereiter CNC-Fertigung', stand: 'Beworben, nachgefasst am 05.11.2026' },
+{ datum: '18.10.2026', firma: 'Leibniz Schaltanlagen GmbH', stelle: 'Fertigungssteuerer Sondermaschinenbau', stand: 'Vorstellungsgespräch am 04.11.2026 geführt' },
+{ datum: '22.10.2026', firma: 'Harzland Pumpen KG', stelle: 'Produktionsleiter Stellvertretung', stand: 'Eingang bestätigt' },
+{ datum: '29.10.2026', firma: 'Windrose Energietechnik GmbH', stelle: 'Leiter Arbeitsvorbereitung', stand: 'Zweitgespräch, Termin wird abgestimmt' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

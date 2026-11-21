@@ -85,8 +85,9 @@ def _lade_events(db: Any) -> dict:
     return per_app
 
 
-def zeitliche_kennzahlen(db: Any) -> dict:
-    apps = db.get_applications()
+def zeitliche_kennzahlen(db: Any, apps: Optional[list] = None) -> dict:
+    """`apps`: nur diese Bewerbungen (Zeitraum-Bericht, #1337), sonst alle."""
+    apps = db.get_applications() if apps is None else apps
     events = _lade_events(db)
 
     dauer_nach_ausgang: dict = {s: [] for s in TERMINAL_STATUS}
@@ -156,8 +157,13 @@ def zeitliche_kennzahlen(db: Any) -> dict:
             ende = end_ev["datum"] if end_ev else (a.get("updated_at") or "")
             erster = evs[0]["datum"] if evs else (a.get("applied_at") or "")
             d = _tage(erster, ende)
-            if d is not None:
+            # #1337: Abstand 0 ist wie bei den anderen Kennzahlen ein
+            # Artefakt der Nacherfassung (#943). Davor stand im Bericht
+            # "0.0 / 0.0 Tage" statt "noch keine Angabe".
+            if d:
                 dauer_nach_ausgang[status].append(d)
+            elif d == 0:
+                null_abstand += 1
             if status == "abgelehnt" and start and ende:
                 d2 = _tage(start, ende)
                 if d2 == 0:
@@ -232,8 +238,8 @@ def _kanal(a: dict) -> str:
     return "unklassifiziert"
 
 
-def kanal_auswertung(db: Any) -> dict:
-    apps = [a for a in db.get_applications()
+def kanal_auswertung(db: Any, apps: Optional[list] = None) -> dict:
+    apps = [a for a in (db.get_applications() if apps is None else apps)
             if (a.get("status") or "") != "in_vorbereitung"]
     kanaele: dict = {}
     for a in apps:
@@ -366,9 +372,10 @@ def _ablehnungs_kategorie(a: dict, events: list) -> str:
     return "sonstige_absage"
 
 
-def ablehnungs_kategorien(db: Any) -> dict:
+def ablehnungs_kategorien(db: Any, apps: Optional[list] = None) -> dict:
     events = _lade_events(db)
-    relevant = [a for a in db.get_applications()
+    alle = db.get_applications() if apps is None else apps
+    relevant = [a for a in alle
                 if (a.get("status") or "") in
                 ("abgelehnt", "abgelaufen", "arbeitgeber_ausgefallen")]
     kategorien: dict = {}
@@ -385,7 +392,7 @@ def ablehnungs_kategorien(db: Any) -> dict:
 
     gesamt = len(relevant)
     extern = len(kategorien.get("extern_bedingt", []))
-    submitted = sum(1 for a in db.get_applications()
+    submitted = sum(1 for a in alle
                     if (a.get("status") or "") != "in_vorbereitung")
     result = {
         "basis": gesamt,

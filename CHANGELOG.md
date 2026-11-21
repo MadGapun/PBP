@@ -42,6 +42,25 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## Unveröffentlicht (Hotfix 1.8.9) — Bewerbungsbericht: Zeitraum wirkt überall, eine Zahl je Quote, Sprache und Kosten sauber (#1337, #1420)
+
+> Stufe 1 des Neuentwurfs (#798): der Aufbau des Berichts bleibt, die Fehler sind behoben. Der Bericht ist das Dokument, das du der Agentur für Arbeit oder dem Jobcenter vorlegst.
+
+### Für dich als Anwender
+- **Der Zeitraum gilt für den ganzen Bericht.** Bei einem Bericht für einen Monat rechnen Zusammenfassung, Kennzahlen, Dauer, Quellen, Absagen, Kosten und das Excel-Blatt „Statistik“ nur mit den Bewerbungen dieses Monats (Probe: 6 von 24 Bewerbungen im Zeitraum, vorher standen in der Kanal-Tabelle 24 und im Excel „Bewerbungen gesamt 24“). Was an Stellen statt an Bewerbungen hängt (Punkte-Verteilung, Quellen-Volumen, offene Stellen, aussortierte Stellen), steht im Zeitraum-Bericht nicht als Zahl, sondern als Hinweis „nur im Bericht für den gesamten Verlauf“. Die Antwort an Claude nennt die Zahl der Bewerbungen im Zeitraum.
+- **Eine Zahl je Quote.** Interview-, Angebots- und Absagequote kommen überall aus derselben Rechnung: Zusammenfassung, Excel, Werkzeug und Dashboard. Vorher nannte der Bericht 0,0 % Angebote, das Excel 4,2 % und die Ablehnung zugleich 54,2 % „roh“ und 50,0 % „bereinigt“. Ein Arbeitgeber-Ausfall nach einem Angebot zählt als Angebot. Eine Absage ist eine mitgeteilte Absage; ein versandeter Vorgang steht getrennt.
+- **Eigene Bewerbungen zählen nicht als „aussortiert“.** Stellen, auf die du dich beworben hast, stehen nicht mehr unter den aussortierten Stellen.
+- **Fehlende Daten heißen „noch keine Angabe“** statt 0,0 oder „0.0 / 0.0 Tage“.
+- **Keine Umschrift, keine Rohwerte, nichts Abgeschnittenes.** Umlaute stehen richtig („Tätigkeitsbericht“, „begründet“, „überfällig“), Status, Gründe, Bewerbungsart und Quellen als Wort statt als Schlüssel (`arbeitgeber_ausgefallen`, `mit_dokumenten`), Tabellen brechen um („Zweitgespräch“, „Eingangsbestätigung“, „Bundesagentur für Arbeit“), Datum durchgehend TT.MM.JJJJ, Zahlen mit Komma („33,3 %“), Anrede du. Das PDF nutzt eine Schrift mit Euro-Zeichen und Sonderbuchstaben.
+- **Kosten als Einzelposten:** Datum, Art, Beschreibung, Betrag (63,30 €) und Summe, im PDF und als Blatt „Kosten“ im Excel; Reise aus Terminen steht dabei. Im Formular der Bewerbung gibt es ein Datum für die Kosten (Vorgabe heute), Beträge und Art stehen als Wort.
+- **„Punkte“ statt „Fit-Score“,** mit dem Satz, was die Punkte bedeuten. Die Nachfass-Tabelle nennt die Stelle, die Bewerbungsliste im Excel hat echte Datumszellen und einen Filter.
+
+### Technik
+- `services/bericht_zeitraum.py`: `quoten(apps)` (eine Rechnung, von `get_statistics`, PDF und Excel gelesen), `fuer_zeitraum(db, report_data, von, bis)`, `kosten_im_zeitraum`. `statistik_erweitert` (Dauer, Kanäle, Ablehnungs-Kategorien) nimmt die Bewerbungen des Zeitraums; Dauer mit Abstand 0 zählt nicht mehr als Messwert (#943).
+- Bezeichnungen aus `services/anzeigenamen.py` (neu: `followup_text`). Die Aussortier-Zählung nutzt `gruende_zaehlen`.
+- `scripts/ui_texte_pruefen.py` liest jetzt den PDF-Erzeuger samt einzelner Wörter (`BACKEND_EINZELWORTE`).
+- Wächter: `tests/test_v189_bericht_1337_1420.py` liest Text aus dem erzeugten PDF und Excel (4 von 25 im Zeitraum, feste Daten); Gegenprobe: 17 Eingriffe, alle erkannt.
+
 ## [1.8.8] - 2026-11-19 — Stellen-Tab und Statistik sind wieder schnell; Mails verlieren keine Termine mehr; Ehrenamt und Auszeiten im Lebenslauf; neue Zeiträume machen Bewertungen veraltet
 
 <!-- anwender -->
