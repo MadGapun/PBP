@@ -26,6 +26,8 @@ EINSTELLUNGEN = {
     "berater_kommentar_block": ("report_berater_kommentar_block", bool),
     # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
     "taetigkeitsbericht_mode": ("report_taetigkeitsbericht_mode", bool),
+    # #798: Kosten im Nachweis fuers Amt, Vorgabe aus (Datensparsamkeit)
+    "nachweis_kosten": ("report_nachweis_kosten", bool),
 }
 
 
@@ -60,6 +62,30 @@ def daten(db, zeitraum_von: str = "", zeitraum_bis: str = "") -> dict:
     return _bz.fuer_zeitraum(db, report_data, zeitraum_von, zeitraum_bis)
 
 
+def nachweis_erzeugen(db, pfad, zeitraum_von: str = "", zeitraum_bis: str = "") -> dict:
+    """Schreibt den Nachweis der Bewerbungsbemuehungen (#798) nach `pfad`.
+
+    Rueckgabe: die Inhalte des Nachweises (fuer Zaehler in der Antwort)."""
+    from .. import export_nachweis
+    from .nachweis_daten import nachweis_daten
+    report_settings = einstellungen(db)
+    inhalt = nachweis_daten(db, zeitraum_von, zeitraum_bis,
+                            mit_kosten=report_settings.get("nachweis_kosten", False))
+    name = (db.get_profile() or {}).get("name") or ""
+    export_nachweis.erzeugen(inhalt, name, pfad, report_settings)
+    return inhalt
+
+
+def auswertung_erzeugen(db, pfad, zeitraum_von: str = "", zeitraum_bis: str = "") -> dict:
+    """Schreibt die Auswertung fuer den Bewerber (#798) nach `pfad`."""
+    from .. import export_auswertung
+    from .auswertung_daten import auswertung_daten
+    inhalt = auswertung_daten(db, zeitraum_von, zeitraum_bis)
+    name = (db.get_profile() or {}).get("name") or ""
+    export_auswertung.erzeugen(inhalt, name, pfad)
+    return inhalt
+
+
 def erzeugen(db, pfad, format: str = "pdf", zeitraum_von: str = "",
              zeitraum_bis: str = "") -> dict:
     """Schreibt den Bericht nach `pfad`. `format`: 'pdf' oder 'excel'/'xlsx'.
@@ -72,6 +98,11 @@ def erzeugen(db, pfad, format: str = "pdf", zeitraum_von: str = "",
         generate_excel_report(report_data, profile, pfad,
                               zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
                               report_settings=report_settings)
+        try:
+            from .rohdaten import blaetter_ergaenzen
+            blaetter_ergaenzen(db, pfad, zeitraum_von, zeitraum_bis)
+        except Exception as exc:  # die Zusatzblaetter verhindern den Bericht nie
+            logger.warning("Rohdaten-Blaetter (#798) fehlgeschlagen: %s", exc)
     else:
         from ..export_report import generate_application_report
         generate_application_report(report_data, profile, pfad,

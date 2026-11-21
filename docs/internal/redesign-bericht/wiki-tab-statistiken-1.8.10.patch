@@ -1,0 +1,26 @@
+diff --git a/Tab-Statistiken.md b/Tab-Statistiken.md
+index 6eb48ac..983fc86 100644
+--- a/Tab-Statistiken.md
++++ b/Tab-Statistiken.md
+@@ -69,6 +69,21 @@ eine Prüfungsgebühr) und löschst falsche nach einer Rückfrage. Ein Posten
+ ohne Datum ist markiert, weil er in keinem Zeitraum zählt. Der Knopf „Kosten
+ prüfen“ neben den Berichts-Knöpfen springt dorthin.
+ 
++**Drei Dokumente auf der Statistik-Seite:** Oben wählst du einen Zeitraum. Er
++gilt für die Übersicht und für alle drei Knöpfe.
++
++- **Nachweis** ist für Agentur oder Jobcenter: was du getan hast, Tag für Tag,
++  mit Platz für die Unterschrift. Punkte, Bewertungen und Gründe einer Absage
++  stehen nicht darin. Kosten erscheinen nur, wenn du unter Einstellungen den
++  Haken „Kosten im Nachweis zeigen“ setzt.
++- **Auswertung** ist für dich: wie weit deine Bewerbungen kamen, welcher Weg zu
++  Gesprächen führt, wie lange es dauert und was jetzt ansteht.
++- **Rohdaten** ist eine Tabelle mit Bewerbungen, Ereignissen, Terminen, Kosten
++  und Kennzahlen zum Weiterrechnen.
++
++Bei wenigen Fällen stehen Anzahlen („3 von 4“) statt Prozent, eine mittlere
++Dauer erst ab drei Fällen.
++
+ 
+ ## Outcome-Quoten (beta.99, #682)
+ 

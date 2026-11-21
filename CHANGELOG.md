@@ -42,6 +42,95 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.10] - 2026-11-21 — Nachweis fürs Amt und Auswertung für dich: zwei Dokumente statt eines Berichts
+
+<!-- anwender -->
+Auf der Statistik-Seite gibt es jetzt zwei getrennte Dokumente: den Nachweis der Bewerbungsbemühungen für Agentur oder Jobcenter und die Auswertung für dich.
+Der Nachweis zeigt nur, was du getan hast, ohne Punkte, Bewertungen und Absagegründe.
+Die Statistik-Seite beantwortet oben vier Fragen für den gewählten Zeitraum: Wie steht es, was steht an, was funktioniert, was hat die Suche gebracht.
+Eine Antwort der Hilfe in der Seitenleiste verschwindet beim Start nicht mehr, und der Installer funktioniert auch aus PowerShell 7.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
+- Willst du Kosten im Nachweis zeigen, setze den Haken unter Einstellungen › Erweitert › Bewerbungsbericht. Ohne Haken bleiben sie draußen.
+
+**Neu und behoben (kurz)**
+
+- **Nachweis der Bewerbungsbemühungen** (#798): Liste der Bewerbungen, Aktivität je Woche, laufende Verfahren aus früheren Zeiträumen, „Was an welchem Tag geschah“, Platz für die Unterschrift. Jede Seite trägt Name, Zeitraum und Seitenzahl.
+- **Auswertung** (#798): Kennzahlen zuerst, dann wie weit die Bewerbungen kamen, welcher Weg zu Gesprächen führt, wie Verfahren endeten, wie lange es dauert und was ansteht.
+- **Statistik-Seite** (#798): ein Zeitraum für die Übersicht und alle Dokumente, Knöpfe Nachweis, Auswertung und Rohdaten. Die älteren Diagramme stehen darunter und sagen, dass sie teils den gesamten Verlauf zeigen.
+- **Ehrliche Zahlen bei wenigen Fällen** (#798): unter 10 Fällen Anzahlen statt Prozent, eine mittlere Dauer erst ab 3 Fällen und immer mit Spanne. Was sich nicht belastbar sagen lässt, wird genannt statt geschätzt.
+- **Rohdaten** (#798): Die Excel-Datei hat zusätzlich die Blätter Ereignisse, Termine und Kennzahlen.
+- **Die Hilfe verliert keine Antwort mehr** (#1428): Traf dein Profil beim Start erst nach der Antwort ein, verschwand sie aus der Seitenleiste.
+- **Installer aus PowerShell 7** (#1425): Das Entpacken von Python scheiterte, wenn der Installer aus PowerShell 7 gestartet wurde.
+
+### Added
+
+- #798: Datenkern, Nachweis der Bewerbungsbemühungen, Auswertung, neue Übersicht der Statistik-Seite, Rohdaten-Blätter.
+
+### Fixed
+
+- #1425: Installer entpackt Python auch aus PowerShell 7.
+- #1428: Die Seitenleiste verliert beim Start keine Antwort der Hilfe.
+
+### Technik
+
+- `services/bericht_daten.py` (Datenkern: Wert, Anzahl, Basis, Bezug, Zustand), `services/nachweis_daten.py`, `services/auswertung_daten.py`, `services/rohdaten.py`, `export_nachweis.py`, `export_auswertung.py`; Endpunkte `/api/bericht/nachweis`, `/api/bericht/auswertung`, `/api/bericht/kennzahlen`; `bewerbungsbericht_exportieren(art=...)`.
+- Musterprofil: Ereignisse über die Zeit verteilt, ohne „Fiktive Musterstelle“ im Text.
+- Gegenprobe: 14 Eingriffe in den Datenkern, 13 in Nachweis, Auswertung und Rohdaten, alle erkannt (einer erst nach einem zusätzlichen Test).
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10696 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.10.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.10.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.10 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.10` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.9] - 2026-11-21 — Der Bewerbungsbericht stimmt jetzt: Zeitraum, Quoten, Kosten und Sprache
 
 <!-- anwender -->

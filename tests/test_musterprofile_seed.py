@@ -192,3 +192,30 @@ def test_interview_reflexionen_vorhanden(geseedet):
             "SELECT COUNT(*) FROM interview_reflections WHERE profile_id=?",
             pid,
         ) >= 2
+
+
+def test_ereignisse_verteilen_sich_ueber_die_zeit_798(tmp_path, monkeypatch):
+    """#798: Ereignisse tragen nicht mehr alle den Zeitpunkt des Anlegens."""
+    import importlib.util
+    from pathlib import Path
+    monkeypatch.setenv("BA_DATA_DIR", str(tmp_path))
+    from bewerbungs_assistent.database import Database
+    from bewerbungs_assistent.services.auswertung_daten import auswertung_daten
+    pfad = Path(__file__).resolve().parents[1] / "docs" / "screenshots" / "musterprofile.py"
+    spec = importlib.util.spec_from_file_location("musterprofile_798", pfad)
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    db = Database(db_path=tmp_path / "muster.db")
+    db.initialize()
+    assert str(tmp_path) in str(db.db_path), f"DB nicht isoliert: {db.db_path}"
+    try:
+        modul.seed_bob(db)
+        tage = {r[0][:10] for r in db.connect().execute(
+            "SELECT event_date FROM application_events").fetchall()}
+        assert len(tage) > 10
+        d = auswertung_daten(db)
+        assert d["dauer"]["bis_antwort"]["zustand"] == "wert"
+        texte = " ".join(r[0] or "" for r in db.connect().execute("SELECT description FROM jobs").fetchall())
+        assert "Fiktive Musterstelle" not in texte
+    finally:
+        db.close()

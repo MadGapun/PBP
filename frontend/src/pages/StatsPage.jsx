@@ -23,6 +23,7 @@ import LearningInsightsCard from "@/components/LearningInsightsCard";
 import { grundText, quelleText } from "@/lib/anzeige";
 import KostenBlock from "@/components/KostenBlock";
 import MitClaude from "@/components/MitClaude";
+import StatistikKern from "@/components/StatistikKern";
 import {
   Badge,
   Button,
@@ -95,6 +96,26 @@ function buildExportUrl(format, timeRange, customFrom, customTo) {
     if (to) params.set("to", to);
   }
   return `/api/applications/export?${params.toString()}`;
+}
+
+// #798: ein Zeitraum fuer die Uebersicht und alle drei Dokumente.
+function gewaehlterZeitraum(timeRange, customFrom, customTo) {
+  if (customFrom || customTo) return { from: customFrom, to: customTo };
+  return resolveTimeRangeDates(timeRange);
+}
+
+function dokumentUrl(art, timeRange, customFrom, customTo) {
+  const { from, to } = gewaehlterZeitraum(timeRange, customFrom, customTo);
+  const abfrage = new URLSearchParams();
+  if (from) abfrage.set("from", from);
+  if (to) abfrage.set("to", to);
+  const text = abfrage.toString();
+  return `/api/bericht/${art}${text ? `?${text}` : ""}`;
+}
+
+function gewaehlterZeitraumProps(timeRange, customFrom, customTo) {
+  const { from, to } = gewaehlterZeitraum(timeRange, customFrom, customTo);
+  return { von: from, bis: to };
 }
 
 function ChartCard({ title, children }) {
@@ -434,12 +455,23 @@ export default function StatsPage() {
           </a>
           <LinkButton
             size="sm"
-            href={apiUrl(buildExportUrl("pdf", timeRange, customFrom, customTo))}
+            href={apiUrl(dokumentUrl("nachweis", timeRange, customFrom, customTo))}
             target="_blank"
             rel="noreferrer"
+            title="Für Agentur oder Jobcenter: nur was du getan hast, ohne Punkte und Bewertungen"
           >
             <Download size={14} />
-            PDF
+            Nachweis
+          </LinkButton>
+          <LinkButton
+            size="sm"
+            href={apiUrl(dokumentUrl("auswertung", timeRange, customFrom, customTo))}
+            target="_blank"
+            rel="noreferrer"
+            title="Für dich: was läuft, was ansteht und was funktioniert"
+          >
+            <Download size={14} />
+            Auswertung
           </LinkButton>
           <LinkButton
             size="sm"
@@ -448,14 +480,14 @@ export default function StatsPage() {
             rel="noreferrer"
           >
             <Download size={14} />
-            Excel
+            Rohdaten
           </LinkButton>
         </div>
       </div>
 
       {/* v1.6.6 (#540): manueller Zeitraum fuer den Bericht-Export */}
       <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-muted">
-        <span>Bericht-Zeitraum manuell:</span>
+        <span>Zeitraum von Hand:</span>
         <input
           type="date"
           value={customFrom}
@@ -481,9 +513,11 @@ export default function StatsPage() {
           </button>
         )}
         <span className="ml-2 text-xs text-muted">
-          (überschreibt die Preset-Auswahl oben — leer = Preset gilt)
+          (gilt statt der Auswahl oben; leer = die Auswahl gilt)
         </span>
       </div>
+
+      <StatistikKern {...gewaehlterZeitraumProps(timeRange, customFrom, customTo)} />
 
       <KostenBlock />
 

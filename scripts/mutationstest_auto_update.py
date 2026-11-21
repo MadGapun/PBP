@@ -2751,7 +2751,7 @@ M_STROM = [
     ("ev19", "Eine Liste ohne Messung (Ausblenden, gelesen) zieht den Menschen ans Ende", STROM_LEISTE,
      "    const folgt = warAmEnde.current === true;\n", "    const folgt = warAmEnde.current !== false;\n", T_STROM_MARKE + T_STROM_FRAGE),
     ("ev20", "Nach einem Profilwechsel beginnt die Seitenleiste nicht neu (die Liste des anderen Profils gilt als neu)", STROM_APP,
-     '                key={activeProfileId || "kein-profil"}\n', "", T_STROM_PROFIL + T_STROM_QUELLTEXT),
+     '                key={`elwosa-${chatStandRef.current.nr}`}\n', "", T_STROM_PROFIL + T_STROM_QUELLTEXT),
 ]
 KATALOGE["elwosa_strom1256"] = M_STROM
 GRUNDLAEUFE["elwosa_strom1256"] = (("T_STROM_MARKE", T_STROM_MARKE), ("T_STROM_ENDE", T_STROM_ENDE), ("T_STROM_SPRUNG", T_STROM_SPRUNG),
