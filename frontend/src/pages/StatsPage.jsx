@@ -21,6 +21,7 @@ import { api, apiUrl, optionalApi } from "@/api";
 import { useApp } from "@/app-context";
 import LearningInsightsCard from "@/components/LearningInsightsCard";
 import { grundText, quelleText } from "@/lib/anzeige";
+import KostenBlock from "@/components/KostenBlock";
 import MitClaude from "@/components/MitClaude";
 import {
   Badge,
@@ -297,6 +298,9 @@ export default function StatsPage() {
 
   if (loading) return <LoadingPanel label="Statistiken werden geladen..." />;
 
+  // #1423: ein manueller Zeitraum gilt statt der Vorauswahl; die Vorauswahl zeigt sich dann nicht als aktiv.
+  const manuellerZeitraum = Boolean(customFrom || customTo);
+
   // --- Timeline chart data ---
   // beta.33 / User-Feedback: laufende Periode NICHT mehr wegfiltern
   // (User: "wir sind schon KW 17, Statistik geht aber nur bis KW 15").
@@ -399,7 +403,7 @@ export default function StatsPage() {
               type="button"
               onClick={() => { setTimeRange(preset.value); if (preset.value === "" && granularity !== "all") setGranularity("all"); if (preset.value !== "" && granularity === "all") setGranularity("month"); }}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                timeRange === preset.value
+                !manuellerZeitraum && timeRange === preset.value
                   ? "bg-sky/15 text-sky"
                   : "text-muted hover:text-ink hover:bg-white/[0.04]"
               }`}
@@ -421,6 +425,13 @@ export default function StatsPage() {
             <option value="year">Jährlich</option>
             <option value="all">Komplett</option>
           </SelectInput>
+          <a
+            href="#kosten"
+            onClick={(e) => { e.preventDefault(); document.getElementById("kosten")?.scrollIntoView({ behavior: "smooth" }); }}
+            className="text-xs text-muted underline hover:text-ink"
+          >
+            Kosten prüfen
+          </a>
           <LinkButton
             size="sm"
             href={apiUrl(buildExportUrl("pdf", timeRange, customFrom, customTo))}
@@ -473,6 +484,8 @@ export default function StatsPage() {
           (überschreibt die Preset-Auswahl oben — leer = Preset gilt)
         </span>
       </div>
+
+      <KostenBlock />
 
       {/* U8 (#1170): ohne Stellen und ohne Bewerbungen war das hier eine Wand aus Nullen („0 EUR“, „k.A.“) ohne ein erklärendes Wort. */}
       {!hasData && !(Number(totals.jobs_ever) > 0 || Number(appStats.total) > 0) ? (
