@@ -51,6 +51,7 @@ import HilfeFrage from "@/components/HilfeFrage";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
 import Sidebar from "@/components/Sidebar";
 import ElwosaSidebarChat from "@/components/ElwosaSidebarChat";
+import { chatStand } from "@/lib/elwosaStrom";
 import MitClaude from "@/components/MitClaude";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
 import ApplicationsPage from "@/pages/ApplicationsPage";
@@ -1245,6 +1246,9 @@ export default function App() {
   const readiness = chrome.workspace?.readiness || DEFAULT_WORKSPACE.readiness;
   const profileOptions = normalizeProfiles(chrome.profiles);
   const activeProfileId = chrome.profile?.id || profileOptions.find((item) => item.is_active)?.id || "";
+  // #1428: der Schluessel des Chats wechselt nur bei einem echten Profilwechsel
+  const chatStandRef = useRef({ id: "", nr: 0 });
+  chatStandRef.current = chatStand(chatStandRef.current, activeProfileId);
   const profileOptionIds = new Set(profileOptions.map((item) => item.id));
   const selectedProfileId = profileOptionIds.has(activeProfileId)
     ? activeProfileId
@@ -1526,7 +1530,7 @@ export default function App() {
                   #1256: die Kennungen der Nachrichten laufen ueber alle Profile, die Liste zeigt nur die des aktiven: nach einem Profilwechsel beginnt
                   die Seitenleiste neu (sonst gilt die Liste des anderen Profils als "neu", und die alte stuende bis zum naechsten Takt noch da). */}
               <ElwosaSidebarChat
-                key={activeProfileId || "kein-profil"}
+                key={`elwosa-${chatStandRef.current.nr}`}
                 className="flex-1 min-h-0"
                 collapsed={sidebarCollapsed}
                 onToast={pushToast}

@@ -1,5 +1,5 @@
 // #1256 (F58): was im Elwosa-Strom NEU ist. Kein Framework, kein Server.
-import { hoechsteKennung, neueNachrichten } from "./elwosaStrom.js";
+import { chatStand, hoechsteKennung, neueNachrichten } from "./elwosaStrom.js";
 
 let fehler = 0;
 function check(name, ist, soll) {
@@ -45,6 +45,14 @@ check("nach dem Loeschen zaehlt die naechste", neueNachrichten(13, liste(14)), {
 check("Zeile ohne Kennung ist nie neu", neueNachrichten(5, [{ id: null }, {}, { id: 6 }]), { anzahl: 1, hoechste: 6 });
 check("keine Liste", neueNachrichten(5, null), { anzahl: 0, hoechste: 5 });
 check("die Kennung allein entscheidet, nicht die Reihenfolge", neueNachrichten(10, liste(14, 3, 11, 9)), { anzahl: 2, hoechste: 14 });
+
+// ── #1428: nur ein echter Profilwechsel baut den Chat neu auf ──
+const start = chatStand({ id: "", nr: 0 }, "a");
+check("das erste Bekanntwerden ist kein Wechsel", start, { id: "a", nr: 0 });
+check("dieselbe Kennung bleibt", chatStand(start, "a"), start);
+check("kurz keine Kennung ist kein Wechsel", chatStand(start, ""), start);
+check("ein anderes Profil ist ein Wechsel", chatStand(start, "b"), { id: "b", nr: 1 });
+check("und zurueck wieder", chatStand(chatStand(start, "b"), "a"), { id: "a", nr: 2 });
 
 if (fehler) { console.error(`${fehler} Fehler`); process.exit(1); }
 console.log("elwosaStrom.test.mjs: ok");

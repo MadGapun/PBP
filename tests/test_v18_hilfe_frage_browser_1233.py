@@ -253,11 +253,16 @@ def test_die_frage_bleibt_nirgends_liegen(live, browser):
 def _ki_status(seite, ai_state):
     """Der Status der lokalen KI wie ihn die Seitenleiste liest - die Suite hat kein Ollama."""
     def behandeln(route):
-        antwort = route.fetch()
-        daten = antwort.json()
-        daten["ai_state"] = ai_state
-        daten["is_active"] = ai_state == "active"
-        route.fulfill(response=antwort, json=daten)
+        # #1428: Die Seite fragt laufend nach; schliesst der Test den Kontext mitten
+        # in einer Anfrage, ist die Antwort nicht mehr lesbar. Das ist kein Befund.
+        try:
+            antwort = route.fetch()
+            daten = antwort.json()
+            daten["ai_state"] = ai_state
+            daten["is_active"] = ai_state == "active"
+            route.fulfill(response=antwort, json=daten)
+        except PlaywrightError:
+            pass
     seite.route("**/api/elwosa/status", behandeln)
 
 
@@ -303,6 +308,33 @@ def test_in_der_seitenleiste_erscheint_die_antwort_kompakt_mit_wegen(live, brows
             assert antwort.locator("[data-hilfe-karte]").count() > 1
         verlauf.locator('[data-hilfe-aktion="oeffnen"]').first.click()
         seite.wait_for_function("() => location.hash.startsWith('#einstellungen')")
+    finally:
+        kontext.close()
+
+
+def test_die_antwort_bleibt_stehen_wenn_das_profil_spaet_eintrifft_1428(live, browser):
+    kontext = browser.new_context(viewport={"width": 1440, "height": 960})
+    seite = kontext.new_page()
+    seite.add_init_script(KOPIEREN)
+    _ki_status(seite, "active")
+    gehalten = []
+    for muster in ("**/api/profiles", "**/api/profile"):
+        seite.route(muster, lambda route: gehalten.append(route))
+    try:
+        seite.goto(live["url"] + "#dashboard", wait_until="domcontentloaded")
+        leiste = seite.locator("[data-sidebar-hilfe]")
+        leiste.wait_for(state="visible", timeout=15000)
+        _fragen(seite, leiste, "Wie aktualisiere ich PBP?")
+        antwort = seite.locator('[data-elwosa-liste] [data-hilfe-antwort="gefunden"]')
+        antwort.wait_for(state="visible")
+        assert gehalten, "die Profilantwort sollte noch ausstehen"
+        for muster in ("**/api/profiles", "**/api/profile"):
+            seite.unroute(muster)
+        with seite.expect_response("**/api/user-preferences/profile_onboarding_started_*"):
+            for route in gehalten:
+                route.continue_()
+        seite.wait_for_timeout(600)
+        expect(antwort, "die Antwort ging beim Eintreffen des Profils verloren").to_have_count(1)
     finally:
         kontext.close()
 
