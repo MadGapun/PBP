@@ -42,6 +42,93 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.9] - 2026-11-21 — Der Bewerbungsbericht stimmt jetzt: Zeitraum, Quoten, Kosten und Sprache
+
+<!-- anwender -->
+Der Bewerbungsbericht ist das Dokument, das du der Agentur für Arbeit oder dem Jobcenter vorlegst, und er stimmt jetzt.
+Für einen Zeitraum rechnen alle Zahlen nur mit den Bewerbungen dieses Zeitraums, und jede Quote hat überall denselben Wert.
+Kosten stehen als Einzelposten mit Datum im Bericht, und im Dashboard gibt es unter „Statistiken“ einen Ort, an dem du sie anlegst, ansiehst und löschst.
+Statt Umschrift und Rohwerten steht lesbarer Text, und wo die Grundlage für eine Zahl fehlt, steht „noch keine Angabe“.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
+
+**Neu und behoben (kurz)**
+
+- **Der Zeitraum gilt für den ganzen Bericht.** Bei einem Bericht für einen Monat rechnen Zusammenfassung, Kennzahlen, Dauer, Quellen, Absagen, Kosten und das Excel-Blatt „Statistik“ nur mit den Bewerbungen dieses Monats (Probe: 6 von 24 Bewerbungen im Zeitraum, vorher standen in der Kanal-Tabelle 24 und im Excel „Bewerbungen gesamt 24“). Was an Stellen statt an Bewerbungen hängt (Punkte-Verteilung, Quellen-Volumen, offene Stellen, aussortierte Stellen), steht im Zeitraum-Bericht nicht als Zahl, sondern als Hinweis „nur im Bericht für den gesamten Verlauf“. Die Antwort an Claude nennt die Zahl der Bewerbungen im Zeitraum.
+- **Eine Zahl je Quote.** Interview-, Angebots- und Absagequote kommen überall aus derselben Rechnung: Zusammenfassung, Excel, Werkzeug und Dashboard. Vorher nannte der Bericht 0,0 % Angebote, das Excel 4,2 % und die Ablehnung zugleich 54,2 % „roh“ und 50,0 % „bereinigt“. Ein Arbeitgeber-Ausfall nach einem Angebot zählt als Angebot. Eine Absage ist eine mitgeteilte Absage; ein versandeter Vorgang steht getrennt.
+- **Eigene Bewerbungen zählen nicht als „aussortiert“.** Stellen, auf die du dich beworben hast, stehen nicht mehr unter den aussortierten Stellen.
+- **Fehlende Daten heißen „noch keine Angabe“** statt 0,0 oder „0.0 / 0.0 Tage“.
+- **Keine Umschrift, keine Rohwerte, nichts Abgeschnittenes.** Umlaute stehen richtig („Tätigkeitsbericht“, „begründet“, „überfällig“), Status, Gründe, Bewerbungsart und Quellen als Wort statt als Schlüssel (`arbeitgeber_ausgefallen`, `mit_dokumenten`), Tabellen brechen um („Zweitgespräch“, „Eingangsbestätigung“, „Bundesagentur für Arbeit“), Datum durchgehend TT.MM.JJJJ, Zahlen mit Komma („33,3 %“), Anrede du. Das PDF nutzt eine Schrift mit Euro-Zeichen und Sonderbuchstaben.
+- **Kosten als Einzelposten:** Datum, Art, Beschreibung, Betrag (63,30 €) und Summe, im PDF und als Blatt „Kosten“ im Excel; Reise aus Terminen steht dabei. Im Formular der Bewerbung gibt es ein Datum für die Kosten (Vorgabe heute), Beträge und Art stehen als Wort.
+- **„Punkte“ statt „Fit-Score“,** mit dem Satz, was die Punkte bedeuten. Die Nachfass-Tabelle nennt die Stelle, die Bewerbungsliste im Excel hat echte Datumszellen und einen Filter.
+- **Kosten ohne Bewerbung im Dashboard** (#1422): Unter „Statistiken“ gibt es den Block „Kosten für den Bericht“: alle Posten mit Datum, Art, Beschreibung und Betrag, die Summe, Anlegen und Löschen (mit Nachfrage). Posten ohne Datum sind markiert („zählt in keinem Zeitraum“). Der Knopf „Kosten prüfen“ neben PDF und Excel führt dorthin.
+- **Statistik-Seite: Vorauswahl und manueller Zeitraum widersprechen sich nicht mehr** (#1423): Ist ein Zeitraum von Hand gesetzt, zeigt sich keine Vorauswahl („Alles“, „30 Tage“) mehr als aktiv.
+
+### Fixed
+
+- #1337 (Statistik und Bericht rechnen mit demselben Zeitraum und derselben Quote: Punkte 1 bis 4 und die Kleinigkeiten), #1420 (B1 bis B3, B4.1 bis B4.5, B5, B6, B7.1 und B7.2), #1422, #1423 wie oben. Offen bleibt in #1337 die Statistik-Seite, die noch nicht aus derselben Funktion liest (Stufen 2 bis 4 des Neuentwurfs, #798).
+
+### Technik
+
+- `services/bericht_zeitraum.py`: `quoten(apps)` (eine Rechnung, von `get_statistics`, PDF und Excel gelesen), `fuer_zeitraum(db, report_data, von, bis)`, `kosten_im_zeitraum`. `statistik_erweitert` (Dauer, Kanäle, Ablehnungs-Kategorien) nimmt die Bewerbungen des Zeitraums; Dauer mit Abstand 0 zählt nicht mehr als Messwert (#943).
+- Bezeichnungen aus `services/anzeigenamen.py` (neu: `followup_text`). Die Aussortier-Zählung nutzt `gruende_zaehlen`.
+- `scripts/ui_texte_pruefen.py` liest jetzt den PDF-Erzeuger samt einzelner Wörter (`BACKEND_EINZELWORTE`).
+- Wächter: `tests/test_v189_bericht_1337_1420.py` liest Text aus dem erzeugten PDF und Excel (4 von 25 im Zeitraum, feste Daten); Gegenprobe: 17 Eingriffe, alle erkannt.
+- `GET/POST /api/costs` (alle Posten des Profils, Anlegen ohne Bewerbung mit Prüfung von Betrag und Datum); `frontend/src/components/KostenBlock.jsx`. Wächter: `tests/test_v189_kosten_1422_1423.py` (Browser gegen das gebaute Bundle; Gegenprobe der Vorauswahl-Korrektur bestätigt).
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10647 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.9.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.9.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.9 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.9` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.8] - 2026-11-19 — Stellen-Tab und Statistik sind wieder schnell; Mails verlieren keine Termine mehr; Ehrenamt und Auszeiten im Lebenslauf; neue Zeiträume machen Bewertungen veraltet
 
 <!-- anwender -->

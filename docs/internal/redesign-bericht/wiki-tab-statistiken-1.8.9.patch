@@ -1,0 +1,36 @@
+diff --git a/Tab-Statistiken.md b/Tab-Statistiken.md
+index 5155f8c..d664dd3 100644
+--- a/Tab-Statistiken.md
++++ b/Tab-Statistiken.md
+@@ -45,6 +45,31 @@ Tool: `bewerbungsbericht_exportieren`.
+ > zuverlaessig ist, kommen nicht in den Bericht. Lieber eine Sektion
+ > weglassen als eine irrefuehrende Zahl drucken.
+ 
++**Bericht für einen Zeitraum:** Wählst du einen Zeitraum, gelten alle
++Zahlen im Bericht nur für die Bewerbungen dieses Zeitraums:
++Zusammenfassung, Kennzahlen, Dauer, Wege, Absagen und Kosten. Was an
++Anzeigen statt an Bewerbungen hängt (Punkte-Verteilung, aussortierte
++und offene Anzeigen, Quellen-Volumen), steht dort als Hinweis „nur
++im Bericht für den gesamten Verlauf“ und nicht als Zahl. Fehlt die
++Grundlage für eine Zahl, steht „noch keine Angabe“ statt 0.
++
++**Kosten** erscheinen als Einzelposten mit Datum, Art, Beschreibung und
++Betrag samt Summe. Trägst du Kosten bei einer Bewerbung ein, gibt es ein
++Datum dafür (Vorgabe: heute); ohne Datum lassen sich Kosten keinem
++Zeitraum zuordnen. Die Reisekosten zu Terminen stehen dabei.
++
++**Punkte:** Der Bericht nennt die Zahl „Punkte“ und sagt dazu, was sie
++bedeutet: wie gut eine Anzeige deine Suchbegriffe trifft, kein Urteil
++darüber, ob du passt.
++
++**Kosten prüfen:** Unter dem Zeitraum-Feld gibt es den Block „Kosten für den
++Bericht“. Dort stehen alle Kostenposten mit Datum, Art, Beschreibung und
++Betrag samt Summe; du legst neue an (auch ohne Bewerbung, etwa ein Abo oder
++eine Prüfungsgebühr) und löschst falsche nach einer Rückfrage. Ein Posten
++ohne Datum ist markiert, weil er in keinem Zeitraum zählt. Der Knopf „Kosten
++prüfen“ neben den Berichts-Knöpfen springt dorthin.
++
++
+ ## Outcome-Quoten (beta.99, #682)
+ 
+ Eine eigene Kachel zeigt fuenf Quoten — **Abgelaufen, Abgelehnt,
