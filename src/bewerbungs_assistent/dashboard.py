@@ -3292,7 +3292,7 @@ async def api_set_report_settings(request: Request):
                 )
             _db.set_profile_setting(f"report_{key}", val)
             out[key] = val
-    for bool_key in ("arbeitsamt_block_enabled", "berater_kommentar_block", "taetigkeitsbericht_mode"):
+    for bool_key in ("nachweis_kosten", "arbeitsamt_block_enabled", "berater_kommentar_block", "taetigkeitsbericht_mode"):
         if bool_key in data:
             flag = bool(data[bool_key])
             _db.set_profile_setting(f"report_{bool_key}", flag)
@@ -5419,6 +5419,36 @@ def api_export_applications(
         filename="Bewerbungsbericht.pdf",
         media_type="application/pdf"
     )
+
+
+@app.get("/api/bericht/nachweis")
+def api_bericht_nachweis(to: str = "", request: Request = None):
+    """Nachweis der Bewerbungsbemuehungen als PDF (#798); `from` und `to` optional."""
+    from .services import bericht as _bericht
+    von = (request.query_params.get("from") if request else "") or ""
+    path = ablage.freier_pfad(ablage.ausgabe_ordner(_db), "nachweis-bewerbungen.pdf")
+    _bericht.nachweis_erzeugen(_db, path, von, to or "")
+    return FileResponse(str(path), filename="Nachweis-Bewerbungen.pdf",
+                        media_type="application/pdf")
+
+
+@app.get("/api/bericht/auswertung")
+def api_bericht_auswertung(to: str = "", request: Request = None):
+    """Auswertung fuer den Bewerber als PDF (#798); `from` und `to` optional."""
+    from .services import bericht as _bericht
+    von = (request.query_params.get("from") if request else "") or ""
+    path = ablage.freier_pfad(ablage.ausgabe_ordner(_db), "auswertung-bewerbungen.pdf")
+    _bericht.auswertung_erzeugen(_db, path, von, to or "")
+    return FileResponse(str(path), filename="Auswertung-Bewerbungen.pdf",
+                        media_type="application/pdf")
+
+
+@app.get("/api/bericht/kennzahlen")
+def api_bericht_kennzahlen(to: str = "", request: Request = None):
+    """Dieselben Zahlen wie die Auswertung, fuer die Statistik-Seite (#798)."""
+    from .services.auswertung_daten import auswertung_daten
+    von = (request.query_params.get("from") if request else "") or ""
+    return auswertung_daten(_db, von, to or "")
 
 
 @app.get("/api/datenguete/umgang")

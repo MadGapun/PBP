@@ -100,9 +100,20 @@ def datum_text(wert) -> str:
     return f"{m.group(3)}.{m.group(2)}.{m.group(1)}" if m else roh
 
 
+#: Wege, die keine Quelle der Registry sind (#798: sonst stand der Rohwert da).
+EIGENE_WEGE = {
+    "manuell": "Selbst eingetragen", "direkt": "Direkt beim Arbeitgeber",
+    "firmenwebsite": "Firmenwebsite", "initiativ": "Initiativbewerbung", "email": "E-Mail",
+    "netzwerk": "Netzwerk", "kontakt": "Kontakt", "empfehlung": "Empfehlung",
+    "persoenlich": "Persönlicher Kontakt",
+}
+
+
 def quelle_text(schluessel) -> str:
     """Der Name einer Quelle aus der Registry, sonst der Schluessel."""
     roh = str(schluessel or "").strip()
+    if roh.lower() in EIGENE_WEGE:
+        return EIGENE_WEGE[roh.lower()]
     try:
         from ..job_scraper import SOURCE_REGISTRY
         eintrag = SOURCE_REGISTRY.get(roh)

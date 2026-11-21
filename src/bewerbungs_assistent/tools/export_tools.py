@@ -466,7 +466,8 @@ def register(mcp, db, logger):
     def bewerbungsbericht_exportieren(
         format: str = "pdf",
         zeitraum_von: str = "",
-        zeitraum_bis: str = ""
+        zeitraum_bis: str = "",
+        art: str = "bericht"
     ) -> dict:
         """Exportiert einen professionellen Bewerbungsbericht als PDF oder Excel (#173).
 
@@ -480,7 +481,35 @@ def register(mcp, db, logger):
             format: 'pdf' (Standard) oder 'excel'
             zeitraum_von: Optional: Start-Datum (YYYY-MM-DD)
             zeitraum_bis: Optional: End-Datum (YYYY-MM-DD)
+            art: 'bericht' (Standard), 'nachweis' (fürs Amt, PDF, ohne Punkte und
+                Bewertungen) oder 'auswertung' (für dich, PDF)
         """
+        if art not in ("bericht", "nachweis", "auswertung"):
+            return {"status": "fehler",
+                    "nachricht": "art ist 'bericht', 'nachweis' oder 'auswertung'."}
+        if art == "auswertung":
+            from ..services import bericht as _bericht
+            export_dir = ablage.ausgabe_ordner(db)
+            name_slug = ablage.dateiname_teil((db.get_profile() or {}).get("name") or "profil")
+            path = ablage.freier_pfad(export_dir, f"auswertung_{name_slug}.pdf")
+            inhalt = _bericht.auswertung_erzeugen(db, path, zeitraum_von, zeitraum_bis)
+            return {
+                "status": "erstellt", "art": "auswertung", "datei": str(path), "format": "pdf",
+                "bewerbungen": len(inhalt["bewerbungen"]), "ordner": str(export_dir),
+                "nachricht": f"Auswertung exportiert: {path.name}. " + ablage.ziel_hinweis(db, path),
+            }
+        if art == "nachweis":
+            from ..services import bericht as _bericht
+            export_dir = ablage.ausgabe_ordner(db)
+            name_slug = ablage.dateiname_teil((db.get_profile() or {}).get("name") or "profil")
+            path = ablage.freier_pfad(export_dir, f"nachweis_{name_slug}.pdf")
+            inhalt = _bericht.nachweis_erzeugen(db, path, zeitraum_von, zeitraum_bis)
+            return {
+                "status": "erstellt", "art": "nachweis", "datei": str(path), "format": "pdf",
+                "bewerbungen": len(inhalt["bewerbungen"]), "ordner": str(export_dir),
+                "nachricht": f"Nachweis der Bewerbungsbemühungen exportiert: {path.name}. "
+                             + ablage.ziel_hinweis(db, path),
+            }
         # #1111: derselbe Weg wie der Knopf im Dashboard — Einstellungen,
         # Taetigkeitsbericht und Beginn der PBP-Nutzung inklusive.
         from ..services import bericht as _bericht

@@ -60,12 +60,37 @@ def _job_hash(url):
     return hashlib.md5(url.encode()).hexdigest()[:12]
 
 
-def _apply_flow(db, app_id, flow):
-    """Wendet eine Status-Kette [(status, notes, rejection_reason), ...] an."""
-    for schritt in flow:
+#: Abstand in Tagen je Schritt einer Status-Kette (fest, damit der Seed gleich bleibt).
+_SCHRITT_TAGE = (3, 6, 4, 9, 5, 7)
+
+
+def _apply_flow(db, app_id, flow, tage=0):
+    """Wendet eine Status-Kette [(status, notes, rejection_reason), ...] an.
+
+    `tage`: vor wie vielen Tagen die Bewerbung abging. Die Ereignisse verteilen
+    sich danach ueber die Zeit und enden spaetestens heute (#798: vorher trugen
+    alle den Zeitpunkt des Anlegens, die Dauer im Bericht war deshalb leer).
+    """
+    conn = db.connect()
+    vorher = {r[0] for r in conn.execute(
+        "SELECT id FROM application_events WHERE application_id=?", (app_id,)).fetchall()}
+    conn.execute("UPDATE application_events SET event_date=? WHERE application_id=?",
+                 (_tag(tage, hour=9), app_id))
+    rest = tage
+    for i, schritt in enumerate(flow):
         status, notes = schritt[0], schritt[1]
         grund = schritt[2] if len(schritt) > 2 else ""
         db.update_application_status(app_id, status, notes, rejection_reason=grund)
+        abstand = _SCHRITT_TAGE[(len(app_id) + i + tage) % len(_SCHRITT_TAGE)]
+        rest = max(0, rest - min(abstand, max(1, rest // max(1, len(flow) - i))))
+        neu = [r[0] for r in conn.execute(
+            "SELECT id FROM application_events WHERE application_id=?", (app_id,)).fetchall()
+            if r[0] not in vorher]
+        for ereignis in neu:
+            conn.execute("UPDATE application_events SET event_date=? WHERE id=?",
+                         (_tag(rest, hour=10 + i % 6), ereignis))
+            vorher.add(ereignis)
+    conn.commit()
 
 
 def _dokumente(db, eintraege):
@@ -407,7 +432,7 @@ def seed_bob(db):
             "source": quelle, "score": score, "remote_level": remote,
             "salary_min": gmin, "salary_max": gmax, "salary_type": "jaehrlich",
             "employment_type": "festanstellung",
-            "description": beschr + " Fiktive Musterstelle für Demo-Zwecke.",
+            "description": beschr,
             "found_at": (now - timedelta(days=tage)).isoformat(),
             "_manual_entry": True,
         })
@@ -506,7 +531,7 @@ def seed_bob(db):
             data["job_hash"] = jobs[job_idx]["hash"]
         app_id = db.add_application(data)
         app_ids[(titel, firma)] = app_id
-        _apply_flow(db, app_id, flow)
+        _apply_flow(db, app_id, flow, tage)
         if fu_tage is not None:
             db.add_follow_up(app_id, _tag(-fu_tage), "nachfass")
 
@@ -961,7 +986,7 @@ def seed_anna(db):
             "source": quelle, "score": score, "remote_level": remote,
             "salary_min": gmin, "salary_max": gmax, "salary_type": "jaehrlich",
             "employment_type": "festanstellung",
-            "description": beschr + " Fiktive Musterstelle für Demo-Zwecke.",
+            "description": beschr,
             "found_at": (now - timedelta(days=tage)).isoformat(),
             "_manual_entry": True,
         })
@@ -1047,7 +1072,7 @@ def seed_anna(db):
             data["job_hash"] = jobs[job_idx]["hash"]
         app_id = db.add_application(data)
         app_ids[(titel, firma)] = app_id
-        _apply_flow(db, app_id, flow)
+        _apply_flow(db, app_id, flow, tage)
         if fu_tage is not None:
             db.add_follow_up(app_id, _tag(-fu_tage), "nachfass")
 
