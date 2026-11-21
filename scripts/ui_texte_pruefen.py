@@ -218,7 +218,7 @@ BACKEND_DATEIEN = [BACKEND / p for p in (
     "services/quellen_texte.py", "services/menue.py", "services/dashboard_bereiche.py",
     "dashboard.py", "job_scraper/__init__.py", "export.py",
     # #1420: der PDF-Erzeuger war nie erfasst; Umschrift und Rohwerte standen darin.
-    "export_report.py", "services/bericht.py", "services/bericht_zeitraum.py",
+    "export_report.py", "services/bericht.py", "services/bericht_zeitraum.py", "services/bericht_daten.py", "services/nachweis_daten.py", "export_nachweis.py", "services/auswertung_daten.py", "export_auswertung.py", "services/rohdaten.py",
 )]
 # Die ganze Datei ist Anzeige (Linienpool) — auch kleingeschriebene Texte.
 BACKEND_NUR_ANZEIGE = {"elwosa_lines.py"}

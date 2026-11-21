@@ -3686,6 +3686,7 @@ export default function SettingsPage() {
     ba_berater_name: "",
     ba_berater_stelle: "",
     berater_kommentar_block: false,
+    nachweis_kosten: false,
     // v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
     taetigkeitsbericht_mode: false,
   });
@@ -4760,6 +4761,27 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-ink">Beraterkommentar-Block am Berichtende</p>
                 <p className="text-xs text-muted">
                   Fügt am Ende des Berichts leere Linien für handschriftliche Anmerkungen ein.
+                </p>
+              </div>
+            </label>
+
+            {/* #798: Kosten im Nachweis, Vorgabe aus */}
+            <label className="mt-3 flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!reportSettings.nachweis_kosten}
+                onChange={(e) => {
+                  const flag = e.target.checked;
+                  setReportSettings((prev) => ({ ...prev, nachweis_kosten: flag }));
+                  saveReportSettings({ nachweis_kosten: flag });
+                }}
+                disabled={reportSaving}
+                className="h-4 w-4 cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-medium text-ink">Kosten im Nachweis zeigen</p>
+                <p className="text-xs text-muted">
+                  Nimmt deine Bewerbungskosten in den Nachweis fürs Amt auf. Ohne Haken bleiben sie draußen.
                 </p>
               </div>
             </label>
