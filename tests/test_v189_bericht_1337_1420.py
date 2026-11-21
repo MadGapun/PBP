@@ -324,7 +324,7 @@ def test_bezeichnung_ist_punkte_nicht_fit_score(bestand, tmp_path):
     text, _ = _pdf_text(bestand, tmp_path)
     assert "Punkte" in text and not re.search(r"Fit-\s*Score", text)
     # Fussnote nennt, was die Punkte bedeuten (SCORE_BEDEUTUNG)
-    assert "kein Urteil darüber, ob du passt" in " ".join(text.split())
+    assert "keine Bewertung darüber, ob du passt" in " ".join(text.split())
     blaetter, _x = _excel(bestand, tmp_path)
     assert "Fit-Score" not in _alles(blaetter)
 
