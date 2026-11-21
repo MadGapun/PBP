@@ -195,9 +195,13 @@ BACKEND_DATEIEN = [BACKEND / p for p in (
     "services/papierkorb.py", "services/stellen_nach_quelle.py",
     "services/quellen_texte.py", "services/menue.py", "services/dashboard_bereiche.py",
     "dashboard.py", "job_scraper/__init__.py", "export.py",
+    # #1420: der PDF-Erzeuger war nie erfasst; Umschrift und Rohwerte standen darin.
+    "export_report.py", "services/bericht.py", "services/bericht_zeitraum.py",
 )]
 # Die ganze Datei ist Anzeige (Linienpool) — auch kleingeschriebene Texte.
 BACKEND_NUR_ANZEIGE = {"elwosa_lines.py"}
+# Dateien, in denen auch einzelne Woerter Beschriftungen sind.
+BACKEND_EINZELWORTE = {"export_report.py"}
 TAGESIMPULSE = BACKEND / "content" / "tagesimpulse.json"
 
 # Kein Anzeigetext: SQL, Shell-Zeilen fuer Skripte.
@@ -246,9 +250,14 @@ def backend_texte():
             if not (isinstance(n, ast.Constant) and isinstance(n.value, str)) or id(n) in skip:
                 continue
             t = n.value
-            if " " not in t or _KEIN_TEXT.search(t):
+            # #1420: im PDF-Erzeuger stehen die Beschriftungen oft als EIN Wort
+            # ("Taetigkeitsbericht", "Portal/Jobboerse") — die zaehlen mit.
+            einzelwort = (pfad.name in BACKEND_EINZELWORTE
+                          and bool(re.fullmatch(r"[A-ZÄÖÜ][A-Za-zäöüß/&-]{2,}", t)))
+            if (" " not in t and not einzelwort) or _KEIN_TEXT.search(t):
                 continue
-            if not alle and not (re.search(r"[A-ZÄÖÜ]", t) and _sieht_aus_wie_text(t)):
+            if not alle and not einzelwort and not (
+                    re.search(r"[A-ZÄÖÜ]", t) and _sieht_aus_wie_text(t)):
                 continue
             yield pfad, n.lineno, t
     for nr, eintrag in enumerate(json.loads(TAGESIMPULSE.read_text(encoding="utf-8")), 1):

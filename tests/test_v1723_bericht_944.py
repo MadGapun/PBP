@@ -179,7 +179,7 @@ def test_944_sichtungsleistung_steht_in_der_zusammenfassung():
     quelle = (Path(__file__).resolve().parents[1] / "src" /
               "bewerbungs_assistent" / "export_report.py").read_text(encoding="utf-8")
     assert "Stellen gesichtet" in quelle
-    assert "begruendet aussortiert" in quelle
+    assert "begründet aussortiert" in quelle
 
 
 def test_944_bericht_laesst_sich_weiterhin_erzeugen(tmp_db, tmp_path):
@@ -237,8 +237,8 @@ def test_944_bewerbungsliste_hat_lesbare_spaltenbreiten():
     from pathlib import Path
     quelle = (Path(__file__).resolve().parents[1] / "src" /
               "bewerbungs_assistent" / "export_report.py").read_text(encoding="utf-8")
-    assert 'pdf.cell(55, 5, "Firma"' in quelle
-    assert 'pdf.cell(65, 5, "Position"' in quelle
+    # #1420 B3: die Liste ist eine umbrechende Tabelle (kein Schnitt mehr).
+    assert '_tabelle(pdf, ["Datum", "Firma", "Position"' in quelle
     assert '"Kontakt", border=1, fill=True' not in quelle
 
 

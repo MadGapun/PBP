@@ -2779,6 +2779,25 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
   );
 }
 
+// #1420 B4: Betraege als 63,30 € und die Art als Wort statt als Rohwert.
+const KOSTEN_ART = {
+  tool: "Tool/Abo",
+  pruefung: "Prüfung",
+  reise: "Reise",
+  fortbildung: "Fortbildung",
+  sonstiges: "Sonstiges",
+};
+function euro(wert) {
+  return `${Number(wert || 0).toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} €`;
+}
+function datumDe(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
+
 // v1.7.0-beta.11 (#568): Aufwand-Uebersicht pro Bewerbung.
 function ApplicationAufwandSection({ applicationId, pushToast }) {
   const [data, setData] = useState(null);
@@ -2786,6 +2805,7 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
     kategorie: "tool",
     betrag_eur: "",
     beschreibung: "",
+    datum: heuteIso(),
   });
   const [costsList, setCostsList] = useState([]);
   const [adding, setAdding] = useState(false);
@@ -2820,10 +2840,11 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
           kind: costForm.kategorie,
           amount: betrag,
           description: costForm.beschreibung,
+          incurred_at: costForm.datum || heuteIso(),
         }),
       });
-      pushToast(`${betrag.toFixed(2)} € erfasst`, "success");
-      setCostForm({ kategorie: "tool", betrag_eur: "", beschreibung: "" });
+      pushToast(`${euro(betrag)} erfasst`, "success");
+      setCostForm({ kategorie: "tool", betrag_eur: "", beschreibung: "", datum: heuteIso() });
       setAdding(false);
       await reload();
     } catch (err) {
@@ -2878,13 +2899,13 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
           {data.reisekosten_brutto_eur > 0 && (
             <div>
               <p className="text-muted">Reisekosten netto</p>
-              <p className="text-ink font-medium">{data.reisekosten_netto_eur.toFixed(2)} €</p>
+              <p className="text-ink font-medium">{euro(data.reisekosten_netto_eur)}</p>
             </div>
           )}
           {data.kosten_summe_eur > 0 && (
             <div>
               <p className="text-muted">Sonstige Kosten</p>
-              <p className="text-ink font-medium">{data.kosten_summe_eur.toFixed(2)} €</p>
+              <p className="text-ink font-medium">{euro(data.kosten_summe_eur)}</p>
             </div>
           )}
         </div>
@@ -2895,8 +2916,11 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
           {costsList.map((c) => (
             <li key={c.id} className="flex items-center justify-between text-xs">
               <div className="flex-1 min-w-0">
-                <span className="text-ink font-mono">{(c.amount || 0).toFixed(2)} €</span>
-                <span className="ml-1.5 text-muted">{klartext(c.kind)}</span>
+                <span className="text-ink font-mono">{euro(c.amount)}</span>
+                <span className="ml-1.5 text-muted">{KOSTEN_ART[c.kind] || klartext(c.kind)}</span>
+                {c.incurred_at && (
+                  <span className="ml-1.5 text-muted">{datumDe(c.incurred_at)}</span>
+                )}
                 {c.description && (
                   <span className="ml-1.5 text-muted truncate">— {c.description}</span>
                 )}
@@ -2927,6 +2951,13 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
               <option value="fortbildung">Fortbildung</option>
               <option value="sonstiges">Sonstiges</option>
             </select>
+            <input
+              type="date"
+              aria-label="Datum der Kosten"
+              value={costForm.datum}
+              onChange={(e) => setCostForm({ ...costForm, datum: e.target.value })}
+              className="rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+            />
             <input
               type="number"
               step="0.01"

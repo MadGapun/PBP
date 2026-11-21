@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Auswertung, Variante A: Zahlen zuerst</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1d4f91}a:hover{color:#163b6d}
+</style>
+</helmet>
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 48px 52px 40px; background: #ffffff; color: #1b2430; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; border-bottom: 2px solid #1b2430; padding-bottom: 10px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4f91">Auswertung meiner Stellensuche</div>
+<h1 style="margin: 0; font-size: 26px; line-height: 1.15; font-weight: 700">Bob Mustermann</h1>
+</div>
+<div style="text-align: right; font-size: 12px; line-height: 1.5"><div style="font-weight: 700; font-size: 14px">07.05.2026 bis 20.11.2026</div><div style="color: #5a6675">28 Wochen · erstellt am 21.11.2026</div></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{kacheln}}" as="k" hint-placeholder-count="6">
+<div style="background: #eef2f7; padding: 10px 10px 9px; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 26px; font-weight: 700; line-height: 1.05">{{k.wert}}</div>
+<div style="font-size: 12px; font-weight: 600; line-height: 1.25">{{k.name}}</div>
+<div style="font-size: 12px; color: #4d5967; line-height: 1.25">{{k.hinweis}}</div>
+</div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 700">Wie weit kamen die 25 Bewerbungen?</h2>
+<sc-for list="{{trichter}}" as="t" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 118px 1fr; gap: 8px; align-items: center; font-size: 12px">
+<div>{{t.name}}</div>
+<div style="display: flex; align-items: center; gap: 6px"><div style="height: 18px; background: #1d4f91; width: {{t.breite}}"></div><div style="font-weight: 700">{{t.zahl}}</div></div>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #4d5967">Jede Stufe zählt Bewerbungen, die sie mindestens erreicht haben.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 700">Bewerbungen je Monat</h2>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; height: 112px; border-bottom: 1px solid #1b2430">
+<sc-for list="{{monate}}" as="m" hint-placeholder-count="7">
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%"><div style="font-size: 12px; font-weight: 700">{{m.zahl}}</div><div style="width: 100%; background: #1d4f91; height: {{m.hoehe}}"></div></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; font-size: 12px; text-align: center; color: #4d5967">
+<sc-for list="{{monate}}" as="m" hint-placeholder-count="7"><div>{{m.name}}</div></sc-for>
+</div>
+<div style="font-size: 12px; color: #4d5967">November bis zum 20.11.</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 700">Welcher Weg führt zu Gesprächen?</h2>
+<sc-for list="{{wege}}" as="w" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 118px 1fr 62px; gap: 8px; align-items: center; font-size: 12px">
+<div>{{w.name}}</div>
+<div style="height: 14px; background: #c9d6e6; width: {{w.breite}}; position: relative"><div style="position: absolute; left: 0; top: 0; bottom: 0; background: #1d4f91; width: {{w.anteil}}"></div></div>
+<div style="font-weight: 600; text-align: right">{{w.text}}</div>
+</div>
+</sc-for>
+<div style="display: flex; gap: 14px; font-size: 12px; color: #4d5967"><span><span style="display: inline-block; width: 10px; height: 10px; background: #c9d6e6"></span> Bewerbungen</span><span><span style="display: inline-block; width: 10px; height: 10px; background: #1d4f91"></span> davon mit Gespräch</span></div>
+<div style="font-size: 12px; color: #4d5967">Unter 10 Bewerbungen je Weg stehen Anzahlen statt Prozent.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 700">Wie endeten die 16 abgeschlossenen Verfahren?</h2>
+<sc-for list="{{enden}}" as="e" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 150px 1fr; gap: 8px; align-items: center; font-size: 12px">
+<div>{{e.name}}</div>
+<div style="display: flex; align-items: center; gap: 6px"><div style="height: 14px; background: #6b7786; width: {{e.breite}}"></div><div style="font-weight: 700">{{e.zahl}}</div></div>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #4d5967">4 der 5 Absagen kamen nach einem Gespräch. Die Unterlagen tragen also, die Hürde liegt im Gespräch.</div>
+<h2 style="margin: 8px 0 0; font-size: 14px; font-weight: 700">Wie lange dauert es?</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; font-size: 12px">
+<div><div style="font-size: 18px; font-weight: 700">8 Tage</div><div>bis zur ersten Antwort</div><div style="color: #4d5967">Median, 14 Bewerbungen, 1 bis 23 Tage</div></div>
+<div><div style="font-size: 18px; font-weight: 700">17 Tage</div><div>bis zum ersten Gespräch</div><div style="color: #4d5967">Median, 11 Bewerbungen, 9 bis 31 Tage</div></div>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 700">Was jetzt ansteht</h2>
+<table style="width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.35">
+<thead><tr style="text-align: left; border-bottom: 2px solid #1b2430"><th style="padding: 5px 8px 5px 0; width: 74px">Bis</th><th style="padding: 5px 8px">Verfahren</th><th style="padding: 5px 8px; width: 150px">Stand</th><th style="padding: 5px 0 5px 8px; width: 170px">Nächster Schritt</th></tr></thead>
+<tbody>
+<sc-for list="{{ansteht}}" as="a" hint-placeholder-count="5">
+<tr style="border-bottom: 1px solid #b8c0cb; vertical-align: top"><td style="padding: 5px 8px 5px 0; white-space: nowrap; font-weight: 600">{{a.bis}}</td><td style="padding: 5px 8px">{{a.was}}</td><td style="padding: 5px 8px">{{a.stand}}</td><td style="padding: 5px 0 5px 8px">{{a.schritt}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="margin-top: auto; border-top: 1px solid #1b2430; padding-top: 8px; display: flex; justify-content: space-between; font-size: 12px; color: #5a6675">
+<span>Bob Mustermann · Auswertung 07.05.2026 bis 20.11.2026</span>
+<span>Seite 1 von 6 · erstellt mit PBP</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+kacheln: [
+{ wert: '25', name: 'Bewerbungen', hinweis: 'rund 4 je Monat' },
+{ wert: '9', name: 'laufen noch', hinweis: '16 abgeschlossen' },
+{ wert: '11', name: 'mit Gespräch', hinweis: 'von 25' },
+{ wert: '2', name: 'Angebote', hinweis: '1 liegt vor' },
+{ wert: '8 Tage', name: 'bis zur Antwort', hinweis: 'Median' },
+{ wert: '4', name: 'Nachfassen', hinweis: 'fällig bis 26.11.' }
+],
+trichter: [
+{ name: 'Beworben', zahl: '25', breite: '86%' },
+{ name: 'Antwort erhalten', zahl: '14', breite: '48%' },
+{ name: 'Gespräch', zahl: '11', breite: '38%' },
+{ name: 'Zweitgespräch', zahl: '3', breite: '10%' },
+{ name: 'Angebot', zahl: '2', breite: '7%' }
+],
+monate: [
+{ name: 'Mai', zahl: '3', hoehe: '48px' }, { name: 'Jun', zahl: '2', hoehe: '32px' }, { name: 'Jul', zahl: '5', hoehe: '80px' },
+{ name: 'Aug', zahl: '3', hoehe: '48px' }, { name: 'Sep', zahl: '3', hoehe: '48px' }, { name: 'Okt', zahl: '5', hoehe: '80px' }, { name: 'Nov', zahl: '4', hoehe: '64px' }
+],
+wege: [
+{ name: 'Jobbörse der BA', breite: '100%', anteil: '60%', text: '3 von 5' },
+{ name: 'StepStone', breite: '100%', anteil: '40%', text: '2 von 5' },
+{ name: 'Personalvermittler', breite: '80%', anteil: '100%', text: '4 von 4' },
+{ name: 'Kimeta', breite: '60%', anteil: '33%', text: '1 von 3' },
+{ name: 'Indeed', breite: '60%', anteil: '33%', text: '1 von 3' },
+{ name: 'Jobware', breite: '40%', anteil: '0%', text: '0 von 2' },
+{ name: 'Eigene Suche', breite: '40%', anteil: '0%', text: '0 von 2' },
+{ name: 'Stellenanzeigen.de', breite: '20%', anteil: '0%', text: '0 von 1' }
+],
+enden: [
+{ name: 'Keine Antwort', zahl: '8', breite: '70%' },
+{ name: 'Absage', zahl: '5', breite: '44%' },
+{ name: 'Selbst zurückgezogen', zahl: '2', breite: '17%' },
+{ name: 'Stelle entfallen', zahl: '1', breite: '9%' }
+],
+ansteht: [
+{ bis: '24.11.', was: 'Deistervilla Feinmechanik, Produktionsplaner', stand: 'Angebot liegt vor', schritt: 'Entscheiden und antworten' },
+{ bis: '26.11.', was: 'Steinfeld Hydraulik, Fertigungssteuerer', stand: 'Beworben, 13 Tage still', schritt: 'Nachfassen' },
+{ bis: '26.11.', was: 'Mühlenberg Werkzeugbau, Arbeitsvorbereiter', stand: 'Beworben, 37 Tage still', schritt: 'Zweites Nachfassen oder abschließen' },
+{ bis: '26.11.', was: 'Harzland Pumpen, Produktionsleiter Stv.', stand: 'Eingang bestätigt', schritt: 'Nachfassen' },
+{ bis: 'offen', was: 'Windrose Energietechnik, Leiter AV', stand: 'Zweitgespräch', schritt: 'Termin abstimmen' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

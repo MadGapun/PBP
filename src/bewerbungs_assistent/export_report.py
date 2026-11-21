@@ -9,30 +9,27 @@ Uses fpdf2 for PDF (pure Python, no system deps).
 Uses openpyxl for Excel (optional dependency).
 """
 
+import contextvars
 import logging
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fpdf.enums import XPos, YPos
+from fpdf.enums import TableCellFillMode, XPos, YPos
+from fpdf.fonts import FontFace
+
+from .services.anzeigenamen import (
+    STATUS_TEXT, bewerbungsart_text, datum_text, followup_text, grund_text,
+    quelle_text, status_text)
+from .services.punkte import SCORE_BEDEUTUNG
 
 logger = logging.getLogger("bewerbungs_assistent.export_report")
 
-STATUS_LABELS = {
-    "in_vorbereitung": "In Vorbereitung",
-    "offen": "Offen",
-    "beworben": "Beworben",
-    "eingangsbestaetigung": "Eingangsbestätigung",
-    "interview": "Interview",
-    "zweitgespraech": "Zweitgespräch",
-    "interview_abgeschlossen": "Interview abgeschl.",
-    "angebot": "Angebot",
-    "angenommen": "Angenommen",
-    "abgelehnt": "Abgelehnt",
-    "zurueckgezogen": "Zurückgezogen",
-    "abgelaufen": "Abgelaufen",
-}
+# #1420: Bezeichnungen kommen aus `services/anzeigenamen.py` (eine Tabelle
+# fuer Oberflaeche, PDF und Excel); dieser Name bleibt fuer Aufrufer.
+STATUS_LABELS = STATUS_TEXT
+
 
 STATUS_COLORS = {
     "in_vorbereitung": (168, 85, 247),
@@ -56,10 +53,32 @@ SOURCE_COLORS_PDF = [
 ]
 
 
+#: Ob das PDF eine Unicode-Schrift traegt (DejaVu aus matplotlib). Dann stehen
+#: `€`, `ł` und `ş` richtig im Dokument; ohne sie bleibt es bei Latin-1 und der
+#: Euro heisst `EUR` (#1420 B4).
+_UNICODE = contextvars.ContextVar("pbp_bericht_unicode", default=False)
+
+
+def _dejavu_pfade() -> Optional[dict]:
+    """Die vier DejaVu-Sans-Schnitte, die matplotlib mitbringt (sonst None)."""
+    try:
+        import matplotlib
+        ordner = Path(matplotlib.get_data_path()) / "fonts" / "ttf"
+        pfade = {"": ordner / "DejaVuSans.ttf",
+                 "B": ordner / "DejaVuSans-Bold.ttf",
+                 "I": ordner / "DejaVuSans-Oblique.ttf",
+                 "BI": ordner / "DejaVuSans-BoldOblique.ttf"}
+        return pfade if all(p.is_file() for p in pfade.values()) else None
+    except Exception:
+        return None
+
+
 def _safe_text(text: str) -> str:
     """Sanitize text for PDF output (replace problematic chars)."""
     if not text:
         return ""
+    if _UNICODE.get():
+        return text.replace("\u00ad", "")  # soft hyphen
     return (text
             .replace("\u2013", "-").replace("\u2014", "-")
             .replace("\u2018", "'").replace("\u2019", "'")
@@ -67,6 +86,88 @@ def _safe_text(text: str) -> str:
             .replace("\u2026", "...")
             .replace("\u00ad", "")  # soft hyphen
             .encode("latin-1", errors="replace").decode("latin-1"))
+
+
+def _zahl(wert, stellen: int = 1) -> str:
+    """Eine Zahl mit deutschem Komma (3,5 statt 3.5)."""
+    return f"{float(wert):.{stellen}f}".replace(".", ",")
+
+
+def _quote(wert) -> str:
+    """Eine Quote in Prozent; ohne Basis `noch keine Angabe` statt 0,0 %."""
+    if wert is None:
+        return "noch keine Angabe"
+    return f"{_zahl(wert)} %"
+
+
+def _eur(wert) -> str:
+    """Ein Betrag als 63,30 € (Tausenderpunkt, zwei Nachkommastellen)."""
+    try:
+        text = f"{float(wert):,.2f}"
+    except (TypeError, ValueError):
+        return ""
+    return (text.replace(",", "#").replace(".", ",").replace("#", ".")
+            + (" €" if _UNICODE.get() else " EUR"))
+
+
+def _tage_text(werte: dict) -> str:
+    """Median und Mittel einer Dauer in Tagen, mit Fallzahl."""
+    return (f"{_zahl(werte['median_tage'])} / {_zahl(werte['mittel_tage'])} "
+            f"Tage (n={werte['anzahl']})")
+
+
+def _tabelle(pdf, kopf, zeilen, breiten, ausrichtung=None, schrift=7.5,
+             zeilenhoehe=4, kopf_farbe=(230, 230, 230)):
+    """Eine Tabelle, die umbricht statt abzuschneiden (#1420 B3).
+
+    `zeilen`: Listen aus Texten oder `(Text, FontFace)`. Die Kopfzeile
+    wiederholt sich auf jeder Seite; eine Zeile wird nicht geteilt.
+    """
+    ausrichtung = ausrichtung or ["LEFT"] * len(kopf)
+    pdf.set_font("Helvetica", "", schrift)
+    with pdf.table(
+            col_widths=tuple(breiten), text_align=tuple(ausrichtung),
+            line_height=zeilenhoehe, first_row_as_headings=True,
+            borders_layout="ALL",
+            cell_fill_color=(255, 255, 255), cell_fill_mode=TableCellFillMode.ALL,
+            headings_style=FontFace(emphasis="BOLD", fill_color=kopf_farbe)) as tab:
+        r = tab.row()
+        for k in kopf:
+            r.cell(_safe_text(k))
+        for zeile in zeilen:
+            r = tab.row()
+            for zelle in zeile:
+                if isinstance(zelle, tuple):
+                    r.cell(_safe_text(str(zelle[0])), style=zelle[1])
+                else:
+                    r.cell(_safe_text("" if zelle is None else str(zelle)))
+    pdf.set_font("Helvetica", "", 9)
+
+
+_KOSTEN_ART = {
+    "tool": "Tool/Abo", "pruefung": "Prüfung", "reise": "Reise",
+    "fortbildung": "Fortbildung", "sonstiges": "Sonstiges",
+}
+
+
+def _kosten_art(kind) -> str:
+    """Die Art eines Kostenpostens als Wort (`reise` wird `Reise`)."""
+    roh = str(kind or "").strip().lower()
+    return _KOSTEN_ART.get(roh, roh.replace("_", " ").capitalize())
+
+
+_AUFWAND_TEXT = {"einfach": "einfach", "standard": "standard",
+                 "aufwaendig": "aufwändig"}
+
+
+def _entfaellt(pdf, text):
+    """Hinweis, warum ein Abschnitt im Zeitraum-Bericht keine Zahlen zeigt."""
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(110, 110, 110)
+    pdf.multi_cell(0, 4, _safe_text("  " + text), new_x=XPos.LMARGIN,
+                   new_y=YPos.NEXT)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(3)
 
 
 def _line_cell(pdf, w, h, text="", **kwargs):
@@ -127,7 +228,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     quellen_aktivitaet = report_data.get("scraper_health") or report_data.get("quellen_aktivitaet") or []
 
     # Zeitraumfilter (#173)
-    if zeitraum_von or zeitraum_bis:
+    zeitraum_aktiv = bool(zeitraum_von or zeitraum_bis)
+    if zeitraum_aktiv:
         apps = [a for a in apps if
                 (not zeitraum_von or (a.get("applied_at") or "") >= zeitraum_von) and
                 (not zeitraum_bis or (a.get("applied_at") or "") <= zeitraum_bis + "T23:59:59")]
@@ -140,6 +242,12 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     )
 
     class ReportPDF(FPDF):
+        def set_font(self, family=None, style="", size=0):
+            # Mit Unicode-Schrift ersetzt DejaVu die eingebaute Helvetica.
+            if family == "Helvetica" and _UNICODE.get():
+                family = "DejaVu"
+            return super().set_font(family, style, size)
+
         def footer(self):
             # 15mm vom unteren Rand
             self.set_y(-15)
@@ -150,14 +258,23 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                      align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             self.set_text_color(0, 0, 0)
 
+    _pfade = _dejavu_pfade()
+    _UNICODE.set(False)
     pdf = ReportPDF()
+    if _pfade:
+        try:
+            for _stil, _pfad in _pfade.items():
+                pdf.add_font("DejaVu", _stil, str(_pfad))
+            _UNICODE.set(True)
+        except Exception as exc:  # ohne die Schrift: Latin-1 wie bisher
+            logger.warning("Unicode-Schrift nicht ladbar: %s", exc)
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=22)
 
     # --- Title Page with PBP Branding (#173) ---
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 22)
-    cover_title = "Taetigkeitsbericht" if taetigkeitsbericht_mode else "Bewerbungsbericht"
+    cover_title = "Tätigkeitsbericht" if taetigkeitsbericht_mode else "Bewerbungsbericht"
     _line_cell(pdf, 0, 15, _safe_text(cover_title), align="C")
 
     # Subtitle with name and date range
@@ -249,21 +366,32 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # --- Inhaltsverzeichnis (#173) ---
     _section_header(pdf, "Inhaltsverzeichnis")
+    _nur_gesamt = " (nur im Bericht für den gesamten Verlauf)"
+    _hat_kosten = bool((report_data.get("kosten") or {}).get("posten")
+                       or (report_data.get("aufwand") or {}).get("reisekosten_netto_eur")
+                       or (report_data.get("kosten") or {}).get("ohne_datum"))
     toc_items = [
         "1. Executive Summary",
+        "1b. Prozess-Kennzahlen & Kanal-Erfolg",
+    ]
+    if _hat_kosten:
+        toc_items.append("1c. Bewerbungskosten")
+    toc_items += [
         "2. Bewerbungen nach Status",
         "3. Quellenanalyse (Qualität)",
         "4. Bewerbungsart-Verteilung",
-        "5. Fit-Score Verteilung",
+        "5. Punkte-Verteilung" + (_nur_gesamt if zeitraum_aktiv else ""),
         "6. Bewerbungsliste (detailliert)",
         "7. Ablehnungsgründe",
+        "7b. Aussortierte Stellen" + (_nur_gesamt if zeitraum_aktiv else ""),
         "8. Offene Follow-ups",
-        "9. Nicht beworben trotz gutem Score",
+        "9. Nicht beworben trotz vieler Punkte" + (_nur_gesamt if zeitraum_aktiv else ""),
         "10. Keyword-Analyse",
         "11. Aktivitätsprotokoll",
-        "12. Quellen-Aktivität (Volumen)",
-        "12b. Dokumente pro Bewerbung",
+        "12. Quellen-Aktivität (Volumen)" + (_nur_gesamt if zeitraum_aktiv else ""),
     ]
+    if report_data.get("documents_per_application"):
+        toc_items.append("12b. Dokumente pro Bewerbung")
     if show_berater_kommentar:
         toc_items.append("13. Beraterkommentar")
     pdf.set_font("Helvetica", "", 10)
@@ -298,8 +426,13 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                           + by_status_filtered.get("zweitgespraech", 0)
                           + by_status_filtered.get("interview_abgeschlossen", 0))
     offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
-    interview_rate = round(interviews_track_record / submitted_apps * 100, 1) if submitted_apps else 0
-    offer_rate = round(offers / submitted_apps * 100, 1) if submitted_apps else 0
+    # #1337: die Quoten rechnet `bericht_zeitraum.quoten`, dieselbe Funktion
+    # wie Werkzeug und Excel; ohne Basis steht dort None, nie 0,0.
+    from .services.bericht_zeitraum import quoten as _quoten_fn
+    _q = (stats.get("quoten") or {}).get("gesamt") or _quoten_fn(apps)
+    interview_rate = _q.get("interview_rate")
+    offer_rate = _q.get("offer_rate")
+    offers = _q.get("angebot", offers)
 
     # Summary text
     pdf.set_font("Helvetica", "", 9)
@@ -307,15 +440,24 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # der eigentliche Beleg systematischer Suche — und stand bisher auf
     # Seite 5 unter der Ablehnungstabelle, wo eine Vermittlerin sie
     # kaum findet.
-    _gesichtet = active_jobs + dismissed_jobs
-    summary_text = (
-        f"Im Berichtszeitraum wurden {_gesichtet} Stellen gesichtet, "
-        f"davon {dismissed_jobs} begruendet aussortiert und "
-        f"{total_apps} Bewerbungen erstellt. "
-        f"Davon haben {interviews_track_record} jemals eine Interview-Phase erreicht "
-        f"(Track-Record-Interview-Rate: {interview_rate}%). "
-        f"Die Angebotsrate liegt bei {offer_rate}%."
-    )
+    _aus_n = aussortiert.get("anzahl_total", 0) or 0
+    if zeitraum_aktiv:
+        summary_text = (
+            f"Im Zeitraum hast du {total_apps} Bewerbungen erstellt. "
+            f"{interviews_track_record} davon haben eine Interview-Phase "
+            f"erreicht (Interview-Quote: {_quote(interview_rate)}). "
+            f"Die Angebotsquote liegt bei {_quote(offer_rate)}."
+        )
+    else:
+        _gesichtet = active_jobs + dismissed_jobs
+        summary_text = (
+            f"Im gesamten Verlauf wurden {_gesichtet} Stellen gesichtet, "
+            f"davon {_aus_n} begründet aussortiert, und {total_apps} "
+            f"Bewerbungen erstellt. {interviews_track_record} davon haben "
+            f"eine Interview-Phase erreicht (Interview-Quote: "
+            f"{_quote(interview_rate)}). Die Angebotsquote liegt bei "
+            f"{_quote(offer_rate)}."
+        )
     pdf.multi_cell(0, 5, _safe_text(summary_text))
     pdf.ln(2)
 
@@ -337,7 +479,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 "Sie wurden nachträglich aus Dateien rekonstruiert und haben "
                 "typischerweise nur 1-2 Timeline-Events. Interview- und "
                 "Zeitkennzahlen dieses Zeitraums sind eine UNTERGRENZE, "
-                "keine Wahrheit (#781)."
+                "keine Wahrheit."
             ))
             pdf.set_text_color(0, 0, 0)
             pdf.ln(2)
@@ -359,18 +501,28 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # --- Pipeline-Kennzahlen (Teil von Executive Summary) ---
     pipeline_data = [
-        ("Bewerbungen im Zeitraum", str(total_apps)),
+        ("Bewerbungen im Zeitraum" if zeitraum_aktiv else "Bewerbungen gesamt",
+         str(total_apps)),
         ("  davon in Vorbereitung", str(in_vorb)),
         ("  davon beworben", str(by_status_filtered.get("beworben", 0))),
         ("  davon aktuell im Interview-Prozess", str(interviews_current)),
         ("  davon Angebote", str(offers)),
-        ("Track-Record: jemals Interview erreicht", str(interviews_track_record)),
-        ("Aktive Stellen analysiert (gesamt)", str(active_jobs)),
-        ("Analysierte Stellen aussortiert (gesamt)", str(dismissed_jobs)),
-        ("Durchschn. Fit-Score (alle Jobs)", f"{avg_score}" if avg_score else "k.A."),
-        ("Spitzen-Fit-Score (alle Jobs)", f"{max_score}" if max_score else "k.A."),
-        ("Interview-Rate (Track-Record)", f"{interview_rate}%"),
-        ("Angebots-Rate (Zeitraum)", f"{offer_rate}%"),
+        ("Jemals Interview erreicht", str(interviews_track_record)),
+    ]
+    if not zeitraum_aktiv:
+        # Stellenbestand: haengt nicht an einem Zeitraum (#1337).
+        pipeline_data += [
+            ("Aktive Stellen analysiert", str(active_jobs)),
+            ("Aussortierte Stellen", str(_aus_n)),
+            ("Durchschnittliche Punkte (alle Stellen)",
+             _zahl(avg_score) if avg_score else "noch keine Angabe"),
+            ("Höchste Punktzahl (alle Stellen)",
+             _zahl(max_score) if max_score else "noch keine Angabe"),
+        ]
+    pipeline_data += [
+        ("Interview-Quote", _quote(interview_rate)),
+        ("Angebotsquote", _quote(offer_rate)),
+        ("Absagequote (mitgeteilte Absagen)", _quote(_q.get("rejection_rate"))),
     ]
     for label, value in pipeline_data:
         pdf.set_font("Helvetica", "", 9)
@@ -389,29 +541,31 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         _r = _pk.get("zeit_bis_erste_reaktion") or {}
         if _r.get("anzahl"):
             zeilen.append(("Zeit bis erste Reaktion (Median)",
-                           f"{_r['median_tage']} Tage (n={_r['anzahl']})"))
+                           f"{_zahl(_r['median_tage'])} Tage (n={_r['anzahl']})"))
         _iv = _pk.get("zeit_bis_interview") or {}
         if _iv.get("anzahl"):
             zeilen.append(("Zeit bis Interview-Einladung (Median)",
-                           f"{_iv['median_tage']} Tage (n={_iv['anzahl']})"))
-        for ausgang, werte in (_pk.get("prozessdauer_nach_ausgang") or {}).items():
-            if werte.get("anzahl"):
-                zeilen.append((f"Prozessdauer bis '{ausgang}' (Median/Mittel)",
-                               f"{werte['median_tage']} / {werte['mittel_tage']} "
-                               f"Tage (n={werte['anzahl']})"))
+                           f"{_zahl(_iv['median_tage'])} Tage (n={_iv['anzahl']})"))
+        _dauern = [(a, w) for a, w in
+                   (_pk.get("prozessdauer_nach_ausgang") or {}).items()
+                   if w.get("anzahl")]
+        for ausgang, werte in _dauern:
+            zeilen.append((f"Prozessdauer bis {status_text(ausgang)} (Median/Mittel)",
+                           _tage_text(werte)))
+        if not _dauern:
+            zeilen.append(("Prozessdauer bis zum Ausgang",
+                           "noch keine Angabe möglich"))
         _ab = (_pk.get("zeit_bis_absage") or {})
         for label, key in (("Absage vor Interview (Median)", "vor_interview"),
                            ("Absage nach Interview (Median)", "nach_interview")):
             w = _ab.get(key) or {}
             if w.get("anzahl"):
-                zeilen.append((label, f"{w['median_tage']} Tage (n={w['anzahl']})"))
+                zeilen.append((label, f"{_zahl(w['median_tage'])} Tage (n={w['anzahl']})"))
         if _aufwand:
             for label, key in (
                     ("Vorbereitungszeit gesamt (Min.)",
                      "vorbereitungszeit_min_summe"),
-                    ("Termine gesamt", "termine_anzahl"),
-                    ("Reisekosten netto (EUR)", "reisekosten_netto_eur"),
-                    ("Sonstige Kosten (EUR)", "kosten_summe_eur")):
+                    ("Termine gesamt", "termine_anzahl")):
                 if _aufwand.get(key) not in (None, "", 0, 0.0):
                     zeilen.append((label, str(_aufwand.get(key))))
         for label, value in zeilen:
@@ -432,7 +586,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                        align="C")
             _kanal_label = {
                 "vermittler_recruiter": "Vermittler/Recruiter",
-                "portal": "Portal/Jobboerse",
+                "portal": "Portal/Jobbörse",
                 "netzwerk": "Persönlicher Kontakt/Netzwerk",
                 "direktbewerbung": "Direktbewerbung",
                 "unklassifiziert": "Unklassifiziert",
@@ -443,7 +597,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 pdf.cell(60, 5, _safe_text(f"  {_kanal_label.get(k, k)}"), border=1)
                 pdf.cell(30, 5, str(e.get("bewerbungen", 0)), border=1, align="C")
                 pdf.cell(30, 5, str(e.get("interviews", 0)), border=1, align="C")
-                _line_cell(pdf, 0, 5, f"{e.get('interview_quote', 0)}%",
+                _line_cell(pdf, 0, 5, _quote(e.get("interview_quote")),
                            border=1, align="C")
         _dq = (_pk.get("datenqualitaet") or {})
         if _dq.get("hinweis"):
@@ -454,15 +608,47 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_text_color(0, 0, 0)
         pdf.ln(4)
 
+    # --- 1c. Bewerbungskosten (#1420 B4): Einzelposten statt einer Summe ---
+    _kosten = report_data.get("kosten") or {}
+    _reise = (report_data.get("aufwand") or {}).get("reisekosten_netto_eur") or 0
+    if _kosten.get("posten") or _reise or _kosten.get("ohne_datum"):
+        _section_header(pdf, "1c. Bewerbungskosten")
+        _zeilen = []
+        for k in (_kosten.get("posten") or []):
+            _zeilen.append([
+                datum_text(k.get("incurred_at")) or "ohne Datum",
+                _kosten_art(k.get("kind")),
+                k.get("description") or "",
+                _eur(k.get("amount")),
+            ])
+        if _reise:
+            _zeilen.append(["", "Reise", "Reisekosten zu Terminen (nach Erstattung)",
+                            _eur(_reise)])
+        if _zeilen:
+            _summe = float(_kosten.get("summe_eur") or 0) + float(_reise or 0)
+            _zeilen.append([("", FontFace(emphasis="BOLD")),
+                            ("Summe", FontFace(emphasis="BOLD")), "",
+                            (_eur(_summe), FontFace(emphasis="BOLD"))])
+            _tabelle(pdf, ["Datum", "Art", "Beschreibung", "Betrag"], _zeilen,
+                     (24, 28, 98, 30), ["LEFT", "LEFT", "LEFT", "RIGHT"])
+        if _kosten.get("ohne_datum") and zeitraum_aktiv:
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(110, 110, 110)
+            _line_cell(pdf, 0, 4, _safe_text(
+                f"  {_kosten['ohne_datum']} Kostenposten ohne Datum lassen sich "
+                "keinem Zeitraum zuordnen und stehen hier nicht."))
+            pdf.set_text_color(0, 0, 0)
+        pdf.ln(4)
+
     # --- 2. Bewerbungen nach Status ---
-    _section_header(pdf, "2. Bewerbungen nach Status")
+    _section_header(pdf, "2. Bewerbungen nach Status", platz=125)
     by_status = stats.get("applications_by_status", {})
     if by_status:
         # #430: Chart (graceful fallback to colored bars if matplotlib missing)
         _embed_chart(pdf, _chart_status_pie(by_status))
         for status_key, count in sorted(by_status.items(),
                                          key=lambda x: -x[1]):
-            label = STATUS_LABELS.get(status_key, status_key)
+            label = status_text(status_key)
             bar_width = min(count * 8, 120)
             r, g, b = STATUS_COLORS.get(status_key, (66, 133, 244))
             pdf.set_font("Helvetica", "", 9)
@@ -479,12 +665,17 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.set_text_color(110, 110, 110)
     _line_cell(pdf, 0, 4, _safe_text(
         "  Hinweis: Dieser Abschnitt zeigt die Qualität (Erfolgsquote) "
-        "pro Quelle. Abschnitt 12 zeigt das Volumen (Gesamttreffer)."
+        "pro Quelle." + ("" if zeitraum_aktiv else
+                         " Abschnitt 12 zeigt das Volumen (Gesamttreffer).")
     ))
     pdf.set_text_color(0, 0, 0)
     pdf.ln(1)
-    by_source = _nach_quelle_summiert(
-        (stats.get("jobs_by_source", {}) or {}).items())
+    by_source = ({} if zeitraum_aktiv else _nach_quelle_summiert(
+        (stats.get("jobs_by_source", {}) or {}).items()))
+    if zeitraum_aktiv:
+        _entfaellt(pdf, "Die Stellen je Quelle hängen am Stellenbestand, nicht "
+                        "an einem Zeitraum. Sie stehen nur im Bericht für den "
+                        "gesamten Verlauf.")
     if by_source:
         # #430: Source chart
         _embed_chart(pdf, _chart_source_bar(by_source))
@@ -503,9 +694,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_text_color(255, 255, 255)
             pdf.cell(5, 5, "", border=0, fill=True)
             pdf.set_text_color(0, 0, 0)
-            pdf.cell(55, 5, _safe_text(f" {source}"), border=1)
+            pdf.cell(55, 5, _safe_text(f" {quelle_text(source)}"), border=1)
             pdf.cell(30, 5, str(count), border=1, align="C")
-            pdf.cell(40, 5, f"{pct}%", border=1, align="C")
+            pdf.cell(40, 5, _quote(pct), border=1, align="C")
             pdf.ln()
     pdf.ln(2)
 
@@ -543,10 +734,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_font("Helvetica", "", 8)
         for src, data in sorted(app_by_source.items(), key=lambda x: -x[1]["total"]):
             rate = round(data["interview"] / data["total"] * 100, 0) if data["total"] else 0
-            pdf.cell(50, 4, _safe_text(f"  {src}"), border=1)
+            pdf.cell(50, 4, _safe_text(f"  {quelle_text(src)}"), border=1)
             pdf.cell(30, 4, str(data["total"]), border=1, align="C")
             pdf.cell(30, 4, str(data["interview"]), border=1, align="C")
-            pdf.cell(30, 4, f"{rate:.0f}%", border=1, align="C")
+            pdf.cell(30, 4, f"{rate:.0f} %", border=1, align="C")
             pdf.ln()
     pdf.ln(4)
 
@@ -568,9 +759,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_font("Helvetica", "", 8)
         for art, count in sorted(art_counter.items(), key=lambda x: -x[1]):
             pct = round(count / art_total * 100, 1)
-            pdf.cell(60, 4, _safe_text(f"  {art}"), border=1)
+            pdf.cell(60, 4, _safe_text(f"  {bewerbungsart_text(art)}"), border=1)
             pdf.cell(30, 4, str(count), border=1, align="C")
-            pdf.cell(30, 4, f"{pct}%", border=1, align="C")
+            pdf.cell(30, 4, _quote(pct), border=1, align="C")
             pdf.ln()
         pdf.ln(4)
 
@@ -595,8 +786,12 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         for k in unknown:
             score_dist_ordered.append({"bracket": k, "cnt": score_dist[k]})
 
-    if score_dist_ordered:
-        _section_header(pdf, "5. Fit-Score Verteilung")
+    if zeitraum_aktiv:
+        _section_header(pdf, "5. Punkte-Verteilung")
+        _entfaellt(pdf, "Die Punkte gehören zu Stellen, nicht zu Bewerbungen. "
+                        "Sie stehen nur im Bericht für den gesamten Verlauf.")
+    elif score_dist_ordered:
+        _section_header(pdf, "5. Punkte-Verteilung", platz=110)
         _embed_chart(pdf, _chart_score_distribution(score_dist))
         pdf.set_font("Helvetica", "", 9)
         max_count = max((item["cnt"] for item in score_dist_ordered), default=1) or 1
@@ -605,89 +800,57 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             count = item["cnt"]
             # Balken proportional zum max_count, max 120 Punkte breit
             bar_width = max(2, min(120, int(count / max_count * 120)))
-            pdf.cell(30, 5, _safe_text(f"  Score {bracket}"))
+            pdf.cell(30, 5, _safe_text(f"  {bracket} Punkte"))
             pdf.set_fill_color(76, 175, 80)
             pdf.cell(bar_width, 5, "", fill=True)
             _line_cell(pdf, 15, 5, f"  {count}")
+        pdf.set_font("Helvetica", "I", 7)
+        pdf.set_text_color(110, 110, 110)
+        pdf.multi_cell(0, 4, _safe_text("  " + SCORE_BEDEUTUNG),
+                       new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0, 0, 0)
         pdf.ln(4)
 
     # --- 6. Bewerbungsliste (detailliert, #173) ---
     _section_header(pdf, "6. Bewerbungsliste (detailliert)")
     if apps:
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.set_fill_color(230, 230, 230)
-        # v1.7.23 (#944): "Art" und "Kontakt" entfernt. Sie kosteten die
-        # halbe Breite, wodurch Firmennamen und Positionen mitten im Wort
-        # abbrachen — bei 95 Eintraegen ist diese Liste der Hauptteil des
-        # Dokuments. Fuer eine Vermittlerin zaehlen Datum, Firma,
-        # Position und Status; Ansprechpartner und Bewerbungsart stehen
-        # ohnehin in der Bewerbung selbst.
-        pdf.cell(20, 5, "Datum", border=1, fill=True)
-        pdf.cell(55, 5, "Firma", border=1, fill=True)
-        pdf.cell(65, 5, "Position", border=1, fill=True)
-        pdf.cell(25, 5, "Status", border=1, fill=True, align="C")
-        pdf.cell(15, 5, "Quelle", border=1, fill=True, align="C")
-        pdf.cell(10, 5, "Score", border=1, fill=True, align="C")
-        pdf.ln()
-        pdf.set_font("Helvetica", "", 6.5)
-        # v1.7.0-beta.22: Pre-PBP-Daten grau hinterlegen (Asterisk + grauer Text).
+        # #1420 B3: die Tabelle bricht um, kein Wort wird abgeschnitten, ein
+        # Datumsformat. Die Kopfzeile wiederholt sich auf jeder Seite.
         pre_pbp_marker = (pbp_first_active_at or "")[:10]
+        _zeilen = []
         for idx, a in enumerate(apps):
             date_str = (a.get("applied_at") or "")[:10]
             is_pre_pbp = bool(pre_pbp_marker and date_str and date_str < pre_pbp_marker)
-
-            # Alternating row colors (#173)
-            if idx % 2 == 1:
-                pdf.set_fill_color(245, 247, 250)
-                fill = True
-            else:
-                fill = False
-            # Pre-PBP: dezenter grauer Hintergrund
-            if is_pre_pbp:
-                pdf.set_fill_color(238, 238, 238)
-                fill = True
-
-            # #944: In einem Behoerdendokument darf kein Eintrag ohne
-            # Firma erscheinen — der Vorgang existiert ja.
-            company = ((a.get("company") or "").strip()
-                       or "Ohne Firmenangabe")[:34]
-            title = (a.get("title") or "")[:42]
+            grau = FontFace(color=(110, 110, 110), fill_color=(238, 238, 238)) if is_pre_pbp else None
+            streifen = FontFace(fill_color=(245, 247, 250)) if idx % 2 == 1 else None
+            basis = grau or streifen
+            # #944: In einem Behoerdendokument darf kein Eintrag ohne Firma erscheinen.
+            company = (a.get("company") or "").strip() or "Ohne Firmenangabe"
             status_key = a.get("status", "")
-            status = STATUS_LABELS.get(status_key, status_key)[:12]
-            source = (a.get("job_source") or a.get("source", ""))[:10]
+            r, g, b_ = STATUS_COLORS.get(status_key, (100, 116, 139))
             score = a.get("score", "")
             if a.get("is_pinned"):
                 score = f"*{score}" if score else "*"
             else:
                 score = str(score) if score else ""
-
-            # Pre-PBP: Asterisk vor dem Datum + grauer Text
-            date_display = ("† " + date_str) if is_pre_pbp else date_str
+            datum = datum_text(date_str)
             if is_pre_pbp:
-                pdf.set_text_color(110, 110, 110)
+                datum = "¹ " + datum
 
-            # Status color badge
-            r, g, b = STATUS_COLORS.get(status_key, (100, 116, 139))
+            def _z(text, stil=basis):
+                return (text, stil) if stil else text
 
-            pdf.cell(20, 4, _safe_text(date_display), border=1, fill=fill)
-            pdf.cell(55, 4, _safe_text(company), border=1, fill=fill)
-            pdf.cell(65, 4, _safe_text(title), border=1, fill=fill)
-            # Status with color (immer farbig — auch fuer Pre-PBP)
-            pdf.set_fill_color(r, g, b)
-            pdf.set_text_color(255, 255, 255)
-            pdf.cell(25, 4, _safe_text(status), border=1, fill=True, align="C")
-            # Text-Color zurueck auf grau wenn Pre-PBP
-            pdf.set_text_color(110 if is_pre_pbp else 0,
-                                110 if is_pre_pbp else 0,
-                                110 if is_pre_pbp else 0)
-            if is_pre_pbp:
-                pdf.set_fill_color(238, 238, 238)
-            elif idx % 2 == 1:
-                pdf.set_fill_color(245, 247, 250)
-            pdf.cell(15, 4, _safe_text(source), border=1, fill=fill, align="C")
-            pdf.cell(10, 4, _safe_text(str(score)), border=1, fill=fill, align="C")
-            pdf.set_text_color(0, 0, 0)  # zurueck zum Default
-            pdf.ln()
+            _zeilen.append([
+                _z(datum), _z(company), _z(a.get("title") or ""),
+                (status_text(status_key),
+                 FontFace(color=(255, 255, 255), fill_color=(r, g, b_))),
+                _z(quelle_text(a.get("job_source") or a.get("source") or "")),
+                _z(score),
+            ])
+        _tabelle(pdf, ["Datum", "Firma", "Position", "Status", "Quelle", "Punkte"],
+                 _zeilen, (22, 46, 54, 32, 24, 12),
+                 ["LEFT", "LEFT", "LEFT", "CENTER", "LEFT", "CENTER"],
+                 schrift=7, zeilenhoehe=3.6)
 
         # v1.7.23 (#944): Legende fuer das Sternchen in der Score-Spalte.
         # Es stand ohne jede Erklaerung im Dokument — in einem Bericht
@@ -699,7 +862,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_text_color(110, 110, 110)
             _line_cell(pdf, 0, 4, _safe_text(
                 "* Vorgemerkte Stelle (angepinnt) — eigene Priorisierung, "
-                "unabhängig vom Score."))
+                "unabhängig von der Punktzahl."))
             pdf.set_text_color(0, 0, 0)
 
         # Legende fuer Pre-PBP-Markierung
@@ -710,7 +873,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_font("Helvetica", "I", 7)
             pdf.set_text_color(110, 110, 110)
             _line_cell(pdf, 0, 4, _safe_text(
-                f"† Bewerbung vor PBP-Nutzung ({_de_date(pbp_first_active_at)}) — "
+                f"¹ Bewerbung vor PBP-Nutzung ({_de_date(pbp_first_active_at)}) — "
                 "nachträglich erfasst, Daten möglicherweise unvollständig."
             ))
             pdf.set_text_color(0, 0, 0)
@@ -738,12 +901,14 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_font("Helvetica", "B", 8)
             _line_cell(pdf, 0, 5, str(v.get("anzahl", 0)))
             pdf.set_font("Helvetica", "", 8)
-        if _abk.get("ablehnungsquote_bereinigt") is not None:
+        if _abk.get("abgelehnt_quote") is not None:
+            # #1337: dieselbe Absagequote wie in der Zusammenfassung. Ein
+            # versandeter Vorgang ist keine Absage (#943) und steht getrennt.
             pdf.set_font("Helvetica", "B", 8)
             _line_cell(pdf, 0, 5, _safe_text(
-                f"  Ablehnungsquote roh {_abk.get('ablehnungsquote_roh')}% / "
-                f"bereinigt {_abk.get('ablehnungsquote_bereinigt')}% "
-                "(ohne extern bedingte Fälle)"))
+                f"  Absagequote {_quote(_abk.get('abgelehnt_quote'))} "
+                f"(mitgeteilte Absagen); ohne Rückmeldung abgelaufen: "
+                f"{_quote(_abk.get('versandet_quote'))}."))
         pdf.ln(2)
     if rejection_patterns and rejection_patterns.get("anzahl"):
         pdf.set_font("Helvetica", "", 8)
@@ -759,7 +924,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
             pdf.set_font("Helvetica", "", 8)
             for grund, count in list(by_reason.items())[:15]:
-                grund_txt = (grund or "Kein Grund angegeben")[:70]
+                grund_txt = grund_text(grund or "Kein Grund angegeben")
                 pdf.cell(110, 4, _safe_text(f"  {grund_txt}"), border=1)
                 pdf.cell(30, 4, str(count), border=1, align="C")
                 pdf.ln()
@@ -768,20 +933,16 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 8)
             _line_cell(pdf, 0, 5, _safe_text("  Letzte Ablehnungen:"))
-            pdf.set_fill_color(255, 228, 230)
-            pdf.cell(50, 5, "  Firma", border=1, fill=True)
-            pdf.cell(65, 5, "Stelle", border=1, fill=True)
-            pdf.cell(25, 5, "Beworben", border=1, fill=True, align="C")
-            pdf.ln()
-            pdf.set_font("Helvetica", "", 7)
-            for r in ablehnungen[:10]:
-                pdf.cell(50, 4, _safe_text((r.get("firma") or "")[:28]), border=1)
-                pdf.cell(65, 4, _safe_text((r.get("stelle") or "")[:38]), border=1)
-                pdf.cell(25, 4, _safe_text((r.get("beworben_am") or "")[:10]), border=1, align="C")
-                pdf.ln()
+            _tabelle(pdf, ["Firma", "Stelle", "Beworben"],
+                     [[r.get("firma") or "", r.get("stelle") or "",
+                       datum_text(r.get("beworben_am"))]
+                      for r in ablehnungen[:10]],
+                     (60, 90, 30), ["LEFT", "LEFT", "CENTER"], schrift=7,
+                     kopf_farbe=(255, 228, 230))
     else:
         pdf.set_font("Helvetica", "", 8)
-        _line_cell(pdf, 0, 5, "  Keine Ablehnungen im Zeitraum.")
+        _line_cell(pdf, 0, 5, "  Keine Ablehnungen im Zeitraum." if zeitraum_aktiv
+                   else "  Keine Ablehnungen erfasst.")
     pdf.ln(4)
 
     # --- 7b. Aktiv aussortierte Stellen (#540, v1.6.5) ---
@@ -789,12 +950,18 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # zeigt was der User selbst aussortiert hat (Stellen-Filter), als
     # Komplement zu Sektion 7 (Bewerbungs-Ablehnungen durch Recruiter).
     top_dismiss = aussortiert.get("top_gruende", {}) or {}
-    if top_dismiss:
-        _section_header(pdf, "7b. Eigene Aussortierungen (Stellen)")
+    if zeitraum_aktiv:
+        _section_header(pdf, "7b. Aussortierte Stellen")
+        _entfaellt(pdf, "Aussortierte Stellen hängen am Stellenbestand, nicht an "
+                        "einem Zeitraum. Sie stehen nur im Bericht für den "
+                        "gesamten Verlauf.")
+    elif top_dismiss:
+        _section_header(pdf, "7b. Aussortierte Stellen")
         pdf.set_font("Helvetica", "", 8)
+        # #1337: Stellen, auf die du dich beworben hast, stehen hier nicht.
         _line_cell(pdf, 0, 5, _safe_text(
-            f"  {aussortiert.get('anzahl_total', 0)} Stelle(n) hast du selbst "
-            f"als 'passt nicht' markiert — mit folgenden Gruenden:"
+            f"  {aussortiert.get('anzahl_total', 0)} Stelle(n) wurden "
+            f"aussortiert, mit folgenden Gründen:"
         ))
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_fill_color(255, 243, 224)
@@ -803,7 +970,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.ln()
         pdf.set_font("Helvetica", "", 8)
         for grund, count in list(top_dismiss.items())[:15]:
-            grund_txt = (grund or "(kein Grund)")[:70]
+            grund_txt = grund_text(grund or "(kein Grund)")
             pdf.cell(110, 4, _safe_text(f"  {grund_txt}"), border=1)
             pdf.cell(30, 4, str(count), border=1, align="C")
             pdf.ln()
@@ -818,80 +985,73 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # --- 8. Offene Follow-ups ---
     _section_header(pdf, "8. Offene Follow-ups")
+    if zeitraum_aktiv:
+        pdf.set_font("Helvetica", "I", 7)
+        pdf.set_text_color(110, 110, 110)
+        _line_cell(pdf, 0, 4, _safe_text(
+            "  Stand am Erstellungstag, unabhängig vom Zeitraum."))
+        pdf.set_text_color(0, 0, 0)
     if follow_up_summary and follow_up_summary.get("pending"):
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
             f"  {follow_up_summary['pending']} offene Follow-ups "
-            f"({follow_up_summary.get('overdue', 0)} ueberfaellig)."
+            f"({follow_up_summary.get('overdue', 0)} überfällig)."
         ))
         items = follow_up_summary.get("items", []) or []
         if items:
-            pdf.set_font("Helvetica", "B", 8)
-            pdf.set_fill_color(255, 243, 224)
-            pdf.cell(50, 5, "  Firma", border=1, fill=True)
-            pdf.cell(55, 5, "Stelle", border=1, fill=True)
-            pdf.cell(25, 5, "Faellig", border=1, fill=True, align="C")
-            pdf.cell(25, 5, "Typ", border=1, fill=True, align="C")
-            pdf.ln()
-            pdf.set_font("Helvetica", "", 7)
             today_iso = datetime.now().date().isoformat()
+            _fz = []
             for fu in items:
                 sched = (fu.get("scheduled_date") or "")[:10]
-                is_overdue = sched and sched < today_iso
-                if is_overdue:
-                    pdf.set_text_color(200, 60, 60)
-                pdf.cell(50, 4, _safe_text((fu.get("firma") or "")[:28]), border=1)
-                pdf.cell(55, 4, _safe_text((fu.get("stelle") or "")[:32]), border=1)
-                pdf.cell(25, 4, _safe_text(sched), border=1, align="C")
-                pdf.cell(25, 4, _safe_text((fu.get("follow_up_type") or "")[:12]), border=1, align="C")
-                pdf.ln()
-                if is_overdue:
-                    pdf.set_text_color(0, 0, 0)
+                rot = FontFace(color=(200, 60, 60)) if (sched and sched < today_iso) else None
+
+                def _fzelle(text, stil=rot):
+                    return (text, stil) if stil else text
+
+                _fz.append([_fzelle(fu.get("firma") or ""),
+                            _fzelle(fu.get("stelle") or ""),
+                            _fzelle(datum_text(sched)),
+                            _fzelle(followup_text(fu.get("follow_up_type")))])
+            _tabelle(pdf, ["Firma", "Stelle", "Fällig", "Art"], _fz,
+                     (55, 70, 28, 27), ["LEFT", "LEFT", "CENTER", "CENTER"],
+                     schrift=7, kopf_farbe=(255, 243, 224))
     else:
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, "  Keine offenen Follow-ups.")
     pdf.ln(4)
 
     # --- 9. Nicht beworben trotz gutem Score (#220, fix #532 v1.6.4) ---
-    _section_header(pdf, "9. Nicht beworben trotz gutem Fit-Score")
-    if unapplied:
+    _section_header(pdf, "9. Nicht beworben trotz vieler Punkte")
+    if zeitraum_aktiv:
+        _entfaellt(pdf, "Offene Stellen hängen am Stellenbestand, nicht an einem "
+                        "Zeitraum. Sie stehen nur im Bericht für den gesamten "
+                        "Verlauf.")
+    elif unapplied:
         pdf.set_font("Helvetica", "", 8)
         # v1.6.4: Header zeigt was wirklich in der Tabelle landet, nicht Pool-Groesse
         max_rows = 30
         shown = min(len(unapplied), max_rows)
         if len(unapplied) > max_rows:
             header_text = (
-                f"  Top {max_rows} von {len(unapplied)} aktiven Stellen mit Score >= 5 "
-                f"ohne Bewerbung (sortiert nach Score):"
+                f"  Top {max_rows} von {len(unapplied)} aktiven Stellen mit mindestens "
+                f"5 Punkten ohne Bewerbung (sortiert nach Punkten):"
             )
         else:
             header_text = (
                 f"  {len(unapplied)} aktive Stelle{'n' if len(unapplied) != 1 else ''} "
-                f"mit Score >= 5 ohne Bewerbung:"
+                f"mit mindestens 5 Punkten ohne Bewerbung:"
             )
         _line_cell(pdf, 0, 5, _safe_text(header_text))
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.set_fill_color(255, 243, 224)
-        pdf.cell(55, 5, "Firma", border=1, fill=True)
-        pdf.cell(70, 5, "Position", border=1, fill=True)
-        pdf.cell(13, 5, "Score", border=1, fill=True, align="C")
-        pdf.cell(22, 5, "Quelle", border=1, fill=True, align="C")
-        pdf.cell(22, 5, "Gefunden", border=1, fill=True, align="C")
-        pdf.ln()
-        pdf.set_font("Helvetica", "", 7)
-        # v1.6.4: cap to max_rows, keine Grund-Spalte mehr (DB liefert nur is_active=1)
-        for j in unapplied[:max_rows]:
-            company = (j.get("company") or "")[:32]
-            title = (j.get("title") or "")[:42]
-            pdf.cell(55, 4, _safe_text(company), border=1)
-            pdf.cell(70, 4, _safe_text(title), border=1)
-            pdf.cell(13, 4, str(j.get("score", "")), border=1, align="C")
-            pdf.cell(22, 4, _safe_text((j.get("source") or "")[:14]), border=1, align="C")
-            pdf.cell(22, 4, _safe_text((j.get("found_at") or "")[:10]), border=1, align="C")
-            pdf.ln()
+        _tabelle(pdf, ["Firma", "Position", "Punkte", "Quelle", "Gefunden"],
+                 [[j.get("company") or "", j.get("title") or "",
+                   str(j.get("score", "")), quelle_text(j.get("source") or ""),
+                   datum_text(j.get("found_at"))] for j in unapplied[:max_rows]],
+                 (50, 68, 16, 30, 26),
+                 ["LEFT", "LEFT", "CENTER", "LEFT", "CENTER"], schrift=7,
+                 kopf_farbe=(255, 243, 224))
     else:
         pdf.set_font("Helvetica", "", 8)
-        _line_cell(pdf, 0, 5, "  Keine offenen Stellen mit gutem Score (alle bewertet oder beworben).")
+        _line_cell(pdf, 0, 5, "  Keine offenen Stellen mit vielen Punkten (alle bewertet oder beworben).")
     pdf.ln(4)
 
     # --- 10. Keyword-Analyse ---
@@ -974,7 +1134,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         if top_words:
             pdf.set_font("Helvetica", "", 8)
             _line_cell(pdf, 0, 5, _safe_text(
-                "  Häufigste Begriffe in Stellen, auf die Sie sich beworben haben:"
+                "  Häufigste Begriffe in Stellen, auf die du dich beworben hast:"
             ))
             pdf.set_font("Helvetica", "B", 7)
             pdf.set_fill_color(232, 245, 233)
@@ -1006,7 +1166,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         applied_at = (a.get("applied_at") or a.get("created_at") or "")[:10]
         title = a.get("title") or ""
         company = a.get("company") or ""
-        status = STATUS_LABELS.get(a.get("status") or "", a.get("status") or "")
+        status = status_text(a.get("status"))
         if applied_at:
             timeline_events.append((
                 applied_at, "Bewerbung", f"{company} - {title}", status,
@@ -1018,29 +1178,11 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             ))
     timeline_events.sort(reverse=True)
     if timeline_events:
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.set_fill_color(230, 230, 230)
-        pdf.cell(22, 5, "Datum", border=1, fill=True, align="C")
-        pdf.cell(28, 5, "Ereignis", border=1, fill=True, align="C")
-        pdf.cell(95, 5, "Bewerbung", border=1, fill=True)
-        pdf.cell(35, 5, "Status", border=1, fill=True, align="C")
-        pdf.ln()
-        pdf.set_font("Helvetica", "", 7)
-        # v1.7.23 (#944): vollstaendig statt abgeschnitten. Bei einem
-        # NACHWEISDOKUMENT ist Vollstaendigkeit der Zweck — "... weitere
-        # 107 Ereignisse nicht angezeigt" entwertet genau den Beleg, den
-        # der Abschnitt liefern soll. Die Seitenzahl steigt, das ist der
-        # richtige Preis.
-        for date, evt, target, status in timeline_events:
-            try:
-                date_de = datetime.fromisoformat(date).strftime("%d.%m.%Y")
-            except Exception:
-                date_de = date
-            pdf.cell(22, 4, date_de, border=1, align="C")
-            pdf.cell(28, 4, _safe_text(evt[:18]), border=1, align="C")
-            pdf.cell(95, 4, _safe_text(target[:60]), border=1)
-            pdf.cell(35, 4, _safe_text(status[:22]), border=1, align="C")
-            pdf.ln()
+        _tabelle(pdf, ["Datum", "Ereignis", "Bewerbung", "Status"],
+                 [[datum_text(date), evt, target, status]
+                  for date, evt, target, status in timeline_events],
+                 (24, 28, 98, 40), ["CENTER", "CENTER", "LEFT", "CENTER"],
+                 schrift=7, zeilenhoehe=3.8)
         pdf.set_font("Helvetica", "I", 7)
         pdf.set_text_color(110, 110, 110)
         _line_cell(pdf, 0, 4, _safe_text(
@@ -1068,34 +1210,20 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             "  Aktivitäten gebündelt pro Tag — als Nachweis konkreter Bemühungen."
         ))
         pdf.ln(2)
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.set_fill_color(230, 230, 230)
-        pdf.cell(28, 5, "Datum", border=1, fill=True, align="C")
-        pdf.cell(15, 5, "Aktionen", border=1, fill=True, align="C")
-        pdf.cell(137, 5, "Details", border=1, fill=True)
-        pdf.ln()
-        pdf.set_font("Helvetica", "", 7)
+        _tag_zeilen = []
         for day in sorted(per_day.keys(), reverse=True)[:90]:
-            try:
-                day_de = datetime.fromisoformat(day).strftime("%d.%m.%Y")
-            except Exception:
-                day_de = day
             entries = per_day[day]
             details = "; ".join(
                 f"{evt}: {target}" for evt, target, _status in entries[:3]
             )
             if len(entries) > 3:
                 details += f"; +{len(entries) - 3} weitere"
-            pdf.cell(28, 4, day_de, border=1, align="C")
-            pdf.cell(15, 4, str(len(entries)), border=1, align="C")
-            pdf.cell(137, 4, _safe_text(details[:90]), border=1)
-            pdf.ln()
+            _tag_zeilen.append([datum_text(day), str(len(entries)), details])
+        _tabelle(pdf, ["Datum", "Aktionen", "Details"], _tag_zeilen,
+                 (28, 16, 146), ["CENTER", "CENTER", "LEFT"], schrift=7,
+                 zeilenhoehe=3.8)
         pdf.ln(4)
 
-    # --- 12. Quellen-Aktivitaet (Volumen) ---
-    # v1.7.0-beta.31 (#598): Gesamttreffer pro Quelle statt nur „letzte
-    # Treffer". Macht klar welche Quelle wirklich produktiv ist.
-    # Abgrenzung zu Abschnitt 3 ist explizit dokumentiert.
     _section_header(pdf, "12. Quellen-Aktivität (Volumen pro Quelle)")
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(110, 110, 110)
@@ -1111,6 +1239,11 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # stand dieselbe Quelle in beiden Tabellen unterschiedlich und mit
     # abweichenden Zahlen — fuer eine Leserin sind das zwei Quellen.
     _roh_volume = report_data.get("source_volume") or []
+    if zeitraum_aktiv:
+        _entfaellt(pdf, "Das Volumen je Quelle hängt am Stellenbestand, nicht an "
+                        "einem Zeitraum. Es steht nur im Bericht für den "
+                        "gesamten Verlauf.")
+        _roh_volume = []
     _zusammengefasst: dict = {}
     for _e in _roh_volume:
         _k = quelle_normalisiert(_e.get("source"))
@@ -1136,15 +1269,17 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             total = int(s.get("total") or 0)
             applied = int(s.get("applied") or 0)
             conversion = (
-                f"{round(applied / total * 100, 1)}%" if total > 0 else "-"
+                _quote(round(applied / total * 100, 1)) if total > 0 else "-"
             )
-            pdf.cell(45, 4, _safe_text(f"  {s.get('source', '')}")[:42], border=1)
+            pdf.cell(45, 4, _safe_text(f"  {quelle_text(s.get('source', ''))}"), border=1)
             pdf.cell(25, 4, str(total), border=1, align="C")
             pdf.cell(22, 4, str(s.get("active") or 0), border=1, align="C")
             pdf.cell(28, 4, str(s.get("dismissed") or 0), border=1, align="C")
             pdf.cell(22, 4, str(applied), border=1, align="C")
             pdf.cell(28, 4, conversion, border=1, align="C")
             pdf.ln()
+    elif zeitraum_aktiv:
+        pass
     elif quellen_aktivitaet:
         # Fallback auf alte scraper_health-Daten wenn source_volume leer
         # (sollte bei aktualisiertem Schema nicht mehr passieren).
@@ -1155,7 +1290,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     else:
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
-            "  Keine Quellen-Aktivität erfasst (noch keine Suchen durchgefuehrt)."
+            "  Keine Quellen-Aktivität erfasst (noch keine Suchen durchgeführt)."
         ))
     pdf.ln(4)
 
@@ -1200,7 +1335,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 f"{len(apps)} Bewerbungen mit hinterlegten Dokumenten):"))
             pdf.set_font("Helvetica", "", 7)
             for label, n in buckets.items():
-                pdf.cell(40, 4, _safe_text(f"  {label}"), border=1)
+                pdf.cell(40, 4, _safe_text(f"  {_AUFWAND_TEXT.get(label, label)}"), border=1)
                 pdf.cell(25, 4, str(n), border=1, align="C")
                 pdf.ln()
             pdf.ln(1)
@@ -1275,6 +1410,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # v1.6.6: Old closing-footer-block entfernt — Cover-Page-Branding +
     # Per-Seite-Footer (Erstellt am + Seite X/Y) reichen aus.
     pdf.output(str(output_path))
+    _UNICODE.set(False)  # der Zustand gehoert zu DIESEM PDF, nicht zum naechsten
     logger.info("PDF Bewerbungsbericht erstellt: %s", output_path)
     return output_path
 
@@ -1289,6 +1425,7 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     """
     from fpdf import FPDF
     from .database import get_data_dir
+    _UNICODE.set(False)  # diese Auskunft nutzt die eingebaute Schrift
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
@@ -1319,7 +1456,7 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
             ("PLZ", profile.get("plz")),
             ("Land", profile.get("country")),
             ("Geburtsdatum", profile.get("birthday")),
-            ("Nationalitaet", profile.get("nationality")),
+            ("Nationalität", profile.get("nationality")),
         ]
         for label, val in fields:
             if val:
@@ -1468,8 +1605,12 @@ def _nach_quelle_summiert(paare) -> dict:
     return summe
 
 
-def _section_header(pdf, title: str):
+def _section_header(pdf, title: str, platz: float = 55):
     """Draw a section header with background."""
+    # Eine Ueberschrift allein am Seitenende (der Inhalt steht auf der
+    # naechsten Seite) liest sich wie ein leerer Abschnitt.
+    if pdf.get_y() > pdf.h - platz:
+        pdf.add_page()
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_fill_color(33, 150, 243)
     pdf.set_text_color(255, 255, 255)
@@ -1508,7 +1649,7 @@ def _chart_status_pie(by_status: dict) -> bytes | None:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        labels = [STATUS_LABELS.get(k, k) for k in by_status]
+        labels = [status_text(k) for k in by_status]
         sizes = list(by_status.values())
         colors = [
             "#{:02x}{:02x}{:02x}".format(*STATUS_COLORS.get(k, (100, 116, 139)))
@@ -1552,7 +1693,8 @@ def _chart_monthly_bar(apps: list) -> bytes | None:
             return None
 
         sorted_months = sorted(months.keys())
-        labels = sorted_months
+        # TT.MM.JJJJ-Reihe: ein Monat steht als MM.JJJJ (11.2026), nicht als 2026-11
+        labels = [f"{m[5:7]}.{m[:4]}" for m in sorted_months]
         values = [months[m] for m in sorted_months]
 
         fig, ax = plt.subplots(figsize=(5, 2.8))
@@ -1691,7 +1833,8 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
     stats = report_data.get("statistics", {})
 
     # Zeitraumfilter (Parity mit PDF)
-    if zeitraum_von or zeitraum_bis:
+    zeitraum_aktiv = bool(zeitraum_von or zeitraum_bis)
+    if zeitraum_aktiv:
         apps = [a for a in apps if
                 (not zeitraum_von or (a.get("applied_at") or "") >= zeitraum_von) and
                 (not zeitraum_bis or (a.get("applied_at") or "") <= zeitraum_bis + "T23:59:59")]
@@ -1709,7 +1852,7 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
     )
 
     headers = ["Datum", "Firma", "Position", "Status", "Quelle",
-               "Fit-Score", "Gepinnt", "Bewerbungsart", "Notizen"]
+               "Punkte", "Gepinnt", "Bewerbungsart", "Notizen"]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -1717,21 +1860,34 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
         cell.border = thin_border
         cell.alignment = Alignment(horizontal="center")
 
+    def _datum_zelle(iso: str):
+        """Ein echtes Datum (sortier- und filterbar), sonst der Text."""
+        try:
+            return datetime.fromisoformat((iso or "")[:10]).date()
+        except ValueError:
+            return (iso or "")[:10]
+
     for row_num, a in enumerate(apps, 2):
         values = [
-            (a.get("applied_at") or "")[:10],
+            _datum_zelle(a.get("applied_at")),
             a.get("company", ""),
             a.get("title", ""),
-            STATUS_LABELS.get(a.get("status", ""), a.get("status", "")),
-            a.get("job_source") or "",
+            status_text(a.get("status")),
+            quelle_text(a.get("job_source") or "") if a.get("job_source") else "",
             a.get("score", 0) if not a.get("is_pinned") else "",
             "Ja" if a.get("is_pinned") else "",
-            a.get("bewerbungsart", ""),
+            bewerbungsart_text(a.get("bewerbungsart", "")),
             (a.get("notes") or "")[:200],
         ]
         for col, val in enumerate(values, 1):
             cell = ws.cell(row=row_num, column=col, value=val)
             cell.border = thin_border
+            if col == 1 and not isinstance(val, str):
+                cell.number_format = "DD.MM.YYYY"
+            if col in (2, 3, 9):
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:I{max(len(apps) + 1, 2)}"
 
     # Auto-width
     for col in ws.columns:
@@ -1769,15 +1925,30 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
 
     meta_offset = len(meta_rows) + 1  # Leerzeile zwischen Meta und Stats
 
+    # #1337/#1420: dieselben Zahlen wie im PDF. Die Quoten kommen aus
+    # `bericht_zeitraum.quoten`, Stellenzahlen stehen nur ohne Zeitraum.
+    from .services.bericht_zeitraum import quoten as _quoten_fn
+    _q = (stats.get("quoten") or {}).get("gesamt") or _quoten_fn(apps)
+    _aus = report_data.get("stellen_aussortiert") or {}
     stat_rows = [
-        ("Bewerbungen gesamt", stats.get("total_applications", 0)),
-        ("Aktive Stellen", stats.get("active_jobs", 0)),
-        ("Analysierte Stellen (aussortiert)", stats.get("dismissed_jobs", 0)),
-        ("Durchschn. Fit-Score", stats.get("avg_score", "")),
-        ("Spitzen-Score", stats.get("max_score", "")),
-        ("Interview-Rate", f"{stats.get('interview_rate', 0)}%"),
-        ("Angebots-Rate", f"{stats.get('offer_rate', 0)}%"),
+        ("Bewerbungen im Zeitraum" if zeitraum_aktiv else "Bewerbungen gesamt",
+         len(apps) if zeitraum_aktiv else stats.get("total_applications", len(apps))),
     ]
+    if not zeitraum_aktiv:
+        stat_rows += [
+            ("Aktive Stellen", stats.get("active_jobs", 0)),
+            ("Aussortierte Stellen", _aus.get("anzahl_total", 0)),
+            ("Durchschnittliche Punkte", stats.get("avg_score") or "noch keine Angabe"),
+            ("Höchste Punktzahl", stats.get("max_score") or "noch keine Angabe"),
+        ]
+    stat_rows += [
+        ("Interview-Quote", _quote(_q.get("interview_rate"))),
+        ("Angebotsquote", _quote(_q.get("offer_rate"))),
+        ("Absagequote (mitgeteilte Absagen)", _quote(_q.get("rejection_rate"))),
+    ]
+    if zeitraum_aktiv:
+        # In der Kopfzeile steht der Zeitraum; jede Zahl gilt fuer ihn.
+        stat_rows.append(("Bezug aller Zahlen", "im Zeitraum"))
     header_row = meta_offset + 1
     ws2.cell(row=header_row, column=1, value="Kennzahl").font = Font(bold=True)
     ws2.cell(row=header_row, column=2, value="Wert").font = Font(bold=True)
@@ -1791,20 +1962,49 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
     for i, (status, count) in enumerate(
         stats.get("applications_by_status", {}).items(), row_start + 1
     ):
-        ws2.cell(row=i, column=1, value=STATUS_LABELS.get(status, status))
+        ws2.cell(row=i, column=1, value=status_text(status))
         ws2.cell(row=i, column=2, value=count)
 
-    # Sources
+    # Sources: Stellen je Quelle haengen am Stellenbestand, nicht am Zeitraum
     source_start = row_start + len(stats.get("applications_by_status", {})) + 2
-    ws2.cell(row=source_start, column=1, value="Jobquellen").font = Font(bold=True)
-    for i, (source, count) in enumerate(
-        stats.get("jobs_by_source", {}).items(), source_start + 1
-    ):
-        ws2.cell(row=i, column=1, value=source)
-        ws2.cell(row=i, column=2, value=count)
+    if not zeitraum_aktiv:
+        ws2.cell(row=source_start, column=1, value="Jobquellen").font = Font(bold=True)
+        for i, (source, count) in enumerate(
+            stats.get("jobs_by_source", {}).items(), source_start + 1
+        ):
+            ws2.cell(row=i, column=1, value=quelle_text(source))
+            ws2.cell(row=i, column=2, value=count)
 
-    ws2.column_dimensions["A"].width = 25
-    ws2.column_dimensions["B"].width = 15
+    # --- Blatt Kosten (#1420 B4): Einzelposten statt einer Summe ---
+    _kosten = report_data.get("kosten") or {}
+    if _kosten.get("posten"):
+        ws3 = wb.create_sheet("Kosten")
+        for col, h in enumerate(["Datum", "Art", "Beschreibung", "Betrag"], 1):
+            c = ws3.cell(row=1, column=col, value=h)
+            c.font = header_font
+            c.fill = header_fill
+        for r_i, k in enumerate(_kosten["posten"], 2):
+            ws3.cell(row=r_i, column=1, value=_datum_zelle(k.get("incurred_at"))
+                     if k.get("incurred_at") else "ohne Datum")
+            if k.get("incurred_at"):
+                ws3.cell(row=r_i, column=1).number_format = "DD.MM.YYYY"
+            ws3.cell(row=r_i, column=2, value=_kosten_art(k.get("kind")))
+            ws3.cell(row=r_i, column=3, value=k.get("description") or "")
+            betrag = ws3.cell(row=r_i, column=4, value=float(k.get("amount") or 0))
+            betrag.number_format = '#,##0.00 "€"'
+        n = len(_kosten["posten"]) + 2
+        ws3.cell(row=n, column=3, value="Summe").font = Font(bold=True)
+        summe = ws3.cell(row=n, column=4, value=float(_kosten.get("summe_eur") or 0))
+        summe.number_format = '#,##0.00 "€"'
+        summe.font = Font(bold=True)
+        ws3.freeze_panes = "A2"
+        ws3.column_dimensions["A"].width = 14
+        ws3.column_dimensions["B"].width = 16
+        ws3.column_dimensions["C"].width = 50
+        ws3.column_dimensions["D"].width = 14
+
+    ws2.column_dimensions["A"].width = 34
+    ws2.column_dimensions["B"].width = 22
 
     # #430: Excel charts (openpyxl built-in)
     try:
@@ -1826,7 +2026,7 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
             pie.height = 10
             ws2.add_chart(pie, "D2")
 
-        by_source = stats.get("jobs_by_source", {})
+        by_source = {} if zeitraum_aktiv else stats.get("jobs_by_source", {})
         if by_source:
             bar = BarChart()
             bar.type = "col"
