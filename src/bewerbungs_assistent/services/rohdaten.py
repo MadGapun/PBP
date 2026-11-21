@@ -61,7 +61,8 @@ def termine(db, von: str = "", bis: str = "") -> list:
     apps = {a["id"]: a for a in db.get_applications()}
     zeilen = []
     for r in db.connect().execute("SELECT application_id, meeting_date, meeting_type, status "
-                                  "FROM application_meetings ORDER BY meeting_date").fetchall():
+                                  "FROM application_meetings WHERE (profile_id=? OR profile_id IS NULL) "
+                                  "ORDER BY meeting_date", (db.get_active_profile_id(),)).fetchall():
         a = apps.get(r["application_id"])
         tag = _datum(r["meeting_date"])
         if a and _im(tag, von, bis):

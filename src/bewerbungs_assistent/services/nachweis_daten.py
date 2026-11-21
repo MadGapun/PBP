@@ -85,7 +85,8 @@ def _ereignisse(db, ids: set) -> dict:
 def _termine(db, ids: set, von: str, bis: str) -> list:
     rows = db.connect().execute(
         "SELECT application_id, meeting_date, meeting_type, status FROM application_meetings "
-        "ORDER BY meeting_date").fetchall()
+        "WHERE (profile_id=? OR profile_id IS NULL) ORDER BY meeting_date",
+        (db.get_active_profile_id(),)).fetchall()
     return [{"app": r["application_id"], "tag": (r["meeting_date"] or "")[:10],
              "art": r["meeting_type"] or "interview"}
             for r in rows

@@ -473,16 +473,14 @@ def register(mcp, db, logger):
 
         Enthält: Executive Summary, Status-Übersicht, Quellenanalyse,
         detaillierte Bewerbungsliste, Verteilung der Punkte und Keyword-Analyse.
-        Mit PBP-Branding und Inhaltsverzeichnis.
 
-        Ideal fuer: Arbeitsamt-Dokumentation, eigene Analyse, Berater.
+        Fürs Amt: art=nachweis.
 
         Args:
             format: 'pdf' (Standard) oder 'excel'
             zeitraum_von: Optional: Start-Datum (YYYY-MM-DD)
             zeitraum_bis: Optional: End-Datum (YYYY-MM-DD)
-            art: 'bericht' (Standard), 'nachweis' (fürs Amt, PDF, ohne Punkte und
-                Bewertungen) oder 'auswertung' (für dich, PDF)
+            art: 'bericht', 'nachweis' (fürs Amt) oder 'auswertung'
         """
         if art not in ("bericht", "nachweis", "auswertung"):
             return {"status": "fehler",

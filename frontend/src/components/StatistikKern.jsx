@@ -48,7 +48,7 @@ function Saeulen({ achse }) {
           <div
             key={a.schluessel}
             role="listitem"
-            className="flex min-w-[2.5rem] flex-1 flex-col items-center text-xs"
+            className="flex min-w-[3.75rem] flex-1 flex-col items-center text-xs"
             title={`${a.text}: ${a.bewerbungen} Bewerbungen, davon ${a.gespraeche} mit Gespräch`}
           >
             <span className="mb-0.5 font-medium text-ink">{a.bewerbungen || ""}</span>
@@ -62,8 +62,8 @@ function Saeulen({ achse }) {
                 style={{ height: `${(a.gespraeche / hoechste) * 100}%` }}
               />
             </span>
-            <span className="mt-1 whitespace-nowrap text-[10px] text-muted">{a.text}</span>
-            <span className="text-[10px] text-muted">{a.gespraeche}</span>
+            <span className="mt-1 whitespace-nowrap text-xs text-muted">{a.text}</span>
+            <span className="text-xs text-muted">{a.gespraeche}</span>
           </div>
         ))}
       </div>
@@ -100,6 +100,7 @@ export default function StatistikKern({ von, bis }) {
   const wegeMax = Math.max(...daten.wege.zeilen.map((z) => z.bewerbungen), 1);
   const endenMax = Math.max(...daten.ausgang.zeilen.map((z) => z.anteil.anzahl), 1);
   const suche = daten.meine_suche;
+  if (!daten.zeitraum.aktiv && basis === 0 && !suche.gesichtet) return null;
 
   return (
     <div data-statistik-kern>
@@ -114,7 +115,7 @@ export default function StatistikKern({ von, bis }) {
             <Card key={k.name} className="!p-3" data-kachel={k.name}>
               <p className="text-xl font-semibold text-ink">{k.wert}</p>
               <p className="text-xs font-medium text-ink">{k.name}</p>
-              <p className="text-[11px] text-muted">{k.hinweis}</p>
+              <p className="text-xs text-muted">{k.hinweis}</p>
             </Card>
           ))}
         </div>

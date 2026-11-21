@@ -98,8 +98,11 @@ def erzeugen(db, pfad, format: str = "pdf", zeitraum_von: str = "",
         generate_excel_report(report_data, profile, pfad,
                               zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
                               report_settings=report_settings)
-        from .rohdaten import blaetter_ergaenzen
-        blaetter_ergaenzen(db, pfad, zeitraum_von, zeitraum_bis)
+        try:
+            from .rohdaten import blaetter_ergaenzen
+            blaetter_ergaenzen(db, pfad, zeitraum_von, zeitraum_bis)
+        except Exception as exc:  # die Zusatzblaetter verhindern den Bericht nie
+            logger.warning("Rohdaten-Blaetter (#798) fehlgeschlagen: %s", exc)
     else:
         from ..export_report import generate_application_report
         generate_application_report(report_data, profile, pfad,
