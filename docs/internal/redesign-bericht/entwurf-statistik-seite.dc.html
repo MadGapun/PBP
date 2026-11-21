@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Statistik-Seite neu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1d4f91}a:hover{color:#163b6d}
+</style>
+</helmet>
+<div style="box-sizing: border-box; background: #f3f5f8; color: #1b2430; font-family: Inter, system-ui, sans-serif; padding: 2rem 1.5rem 3rem">
+<div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem">
+<div style="display: flex; flex-direction: column; gap: 0.25rem">
+<h1 style="margin: 0; font-size: 1.75rem; font-weight: 700">Statistik</h1>
+<div style="font-size: 0.95rem; color: #4d5967">Alles auf dieser Seite gilt für <span style="font-weight: 700; color: #1b2430">07.05.2026 bis 20.11.2026</span>. Auch der Bericht.</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center">
+<div style="display: flex; flex-wrap: wrap; background: #ffffff; border: 1px solid #c3cad3; border-radius: 10px; padding: 3px; gap: 2px">
+<sc-for list="{{zeit}}" as="z" hint-placeholder-count="6">
+<button type="button" onClick="{{z.waehlen}}" style="min-height: 44px; padding: 0 14px; border: 0; border-radius: 8px; font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; background: {{z.grund}}; color: {{z.schrift}}">{{z.name}}</button>
+</sc-for>
+</div>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid #1d4f91; border-radius: 10px; background: #1d4f91; color: #ffffff; font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer">Nachweis fürs Amt (PDF)</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid #1d4f91; border-radius: 10px; background: #ffffff; color: #1d4f91; font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer">Auswertung (PDF)</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid #c3cad3; border-radius: 10px; background: #ffffff; color: #1b2430; font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer">Rohdaten (Excel)</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 0.75rem">
+<h2 style="margin: 0; font-size: 1.1rem; font-weight: 700">Wie steht es?</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem">
+<sc-for list="{{kacheln}}" as="k" hint-placeholder-count="6">
+<div style="background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.15rem">
+<div style="font-size: 2rem; font-weight: 700; line-height: 1.05">{{k.wert}}</div>
+<div style="font-size: 0.9rem; font-weight: 600">{{k.name}}</div>
+<div style="font-size: 0.8rem; color: #4d5967">{{k.hinweis}}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 0.75rem">
+<div style="flex: 1 1 380px; min-width: 0; background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem">
+<h3 style="margin: 0; font-size: 1rem; font-weight: 700">Wie weit kamen die 25 Bewerbungen?</h3>
+<sc-for list="{{trichter}}" as="t" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; align-items: center; font-size: 0.9rem">
+<div>{{t.name}}</div>
+<div style="display: flex; align-items: center; gap: 0.5rem"><div style="height: 1.5rem; border-radius: 4px; background: #1d4f91; width: {{t.breite}}"></div><div style="font-weight: 700">{{t.zahl}}</div></div>
+</div>
+</sc-for>
+<div style="font-size: 0.8rem; color: #4d5967">Jede Stufe zählt Bewerbungen, die sie mindestens erreicht haben.</div>
+</div>
+<div style="flex: 1 1 380px; min-width: 0; background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem">
+<h3 style="margin: 0; font-size: 1rem; font-weight: 700">Bewerbungen je Monat</h3>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.6rem; align-items: end; height: 10rem; border-bottom: 1px solid #1b2430">
+<sc-for list="{{monate}}" as="m" hint-placeholder-count="7">
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.2rem; height: 100%"><div style="font-size: 0.85rem; font-weight: 700">{{m.zahl}}</div><div style="width: 100%; border-radius: 4px 4px 0 0; background: #1d4f91; height: {{m.hoehe}}"></div></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.6rem; font-size: 0.85rem; text-align: center; color: #4d5967">
+<sc-for list="{{monate}}" as="m" hint-placeholder-count="7"><div>{{m.name}}</div></sc-for>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 0.75rem">
+<h2 style="margin: 0; font-size: 1.1rem; font-weight: 700">Was steht an?</h2>
+<div style="background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 0.5rem 1.25rem; overflow-x: auto">
+<table style="width: 100%; min-width: 620px; border-collapse: collapse; font-size: 0.9rem; line-height: 1.4">
+<thead><tr style="text-align: left; border-bottom: 2px solid #1b2430"><th style="padding: 0.6rem 0.75rem 0.6rem 0">Bis</th><th style="padding: 0.6rem 0.75rem">Verfahren</th><th style="padding: 0.6rem 0.75rem">Stand</th><th style="padding: 0.6rem 0 0.6rem 0.75rem">Nächster Schritt</th></tr></thead>
+<tbody>
+<sc-for list="{{ansteht}}" as="a" hint-placeholder-count="5">
+<tr style="border-bottom: 1px solid #dde2e8"><td style="padding: 0.6rem 0.75rem 0.6rem 0; white-space: nowrap; font-weight: 600">{{a.bis}}</td><td style="padding: 0.6rem 0.75rem">{{a.was}}</td><td style="padding: 0.6rem 0.75rem">{{a.stand}}</td><td style="padding: 0.6rem 0 0.6rem 0.75rem">{{a.schritt}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 0.75rem">
+<h2 style="margin: 0; font-size: 1.1rem; font-weight: 700">Was funktioniert?</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 0.75rem">
+<div style="flex: 1 1 380px; min-width: 0; background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem">
+<h3 style="margin: 0; font-size: 1rem; font-weight: 700">Welcher Weg führt zu Gesprächen?</h3>
+<sc-for list="{{wege}}" as="w" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 9rem 1fr 4.5rem; gap: 0.5rem; align-items: center; font-size: 0.9rem">
+<div>{{w.name}}</div>
+<div style="height: 1.1rem; border-radius: 4px; background: #c9d6e6; width: {{w.breite}}; position: relative; overflow: hidden"><div style="position: absolute; left: 0; top: 0; bottom: 0; background: #1d4f91; width: {{w.anteil}}"></div></div>
+<div style="font-weight: 600; text-align: right">{{w.text}}</div>
+</div>
+</sc-for>
+<div style="font-size: 0.8rem; color: #4d5967">Hell: Bewerbungen. Dunkel: davon mit Gespräch. Unter 10 Bewerbungen je Weg stehen Anzahlen statt Prozent.</div>
+</div>
+<div style="flex: 1 1 380px; min-width: 0; background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem">
+<h3 style="margin: 0; font-size: 1rem; font-weight: 700">Wie endeten die 16 abgeschlossenen Verfahren?</h3>
+<sc-for list="{{enden}}" as="e" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 11rem 1fr; gap: 0.5rem; align-items: center; font-size: 0.9rem">
+<div>{{e.name}}</div>
+<div style="display: flex; align-items: center; gap: 0.5rem"><div style="height: 1.1rem; border-radius: 4px; background: #6b7786; width: {{e.breite}}"></div><div style="font-weight: 700">{{e.zahl}}</div></div>
+</div>
+</sc-for>
+<div style="font-size: 0.9rem; line-height: 1.5; margin-top: 0.4rem">4 der 5 Absagen kamen nach einem Gespräch. Die Unterlagen tragen also, die Hürde liegt im Gespräch.</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; font-size: 0.85rem; margin-top: 0.4rem">
+<div><div style="font-size: 1.3rem; font-weight: 700">8 Tage</div><div>bis zur ersten Antwort</div><div style="color: #4d5967">Median, 14 Bewerbungen</div></div>
+<div><div style="font-size: 1.3rem; font-weight: 700">17 Tage</div><div>bis zum ersten Gespräch</div><div style="color: #4d5967">Median, 11 Bewerbungen</div></div>
+</div>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 0.75rem">
+<h2 style="margin: 0; font-size: 1.1rem; font-weight: 700">Meine Suche: was PBP gefunden hat</h2>
+<div style="background: #ffffff; border: 1px solid #dde2e8; border-radius: 12px; padding: 1.25rem; display: flex; flex-wrap: wrap; gap: 1.5rem">
+<div style="flex: 1 1 260px; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem">
+<div><div style="font-size: 1.6rem; font-weight: 700">23</div><div style="font-size: 0.85rem">Stellen gesichtet</div></div>
+<div><div style="font-size: 1.6rem; font-weight: 700">13</div><div style="font-size: 0.85rem">noch in der Liste</div></div>
+<div><div style="font-size: 1.6rem; font-weight: 700">10</div><div style="font-size: 0.85rem">von dir aussortiert</div></div>
+</div>
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem">
+<div style="font-size: 0.9rem; font-weight: 600">Warum du aussortiert hast</div>
+<sc-for list="{{gruende}}" as="g" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 11rem 1fr; gap: 0.5rem; align-items: center; font-size: 0.9rem">
+<div>{{g.name}}</div>
+<div style="display: flex; align-items: center; gap: 0.5rem"><div style="height: 1rem; border-radius: 4px; background: #9aa5b1; width: {{g.breite}}"></div><div style="font-weight: 700">{{g.zahl}}</div></div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 0.8rem; color: #4d5967">Dieser Teil beschreibt die Suche, nicht deine Bewerbungen. Deshalb steht er getrennt und erscheint nicht im Nachweis fürs Amt.</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1900}}'>
+class Component extends DCLogic {
+renderVals() {
+var self = this;
+var gewaehlt = (this.state && this.state.zeit) || 'Alles';
+return {
+zeit: ['30 Tage', '90 Tage', '6 Monate', '12 Monate', 'Alles', 'Von … bis …'].map(function (n) {
+return { name: n, grund: n === gewaehlt ? '#1b2430' : 'transparent', schrift: n === gewaehlt ? '#ffffff' : '#1b2430', waehlen: function () { self.setState({ zeit: n }); } };
+}),
+kacheln: [
+{ wert: '25', name: 'Bewerbungen', hinweis: 'rund 4 je Monat' },
+{ wert: '9', name: 'laufen noch', hinweis: '16 abgeschlossen' },
+{ wert: '11', name: 'mit Gespräch', hinweis: 'von 25' },
+{ wert: '2', name: 'Angebote', hinweis: '1 liegt vor' },
+{ wert: '8 Tage', name: 'bis zur ersten Antwort', hinweis: 'Median, 14 Bewerbungen' },
+{ wert: '4', name: 'Nachfassen fällig', hinweis: 'bis 26.11.' }
+],
+trichter: [
+{ name: 'Beworben', zahl: '25', breite: '86%' }, { name: 'Antwort erhalten', zahl: '14', breite: '48%' }, { name: 'Gespräch', zahl: '11', breite: '38%' },
+{ name: 'Zweitgespräch', zahl: '3', breite: '10%' }, { name: 'Angebot', zahl: '2', breite: '7%' }
+],
+monate: [
+{ name: 'Mai', zahl: '3', hoehe: '48%' }, { name: 'Jun', zahl: '2', hoehe: '32%' }, { name: 'Jul', zahl: '5', hoehe: '80%' }, { name: 'Aug', zahl: '3', hoehe: '48%' },
+{ name: 'Sep', zahl: '3', hoehe: '48%' }, { name: 'Okt', zahl: '5', hoehe: '80%' }, { name: 'Nov', zahl: '4', hoehe: '64%' }
+],
+ansteht: [
+{ bis: '24.11.', was: 'Deistervilla Feinmechanik, Produktionsplaner', stand: 'Angebot liegt vor', schritt: 'Entscheiden und antworten' },
+{ bis: '26.11.', was: 'Steinfeld Hydraulik, Fertigungssteuerer', stand: 'Beworben, 13 Tage still', schritt: 'Nachfassen' },
+{ bis: '26.11.', was: 'Mühlenberg Werkzeugbau, Arbeitsvorbereiter', stand: 'Beworben, 37 Tage still', schritt: 'Zweites Nachfassen oder abschließen' },
+{ bis: '26.11.', was: 'Harzland Pumpen, Produktionsleiter Stv.', stand: 'Eingang bestätigt', schritt: 'Nachfassen' },
+{ bis: 'offen', was: 'Windrose Energietechnik, Leiter Arbeitsvorbereitung', stand: 'Zweitgespräch', schritt: 'Termin abstimmen' }
+],
+wege: [
+{ name: 'Jobbörse der BA', breite: '100%', anteil: '60%', text: '3 von 5' }, { name: 'StepStone', breite: '100%', anteil: '40%', text: '2 von 5' },
+{ name: 'Personalvermittler', breite: '80%', anteil: '100%', text: '4 von 4' }, { name: 'Kimeta', breite: '60%', anteil: '33%', text: '1 von 3' },
+{ name: 'Indeed', breite: '60%', anteil: '33%', text: '1 von 3' }, { name: 'Jobware', breite: '40%', anteil: '0%', text: '0 von 2' },
+{ name: 'Eigene Suche', breite: '40%', anteil: '0%', text: '0 von 2' }, { name: 'Stellenanzeigen.de', breite: '20%', anteil: '0%', text: '0 von 1' }
+],
+enden: [
+{ name: 'Keine Antwort', zahl: '8', breite: '70%' }, { name: 'Absage', zahl: '5', breite: '44%' },
+{ name: 'Selbst zurückgezogen', zahl: '2', breite: '17%' }, { name: 'Stelle entfallen', zahl: '1', breite: '9%' }
+],
+gruende: [
+{ name: 'Falsches Fachgebiet', zahl: '5', breite: '60%' }, { name: 'Zu junior', zahl: '2', breite: '24%' },
+{ name: 'Zu senior', zahl: '1', breite: '12%' }, { name: 'Zeitarbeit', zahl: '1', breite: '12%' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

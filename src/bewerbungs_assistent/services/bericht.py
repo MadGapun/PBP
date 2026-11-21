@@ -40,9 +40,12 @@ def einstellungen(db) -> dict:
     return erg
 
 
-def daten(db) -> dict:
+def daten(db, zeitraum_von: str = "", zeitraum_bis: str = "") -> dict:
     """Berichtsdaten samt Prozess-Kennzahlen (#781). Eine fehlende
-    Erweiterung verhindert den Bericht nie."""
+    Erweiterung verhindert den Bericht nie.
+
+    Mit Zeitraum (#1337, #1420) sind ALLE Zahlen auf den Zeitraum gerechnet;
+    PDF, Excel und die Zaehler der Werkzeugantwort lesen dieselben Daten."""
     report_data = db.get_report_data()
     try:
         from . import statistik_erweitert as _se
@@ -52,14 +55,16 @@ def daten(db) -> dict:
         report_data["aufwand"] = db.get_aufwand_summary()
     except Exception as exc:
         logger.warning("Bericht-Erweiterung (#781) fehlgeschlagen: %s", exc)
-    return report_data
+    from . import bericht_zeitraum as _bz
+    report_data["kosten"] = _bz.kosten_im_zeitraum(db)
+    return _bz.fuer_zeitraum(db, report_data, zeitraum_von, zeitraum_bis)
 
 
 def erzeugen(db, pfad, format: str = "pdf", zeitraum_von: str = "",
              zeitraum_bis: str = "") -> dict:
     """Schreibt den Bericht nach `pfad`. `format`: 'pdf' oder 'excel'/'xlsx'.
     Rueckgabe: die Berichtsdaten (fuer Zaehler in der Antwort)."""
-    report_data = daten(db)
+    report_data = daten(db, zeitraum_von, zeitraum_bis)
     profile = db.get_profile()
     report_settings = einstellungen(db)
     if format in ("excel", "xlsx"):

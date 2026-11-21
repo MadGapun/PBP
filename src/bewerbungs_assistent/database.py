@@ -4334,8 +4334,13 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
-    def get_aufwand_summary(self, application_id: str = None) -> dict:
-        """Aggregiert Aufwand pro Bewerbung (oder gesamt)."""
+    def get_aufwand_summary(self, application_id: str = None,
+                            von: str = "", bis: str = "") -> dict:
+        """Aggregiert Aufwand pro Bewerbung (oder gesamt).
+
+        `von`/`bis` (#1420): nur Kosten und Termine im Zeitraum. Kosten ohne
+        Datum lassen sich keinem Zeitraum zuordnen und zaehlen dort nicht.
+        """
         conn = self.connect()
         pid = self.get_active_profile_id()
         # Costs
@@ -4345,6 +4350,12 @@ class Database:
         if application_id:
             cost_q += " AND application_id=?"
             cost_params.append(application_id)
+        if von:
+            cost_q += " AND substr(incurred_at,1,10) >= ?"
+            cost_params.append(von[:10])
+        if bis:
+            cost_q += " AND substr(incurred_at,1,10) <= ?"
+            cost_params.append(bis[:10])
         total_costs = conn.execute(cost_q, cost_params).fetchone()["total"] or 0
         # Reisekosten
         meet_q = (
@@ -4362,6 +4373,12 @@ class Database:
         if application_id:
             meet_q += " AND application_id=?"
             meet_params.append(application_id)
+        if von:
+            meet_q += " AND substr(meeting_date,1,10) >= ?"
+            meet_params.append(von[:10])
+        if bis:
+            meet_q += " AND substr(meeting_date,1,10) <= ?"
+            meet_params.append(bis[:10])
         m = conn.execute(meet_q, meet_params).fetchone()
         reise_brutto = m["reise_brutto"] or 0
         reise_erstattet = m["reise_erstattet"] or 0
@@ -8917,47 +8934,14 @@ class Database:
             (pid,)
         ).fetchall()
 
-        # v1.7.10 (#779/D27): Bei arbeitgeberseitigem Ausfall zaehlt ein
-        # VORHER vorliegendes Angebot weiter als Angebot — sonst zeigt die
-        # Statistik 0 % Angebote bei jemandem, der eines hatte. Die
-        # Event-Historie weiss, ob der Status 'angebot' je erreicht wurde.
-        _offer_event_ids = {
-            r["application_id"] for r in conn.execute(
-                "SELECT DISTINCT application_id FROM application_events "
-                "WHERE status IN ('angebot', 'angenommen')"
-            ).fetchall()
-        }
+        # #1337: Die Quoten rechnet EINE Funktion (`services/bericht_zeitraum`),
+        # dieselbe wie im Bericht. Vorher stand die Angebotsrate dreimal im
+        # Code (4,0 % gegen 8,0 % im selben Werkzeug).
+        from .services import bericht_zeitraum as _bz
+        _offer_event_ids = _bz.angebots_ids(self)
 
         def _quoten(apps):
-            submitted_n = sum(1 for a in apps if a["status"] != "in_vorbereitung")
-            if not submitted_n:
-                return {"basis": 0}
-            def _cnt(pred):
-                return sum(1 for a in apps if pred(a))
-            abgelaufen = _cnt(lambda a: a["status"] == "abgelaufen")
-            abgelehnt = _cnt(lambda a: a["status"] == "abgelehnt")
-            # #779: arbeitgeber_ausgefallen ist KEIN Rueckzug des Bewerbers —
-            # eigene Kennzahl, nicht in withdrawal_rate.
-            zurueck = _cnt(lambda a: a["status"] == "zurueckgezogen")
-            ausgefallen = _cnt(lambda a: a["status"] == "arbeitgeber_ausgefallen")
-            iv = _cnt(lambda a: a["has_reached_interview"] == 1
-                      and a["status"] != "in_vorbereitung")
-            offer = _cnt(lambda a: a["status"] in ("angebot", "angenommen")
-                         or (a["status"] == "arbeitgeber_ausgefallen"
-                             and a["id"] in _offer_event_ids))
-            rate = lambda n: round(n / submitted_n * 100, 1)
-            q = {
-                "basis": submitted_n,
-                "abgelaufen": abgelaufen, "expired_rate": rate(abgelaufen),
-                "abgelehnt": abgelehnt, "rejection_rate": rate(abgelehnt),
-                "zurueckgezogen": zurueck, "withdrawal_rate": rate(zurueck),
-                "interview": iv, "interview_rate": rate(iv),
-                "angebot": offer, "offer_rate": rate(offer),
-            }
-            if ausgefallen:
-                q["arbeitgeber_ausgefallen"] = ausgefallen
-                q["employer_loss_rate"] = rate(ausgefallen)
-            return q
+            return _bz.quoten([dict(a) for a in apps], _offer_event_ids)
 
         gesamt_q = _quoten(all_apps)
         if start_datum:
@@ -9004,6 +8988,9 @@ class Database:
             }
         # Top-Level-Convenience (Gesamt-Basis), analog interview_rate/offer_rate
         if gesamt_q.get("basis"):
+            # #1337: ein Wert je Quote; die oberen Werte sind die der Quoten-Gruppe.
+            stats["interview_rate"] = gesamt_q["interview_rate"]
+            stats["offer_rate"] = gesamt_q["offer_rate"]
             stats["expired_rate"] = gesamt_q["expired_rate"]
             stats["rejection_rate"] = gesamt_q["rejection_rate"]
             stats["withdrawal_rate"] = gesamt_q["withdrawal_rate"]
@@ -9612,7 +9599,8 @@ class Database:
             "items": [
                 {
                     "firma": fu.get("company") or fu.get("application_company"),
-                    "stelle": fu.get("position") or fu.get("application_title"),
+                    "stelle": (fu.get("title") or fu.get("position")
+                               or fu.get("application_title")),
                     "scheduled_date": fu.get("scheduled_date"),
                     "follow_up_type": fu.get("follow_up_type"),
                     "template": fu.get("template"),
@@ -9626,27 +9614,12 @@ class Database:
         # aussortierte Stellen). Macht im Bericht klar: 1014 von 1016
         # Stellen wurden NICHT „ignoriert", sondern aktiv mit Grund
         # gefiltert — wichtiger Beweis fuer „der User hat sich gekuemmert".
-        import json as _json
-        from collections import Counter as _Counter
-        dismiss_counter: _Counter = _Counter()
-        dismissed_total = 0
-        for row in conn.execute(
-            "SELECT dismiss_reason FROM jobs WHERE is_active=0 "
-            "AND (profile_id=? OR profile_id IS NULL) AND dismiss_reason IS NOT NULL "
-            "AND dismiss_reason != ''",
-            (pid,)
-        ).fetchall():
-            raw = row["dismiss_reason"] or ""
-            dismissed_total += 1
-            # dismiss_reason kann JSON-Array oder Klartext sein
-            if raw.startswith("["):
-                try:
-                    for r in _json.loads(raw):
-                        dismiss_counter[str(r)] += 1
-                except (ValueError, TypeError):
-                    dismiss_counter[raw[:60]] += 1
-            else:
-                dismiss_counter[raw[:60]] += 1
+        # #1337: Stellen, auf die du dich beworben hast (`bewerbung_erstellt`),
+        # sind das Gegenteil einer Aussortierung und zaehlen hier nicht.
+        # `gruende_zaehlen` ist die eine Zaehlung ueber beide Speicherformen.
+        from .services.ablehnungsgruende import gruende_zaehlen as _gruende_zaehlen
+        _gruende_liste, dismissed_total = _gruende_zaehlen(
+            conn, pid, ausser=("bewerbung_erstellt", "war_nur_anfrage"))
 
         # Total Jobs (gesichtet) und beworbene-Anteil
         total_jobs_seen = conn.execute(
@@ -9759,7 +9732,7 @@ class Database:
                 "anzahl_total": dismissed_total,
                 "anzahl_gesichtet": total_jobs_seen,
                 "anzahl_aktiv": active_jobs,
-                "top_gruende": dict(dismiss_counter.most_common(10)),
+                "top_gruende": dict(_gruende_liste[:10]),
             },
             "interviews_historisch_total": interviews_total,
             # v1.6.6 (#540): Scraper-Health fuer Sektion „Quellen-Aktivitaet"
@@ -12429,8 +12402,11 @@ class Database:
             jobs.sort(key=lambda x: -(x.get("score") or 0))
         return jobs
 
-    def get_rejection_patterns(self) -> dict:
-        """Analyze rejection patterns across all applications."""
+    def get_rejection_patterns(self, app_ids=None) -> dict:
+        """Analyze rejection patterns across all applications.
+
+        `app_ids` (#1337): nur diese Bewerbungen, fuer den Zeitraum-Bericht.
+        """
         conn = self.connect()
         pid = self.get_active_profile_id()
         apps = conn.execute("""
@@ -12457,7 +12433,11 @@ class Database:
             if row.get("id") in gesehen:
                 continue
             gesehen.add(row.get("id"))
+            if app_ids is not None and row.get("id") not in app_ids:
+                continue
             rejections.append(row)
+        if not rejections:
+            return {"anzahl": 0, "muster": [], "nachricht": "Keine Ablehnungen vorhanden."}
 
         # Group by company
         by_company = {}
