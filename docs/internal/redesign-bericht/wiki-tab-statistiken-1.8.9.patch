@@ -1,5 +1,5 @@
 diff --git a/Tab-Statistiken.md b/Tab-Statistiken.md
-index 5155f8c..79488d9 100644
+index 5155f8c..d664dd3 100644
 --- a/Tab-Statistiken.md
 +++ b/Tab-Statistiken.md
 @@ -45,6 +45,31 @@ Tool: `bewerbungsbericht_exportieren`.
@@ -7,10 +7,10 @@ index 5155f8c..79488d9 100644
  > weglassen als eine irrefuehrende Zahl drucken.
  
 +**Bericht für einen Zeitraum:** Wählst du einen Zeitraum, gelten alle
-+Zahlen im PDF und im Excel nur für die Bewerbungen dieses Zeitraums:
++Zahlen im Bericht nur für die Bewerbungen dieses Zeitraums:
 +Zusammenfassung, Kennzahlen, Dauer, Wege, Absagen und Kosten. Was an
-+Stellen statt an Bewerbungen hängt (Punkte-Verteilung, aussortierte
-+Stellen, offene Stellen, Quellen-Volumen), steht dort als Hinweis „nur
++Anzeigen statt an Bewerbungen hängt (Punkte-Verteilung, aussortierte
++und offene Anzeigen, Quellen-Volumen), steht dort als Hinweis „nur
 +im Bericht für den gesamten Verlauf“ und nicht als Zahl. Fehlt die
 +Grundlage für eine Zahl, steht „noch keine Angabe“ statt 0.
 +
@@ -28,7 +28,7 @@ index 5155f8c..79488d9 100644
 +Betrag samt Summe; du legst neue an (auch ohne Bewerbung, etwa ein Abo oder
 +eine Prüfungsgebühr) und löschst falsche nach einer Rückfrage. Ein Posten
 +ohne Datum ist markiert, weil er in keinem Zeitraum zählt. Der Knopf „Kosten
-+prüfen“ neben PDF und Excel springt dorthin.
++prüfen“ neben den Berichts-Knöpfen springt dorthin.
 +
 +
  ## Outcome-Quoten (beta.99, #682)
