@@ -38,3 +38,10 @@ export function neueNachrichten(gesehen, nachrichten) {
   }
   return { anzahl, hoechste: Math.max(gesehen, hoechste) };
 }
+
+// #1428: Der Chat wird nur bei einem echten Profilwechsel neu aufgebaut (#1256). Das erste
+// Bekanntwerden der Kennung beim Start ist keiner: sonst gehen Antwort und Eingabe verloren.
+export function chatStand(stand, profilId) {
+  if (!profilId || profilId === stand.id) return stand;
+  return { id: profilId, nr: stand.id ? stand.nr + 1 : stand.nr };
+}
