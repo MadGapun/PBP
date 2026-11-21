@@ -287,6 +287,9 @@ echo [INFO] Entpacke %PY_ZIP_PATH% nach %PYTHON_DIR% >> "%LOGFILE%"
 
 :: PowerShell Expand-Archive (zuverlaessiger als tar fuer ZIP)
 echo [DEBUG] Rufe PowerShell Expand-Archive auf... >> "%LOGFILE%"
+:: #1425: aus PowerShell 7 gestartet erbt die Windows-PowerShell dessen Modulpfad und
+:: laedt ein Archiv-Modul, das sie nicht ausfuehren kann. Leer = ihre eigenen Module.
+set "PSModulePath="
 powershell -ExecutionPolicy Bypass -NoProfile -Command "Expand-Archive -LiteralPath $env:PY_ZIP_PATH -DestinationPath $env:PYTHON_DIR -Force" 2>> "%LOGFILE%"
 echo [DEBUG] Expand-Archive beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
