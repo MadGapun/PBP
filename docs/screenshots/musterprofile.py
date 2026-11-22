@@ -64,6 +64,39 @@ def _job_hash(url):
 _SCHRITT_TAGE = (3, 6, 4, 9, 5, 7)
 
 
+def _werktag(rest, davor):
+    """Rueckt ein Ereignis von Samstag/Sonntag auf einen Werktag (#1432).
+
+    `rest` und `davor` zaehlen Tage vor heute. Bevorzugt der naechste Montag;
+    ist das erst in der Zukunft, der Freitag davor, sofern er nach dem
+    vorigen Ereignis liegt.
+    """
+    wochentag = lambda n: (datetime.now() - timedelta(days=n)).weekday()
+    r = rest
+    while r > 0 and wochentag(r) >= 5:
+        r -= 1
+    if wochentag(r) < 5:
+        return r
+    z = rest
+    while wochentag(z) >= 5:
+        z += 1
+    return z if z < davor else rest
+
+
+def _nach_einladung(db, app_id, tage=2):
+    """Termin kurz nach der Einladung, nie in der Zukunft (#1432)."""
+    zeile = db.connect().execute(
+        "SELECT MIN(event_date) FROM application_events WHERE application_id=? AND status='interview'",
+        (app_id,)).fetchone()
+    tag = datetime.fromisoformat(zeile[0][:19]) + timedelta(days=tage)
+    while tag.weekday() >= 5:
+        tag += timedelta(days=1)
+    gestern = datetime.now() - timedelta(days=1)
+    if tag > gestern:
+        tag = gestern
+    return tag.replace(hour=10, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%S")
+
+
 def _apply_flow(db, app_id, flow, tage=0):
     """Wendet eine Status-Kette [(status, notes, rejection_reason), ...] an.
 
@@ -82,7 +115,11 @@ def _apply_flow(db, app_id, flow, tage=0):
         grund = schritt[2] if len(schritt) > 2 else ""
         db.update_application_status(app_id, status, notes, rejection_reason=grund)
         abstand = _SCHRITT_TAGE[(len(app_id) + i + tage) % len(_SCHRITT_TAGE)]
+        davor = rest
         rest = max(0, rest - min(abstand, max(1, rest // max(1, len(flow) - i))))
+        if status == "abgelaufen":          # #1432: niemand gibt nach drei Tagen auf
+            rest = max(0, tage - 42)
+        rest = _werktag(rest, davor)
         neu = [r[0] for r in conn.execute(
             "SELECT id FROM application_events WHERE application_id=?", (app_id,)).fetchall()
             if r[0] not in vorher]
@@ -559,10 +596,12 @@ def seed_bob(db):
          "meeting_url": "https://zoom.us/j/demo-leibniz", "duration_minutes": 30},
         # Historie (durchgefuehrt)
         {"application_id": app_ids[("Leiter Arbeitsvorbereitung", "Windrose Energietechnik GmbH")],
-         "title": "Erstgespräch Windrose", "meeting_date": _tag(9, hour=10),
+         "title": "Erstgespräch Windrose",
+         "meeting_date": _nach_einladung(db, app_ids[("Leiter Arbeitsvorbereitung", "Windrose Energietechnik GmbH")]),
          "platform": "teams", "status": "durchgefuehrt", "duration_minutes": 45},
         {"application_id": app_ids[("Teamleiter Arbeitsvorbereitung", "Steinfeld Hydraulik GmbH")],
-         "title": "Erstgespräch Steinfeld", "meeting_date": _tag(55, hour=13),
+         "title": "Erstgespräch Steinfeld",
+         "meeting_date": _nach_einladung(db, app_ids[("Teamleiter Arbeitsvorbereitung", "Steinfeld Hydraulik GmbH")]),
          "platform": "onsite", "status": "durchgefuehrt", "duration_minutes": 75},
         # Privat
         {"application_id": None, "title": "Feuerwehr — Atemschutzübung",

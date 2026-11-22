@@ -85,7 +85,7 @@ def _pdf(db, tmp_path, mit_kosten=False, einstellungen=None, von=VON, bis=BIS):
 def test_kacheln_zaehlen_nur_was_geschah(bestand, tmp_path):
     d, _, _ = _pdf(bestand, tmp_path)
     w = {k["name"]: k["wert"] for k in d["kacheln"]}
-    assert w == {"Bewerbungen": 2, "Gespräche": 1, "Rückmeldungen": 4, "Laufende Verfahren": 2}
+    assert w == {"Bewerbungen": 2, "Gesprächstermine": 1, "Rückmeldungen": 4, "Laufende Verfahren": 2}
 
 
 def test_frueheres_verfahren_steht_getrennt_mit_bezug(bestand, tmp_path):

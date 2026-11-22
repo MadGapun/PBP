@@ -33,6 +33,7 @@ import {
   LoadingPanel,
   MetricCard,
   SelectInput,
+  DatumFeld,
 } from "@/components/ui";
 import { formatDate, formatDateTime, statusLabel } from "@/utils";
 
@@ -488,19 +489,17 @@ export default function StatsPage() {
       {/* v1.6.6 (#540): manueller Zeitraum fuer den Bericht-Export */}
       <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-muted">
         <span>Zeitraum von Hand:</span>
-        <input
-          type="date"
+        <DatumFeld
           value={customFrom}
-          onChange={(e) => setCustomFrom(e.target.value)}
-          className="rounded-lg border border-white/5 bg-white/[0.03] px-2 py-1 text-ink"
+          onChange={setCustomFrom}
+          className="!w-32 !py-1 text-xs"
           aria-label="Zeitraum von"
         />
         <span>bis</span>
-        <input
-          type="date"
+        <DatumFeld
           value={customTo}
-          onChange={(e) => setCustomTo(e.target.value)}
-          className="rounded-lg border border-white/5 bg-white/[0.03] px-2 py-1 text-ink"
+          onChange={setCustomTo}
+          className="!w-32 !py-1 text-xs"
           aria-label="Zeitraum bis"
         />
         {(customFrom || customTo) && (

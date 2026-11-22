@@ -16,13 +16,10 @@ from typing import Optional
 from . import bericht_daten as _kern
 from . import bericht_zeitraum as _bz
 from .anzeigenamen import bewerbungsart_text, datum_text, quelle_text, status_text
-from .bewerbung_status import laeuft
+from .bewerbung_status import ANTWORT_DER_FIRMA, laeuft
 
 #: Ein Statuswechsel, der vom Arbeitgeber kommt.
-RUECKMELDUNG_STATUS = (
-    "eingangsbestaetigung", "in_pruefung", "interview", "zweitgespraech", "angebot",
-    "abgelehnt", "arbeitgeber_ausgefallen",
-)
+RUECKMELDUNG_STATUS = ANTWORT_DER_FIRMA
 #: So heisst die Rueckmeldung im Nachweis.
 RUECKMELDUNG_TEXT = {
     "eingangsbestaetigung": "Eingang bestätigt",
@@ -196,10 +193,20 @@ def nachweis_daten(db, von: str = "", bis: str = "", heute: Optional[str] = None
     reihenfolge = {"Bewerbung": 0, "Gespräch": 1, "Nachfassen": 2, "Rückmeldung": 3}
     chronik.sort(key=lambda z: (z["iso"], reihenfolge[z["art"]], z["was"]))
 
+    # #1432: Eine Einladung ist kein gefuehrtes Gespraech. Verfahren mit Einladung
+    # im Zeitraum, aber ohne eingetragenen Termin, stehen deshalb getrennt da.
+    mit_termin = {t["app"] for t in termine}
+    ohne_termin = sum(
+        1 for aid, evs in ereignisse.items()
+        if aid not in mit_termin and any(
+            e["status"] in ("interview", "zweitgespraech") and _im(e["tag"], von, bis or stichtag)
+            for e in evs))
     laufend_gesamt = kern["kennzahlen"]["laufen"]["wert"]
     kacheln = [
         {"name": "Bewerbungen", "wert": len(bewerbungen), "hinweis": "im Zeitraum abgeschickt"},
-        {"name": "Gespräche", "wert": len(termine), "hinweis": "im Zeitraum geführt"},
+        {"name": "Gesprächstermine", "wert": len(termine),
+         "hinweis": f"eingetragen, dazu {_plural(ohne_termin, 'Einladung', 'Einladungen')} ohne Termin"
+         if ohne_termin else "im Zeitraum eingetragen"},
         {"name": "Rückmeldungen", "wert": sum(1 for z in chronik if z["art"] == "Rückmeldung"),
          "hinweis": "von Arbeitgebern erhalten"},
         {"name": "Laufende Verfahren", "wert": laufend_gesamt,
