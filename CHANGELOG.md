@@ -68,7 +68,9 @@ Der Zeitraum auf der Statistik-Seite wird immer als TT.MM.JJJJ eingegeben, auch 
 
 - Neue gemeinsame Liste `ANTWORT_DER_FIRMA` in `services/bewerbung_status.py`.
 - Die Update-Probe startet ältere Installer ohne den Modulpfad von PowerShell 7 (#1425, aus `main`).
-- 10705 Tests. Generalprobe für Videofolge 10 im Browser mit isolierter Datenbank.
+- Generalprobe für Videofolge 10 im Browser mit isolierter Datenbank.
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10705 Tests.*
 
 ---
 
