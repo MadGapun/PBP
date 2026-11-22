@@ -86,8 +86,8 @@ def test_zeitraum_gilt_fuer_uebersicht_und_alle_dokumente(server, browser):
         for abschnitt in ("Wie steht es?", "Was steht an?", "Was funktioniert?", "Meine Suche"):
             expect(kern.get_by_role("heading", name=abschnitt, exact=True)).to_be_visible()
 
-        page.get_by_label("Zeitraum von").fill("2026-11-01")
-        page.get_by_label("Zeitraum bis").fill("2026-11-30")
+        page.get_by_label("Zeitraum von").fill("01.11.2026")
+        page.get_by_label("Zeitraum bis").fill("30.11.2026")
         expect(kern).to_contain_text("01.11.2026 bis 30.11.2026", timeout=10000)
         expect(kachel).to_contain_text("2")
         expect(kern).to_contain_text("Die Stellensuche steht nur")

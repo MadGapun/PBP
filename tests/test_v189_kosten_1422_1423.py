@@ -150,7 +150,7 @@ def test_vorauswahl_nicht_markiert_bei_manuellem_zeitraum(server, browser):
         page.goto(f"{basis}/#statistiken", wait_until="domcontentloaded", timeout=30000)
         alles = page.get_by_role("button", name="Alles", exact=True)
         expect(alles).to_have_class(re.compile(r"text-sky"), timeout=20000)
-        page.get_by_label("Zeitraum von").fill("2026-11-01")
+        page.get_by_label("Zeitraum von").fill("01.11.2026")
         expect(alles).not_to_have_class(re.compile(r"text-sky"), timeout=10000)
         page.get_by_role("button", name="zurücksetzen").click()
         expect(alles).to_have_class(re.compile(r"text-sky"), timeout=10000)

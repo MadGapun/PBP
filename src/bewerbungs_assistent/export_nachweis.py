@@ -134,7 +134,7 @@ def _kacheln(pdf: _Nachweis, kacheln: list):
         pdf.set_xy(x + 2, y + 13.5)
         pdf.set_font(pdf.schrift, "", 6.8)
         pdf.set_text_color(*_MITTEL)
-        pdf.multi_cell(breite - 4, 3, _text(pdf, k["hinweis"]))
+        pdf.multi_cell(breite - 4, 3, _text(pdf, k["hinweis"]), align="L")
         pdf.set_text_color(0, 0, 0)
     pdf.set_xy(pdf.l_margin, y + 24)
 
