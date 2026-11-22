@@ -37,6 +37,13 @@ ARCHIV = ("abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen"
 #: Vorbei, erfolgreich oder nicht.
 ABGESCHLOSSEN = ARCHIV + ("angenommen",)
 
+#: Ein Statuswechsel, der vom Arbeitgeber kommt (#1432). Abgelaufen, der eigene
+#: Rueckzug und Dokumente sind keine Antwort der Firma.
+ANTWORT_DER_FIRMA = (
+    "eingangsbestaetigung", "in_pruefung", "interview", "zweitgespraech", "angebot",
+    "abgelehnt", "arbeitgeber_ausgefallen",
+)
+
 
 def laeuft(status) -> bool:
     """Laeuft der Vorgang noch?"""

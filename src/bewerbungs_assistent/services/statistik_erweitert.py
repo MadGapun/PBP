@@ -29,6 +29,7 @@ from typing import Any, Optional
 
 INTERVIEW_STATUS = ("interview", "zweitgespraech", "interview_abgeschlossen")
 from .bewerbung_status import ABGESCHLOSSEN as TERMINAL_STATUS  # noqa: E402  #1103
+from .bewerbung_status import ANTWORT_DER_FIRMA  # noqa: E402  #1432
 
 _EXTERN_MUSTER = re.compile(
     r"intern besetzt|intern vergeben|gestrichen|budget|insolven|"
@@ -143,7 +144,7 @@ def zeitliche_kennzahlen(db: Any, apps: Optional[list] = None) -> dict:
             naechster = next(
                 (e for e in evs
                  if e["datum"] > beworben_ev["datum"]
-                 and e["status"] not in ("beworben", "notiz")), None)
+                 and e["status"] in ANTWORT_DER_FIRMA), None)
             if naechster:
                 _d = _tage(beworben_ev["datum"], naechster["datum"])
                 if _d:

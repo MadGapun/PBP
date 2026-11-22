@@ -56,6 +56,84 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 - Prüfskript `ui_texte_pruefen.py` liest jetzt auch `export.py`.
 - Wächter: `test_v187_zeitstempel_1386.py` (keine neue Stelle mit Ortszeit ohne Zone), `test_v187_profilstand_1389.py` (jede Profil-Schreibmethode stempelt).
 
+## [1.8.11] - 2026-11-22 — Antwortzeit, Gespräche im Nachweis und deutsches Datumsfeld
+
+<!-- anwender -->
+Die Antwortzeit zählt nur noch echte Antworten der Firma, nicht mehr abgelaufene Verfahren, den eigenen Rückzug oder hinzugefügte Dokumente.
+Der Nachweis trennt eingetragene Gesprächstermine von Einladungen ohne Termin, damit dort kein Gespräch steht, das nicht erfasst ist.
+Der Zeitraum auf der Statistik-Seite wird immer als TT.MM.JJJJ eingegeben, auch bei englischem Browser.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
+- Die angezeigte Antwortzeit kann sich ändern. Die neue Zahl ist die richtige, weil Verfahren ohne Antwort nicht mehr mitzählen.
+
+### Fixed
+
+- **Antwortzeit (#1432):** Datenkern, Auswertung und die ältere Karte „Ø Antwortzeit“ nutzen dieselbe Liste wie der Nachweis. Im Musterprofil sinkt die Fallzahl der Kennzahl von 22 auf 12.
+- **Gespräche (#1432):** Der Nachweis heißt jetzt „Gesprächstermine“ und nennt Einladungen ohne Termin getrennt. Die Auswertung sagt „eingeladen“ statt „mit Gespräch“.
+- **Datumsfelder (#1432, Teil von #1417):** Die Felder „Zeitraum von Hand“ auf der Statistik-Seite zeigen und lesen TT.MM.JJJJ.
+- **Musterprofil (#1432):** Gespräche liegen nach ihrer Einladung, Verfahren laufen frühestens nach sechs Wochen ab, Firmen antworten an Werktagen.
+
+### Technik
+
+- Neue gemeinsame Liste `ANTWORT_DER_FIRMA` in `services/bewerbung_status.py`.
+- Die Update-Probe startet ältere Installer ohne den Modulpfad von PowerShell 7 (#1425, aus `main`).
+- Generalprobe für Videofolge 10 im Browser mit isolierter Datenbank.
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10705 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.11.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.11.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.11 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.11` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.10] - 2026-11-21 — Nachweis fürs Amt und Auswertung für dich: zwei Dokumente statt eines Berichts
 
 <!-- anwender -->
