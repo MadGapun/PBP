@@ -15,6 +15,7 @@ import re
 from xml.etree import ElementTree as ET
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, stelle_hash, make_session
 from .stichwort_abgleich import passt as _passt
@@ -87,7 +88,7 @@ def search_berufsstart(params: dict) -> list[dict]:
         # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
         with make_session(content_type="rss", timeout=_TIMEOUT) as client:
             r = client.get(_BASE)
-            if r.status_code != 200:
+            if not _http_ok("berufsstart", r):
                 logger.debug("Berufsstart HTTP %d", r.status_code)
                 return []
             try:

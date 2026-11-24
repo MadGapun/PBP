@@ -24,6 +24,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, stelle_hash, make_session
 from .stichwort_abgleich import passt as _passt
@@ -128,7 +129,7 @@ def _fetch_firma(client: httpx.Client,
     }
     try:
         r = client.post(url, json=body)
-        if r.status_code != 200:
+        if not _http_ok("workday_dax", r):
             logger.debug("Workday %s HTTP %d", tenant, r.status_code)
             return []
         try:

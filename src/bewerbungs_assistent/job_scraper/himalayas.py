@@ -15,6 +15,7 @@ import logging
 import re
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, stelle_hash, make_session
 from .stichwort_abgleich import passt as _passt
@@ -110,7 +111,7 @@ def search_himalayas(params: dict) -> list[dict]:
                 except Exception as exc:
                     logger.debug("Himalayas page %d Fehler: %s", page, exc)
                     break
-                if r.status_code != 200:
+                if not _http_ok("himalayas", r):
                     logger.debug("Himalayas HTTP %d", r.status_code)
                     break
                 try:

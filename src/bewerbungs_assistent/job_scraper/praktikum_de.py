@@ -30,6 +30,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import detect_remote_level, make_session, stelle_hash
@@ -161,7 +162,7 @@ def search_praktikum_de(params: dict, client=None) -> list[dict]:
                 logger.warning("Praktikum.de: Anfragegrenze erreicht (HTTP 429) auf Seite %d — "
                                "Lauf endet mit %d Angeboten", seite, len(stellen))
                 return
-            if antwort.status_code != 200:
+            if not _http_ok("praktikum_de", antwort):
                 logger.warning("Praktikum.de: HTTP %s auf Seite %d", antwort.status_code, seite)
                 break
             karten = karten_aus_html(antwort.text)
@@ -183,7 +184,7 @@ def search_praktikum_de(params: dict, client=None) -> list[dict]:
             if antwort.status_code == 429:
                 logger.warning("Praktikum.de: Anfragegrenze bei den Detailseiten erreicht")
                 return
-            if antwort.status_code != 200:
+            if not _http_ok("praktikum_de", antwort):
                 continue
             detail = detail_aus_html(antwort.text)
             if detail.get("firma"):

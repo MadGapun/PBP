@@ -5,6 +5,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
@@ -32,7 +33,7 @@ def search_hays(params: dict) -> list:
         with httpx.Client(timeout=30, follow_redirects=True) as client:
             # Load sitemap
             resp = client.get(SITEMAP_URL)
-            if resp.status_code != 200:
+            if not _http_ok("hays", resp):
                 logger.warning("Hays sitemap returned %d", resp.status_code)
                 return []
 
@@ -45,7 +46,7 @@ def search_hays(params: dict) -> list:
             for url in relevant[:50]:  # Limit to prevent overload
                 try:
                     detail = client.get(url)
-                    if detail.status_code != 200:
+                    if not _http_ok("hays", detail):
                         continue
                     soup = BeautifulSoup(detail.text, "lxml")
 

@@ -9,6 +9,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
@@ -187,7 +188,7 @@ def search_ferchau(params: dict) -> list:
                         "sortingDirection": "DESC",
                     },
                 )
-                if resp.status_code != 200:
+                if not _http_ok("ferchau", resp):
                     logger.debug("FERCHAU HTTP %d for '%s'", resp.status_code, query)
                     continue
 

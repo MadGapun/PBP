@@ -22,6 +22,8 @@ from urllib.parse import quote
 
 import httpx
 
+from .rohtreffer import melde_http as _rohtreffer_http  # #1435
+
 from . import stelle_hash, detect_remote_level
 from .textgrenzen import fuer_speicher
 
@@ -126,6 +128,7 @@ def search_adzuna(params: dict) -> list[dict]:
                         "Adzuna request error: %s", str(exc)[:200]
                     )
                     break
+                _rohtreffer_http("adzuna", r.status_code)  # #1435
                 if r.status_code == 401:
                     logger.warning(
                         "Adzuna 401 — app_id/app_key ungueltig"

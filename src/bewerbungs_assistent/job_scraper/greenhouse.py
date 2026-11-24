@@ -30,6 +30,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, make_session, stelle_hash
 from .stichwort_abgleich import passt as _passt
@@ -42,7 +43,7 @@ _BASE_TPL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
 
 # Kuratierte Default-Liste, alle live geprueft 2026-04-25.
 # Schwerpunkt DACH-Tech-Unternehmen; ergaenzt um internationale, die in
-# DE rekrutieren (Datadog/Elastic/Cloudflare/MongoDB/GitLab/Twilio).
+# DE rekrutieren (siehe Liste).
 DEFAULT_COMPANIES = [
     "n26",
     "celonis",
@@ -157,7 +158,7 @@ def _fetch_company(client: httpx.Client, slug: str) -> list[dict]:
     """Holt alle Jobs einer Firma. Gibt Roh-Antwort als Liste zurueck."""
     try:
         r = client.get(_BASE_TPL.format(slug=slug))
-        if r.status_code != 200:
+        if not _http_ok("greenhouse", r):
             logger.debug("Greenhouse %s HTTP %d", slug, r.status_code)
             return []
         return list(r.json().get("jobs") or [])

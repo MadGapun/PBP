@@ -7911,7 +7911,7 @@ class Database:
                     UPDATE scraper_health SET last_run=?, last_success=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        consecutive_silent=0, last_error=NULL,
+                        consecutive_silent=0, last_error=NULL, error_class=NULL,
                         reactivate_at=NULL, reactivate_attempt=0,
                         retry_after=NULL,
                         deaktiviert_am=NULL, deaktiviert_grund=NULL,
@@ -7925,6 +7925,7 @@ class Database:
                     UPDATE scraper_health SET last_run=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
+                        last_error=NULL, error_class=NULL,
                         consecutive_silent=?{_sc_clause}{_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, total_runs, total_successes, avg_time,
                       count, status_detail, consec_silent, *_extra_vals, name))
