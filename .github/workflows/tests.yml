@@ -154,6 +154,10 @@ jobs:
         # #1098: Alter der letzten Sicherung in Worten, Groessen lesbar.
         run: node frontend/src/lib/sicherung.test.mjs
 
+      - name: Diagramme (Node)
+        # #1345: Farben, Phasen, Zahlen und Rangliste der Statistik-Seite.
+        run: node frontend/src/lib/diagramm.test.mjs
+
       - name: Hinweiszone (Node)
         # G60 (#1087): hoechstens ein Banner, nur auf dem Dashboard, feste
         # Reihenfolge; Suche erst nach sieben Tagen dringlich.

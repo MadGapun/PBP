@@ -9019,12 +9019,15 @@ class Database:
 
         return stats
 
-    def get_timeline_stats(self, interval: str = "month", time_range: str = "") -> dict:
+    def get_timeline_stats(self, interval: str = "month", time_range: str = "",
+                           von: str = "", bis: str = "") -> dict:
         """Get application counts grouped by time interval for charts (#125).
 
         ``interval`` controls the grouping: day / week / month / quarter / year.
         ``time_range`` optionally overrides the default time window:
-            30d, 90d, 6m, 12m, or empty for defaults.
+            30d, 90d, 6m, 12m, or empty for defaults; "alles" = kein Limit.
+        ``von``/``bis`` (JJJJ-MM-TT) haben Vorrang (#1345): die Verlaufs-
+        diagramme zeigen denselben Zeitraum wie die Uebersicht darueber.
         """
         conn = self.connect()
         pid = self.get_active_profile_id()
@@ -9062,6 +9065,26 @@ class Database:
         time_filter = ""
         if original_interval != "all" and interval in _time_limits:
             time_filter = f"AND {_effective_date} >= {_time_limits[interval]}"
+
+        # #1345: nur streng gepruefte Daten gelangen in die Abfrage.
+        from datetime import date as _datum
+
+        def _tag(wert):
+            text = str(wert or "")
+            if len(text) != 10:
+                return ""
+            try:
+                return _datum.fromisoformat(text).isoformat()
+            except ValueError:
+                return ""
+
+        _von, _bis = _tag(von), _tag(bis)
+        if _von or _bis or time_range == "alles":
+            time_filter = ""
+            if _von:
+                time_filter += f" AND substr({_effective_date}, 1, 10) >= '{_von}'"
+            if _bis:
+                time_filter += f" AND substr({_effective_date}, 1, 10) <= '{_bis}'"
         time_filter_jobs = time_filter.replace(_effective_date, "found_at")
 
         # Normalize date: strip timezone suffix and skip empty strings (#197)
@@ -9141,6 +9164,9 @@ class Database:
 
         # #308: Fill gaps for week/day intervals so charts don't skip empty periods
         all_periods = set(periods.keys()) | {r["period"] for r in job_rows if r["period"]}
+        # #1345: ein Abschnitt nur mit neuen Stellen fehlte sonst im Diagramm.
+        for _abschnitt in all_periods:
+            periods.setdefault(_abschnitt, {"total": 0, "by_status": {}})
         if interval in ("week", "day") and all_periods:
             from datetime import datetime as _dt, timedelta
             sorted_p = sorted(all_periods)
@@ -9216,13 +9242,14 @@ class Database:
         pid = self.get_active_profile_id()
 
         # Score distribution using brackets — ALL jobs (active + dismissed) for full picture (#178)
+        # #1345: Kommawerte und negative Punkte landeten sonst in "10+".
         dist_rows = conn.execute("""
             SELECT
                 CASE
-                    WHEN score = 0 THEN '0'
-                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
-                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
-                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
+                    WHEN score <= 0 THEN '0'
+                    WHEN score < 4 THEN '1-3'
+                    WHEN score < 7 THEN '4-6'
+                    WHEN score < 10 THEN '7-9'
                     ELSE '10+'
                 END as bracket, COUNT(*) as cnt
             FROM jobs WHERE is_pinned=0
@@ -9234,10 +9261,10 @@ class Database:
         active_dist_rows = conn.execute("""
             SELECT
                 CASE
-                    WHEN score = 0 THEN '0'
-                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
-                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
-                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
+                    WHEN score <= 0 THEN '0'
+                    WHEN score < 4 THEN '1-3'
+                    WHEN score < 7 THEN '4-6'
+                    WHEN score < 10 THEN '7-9'
                     ELSE '10+'
                 END as bracket, COUNT(*) as cnt
             FROM jobs WHERE is_pinned=0 AND is_active=1

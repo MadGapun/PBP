@@ -3822,10 +3822,13 @@ def api_statistics():
 
 
 @app.get("/api/stats/timeline")
-def api_stats_timeline(interval: str = "month", range: str = ""):
+def api_stats_timeline(interval: str = "month", range: str = "", to: str = "",
+                       request: Request = None):
     """Application timeline grouped by interval (week/month/quarter/year).
-    Optional range param overrides time window: 30d, 90d, 6m, 12m."""
-    return _db.get_timeline_stats(interval, time_range=range)
+    Optional range param overrides time window: 30d, 90d, 6m, 12m, alles.
+    from/to (JJJJ-MM-TT) haben Vorrang (#1345)."""
+    von = (request.query_params.get("from") if request else "") or ""
+    return _db.get_timeline_stats(interval, time_range=range, von=von, bis=to or "")
 
 
 @app.get("/api/stats/scores")
