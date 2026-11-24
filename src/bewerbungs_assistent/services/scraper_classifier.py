@@ -47,6 +47,17 @@ def _http_status(exc) -> Optional[int]:
     return code if isinstance(code, int) else None
 
 
+def klasse_fuer_http_status(code: int) -> str:
+    """#1435: die Fehlerklasse zu einem HTTP-Status (dieselbe Zuordnung wie unten)."""
+    if code in (404, 410):
+        return ERROR_CLASS_TOT
+    if code in (403, 429):
+        return ERROR_CLASS_BLOCKIERT
+    if 500 <= code < 600:
+        return ERROR_CLASS_SERVER_WEG
+    return ERROR_CLASS_KAPUTT
+
+
 def classify_scraper_error(exc) -> str:
     """Leitet aus einer Exception eine Scraper-Fehlerklasse ab.
 

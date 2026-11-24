@@ -55,6 +55,86 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 - `services/unterlagen.py` (eine Funktion für das Registrieren, Altbestand im Safety-Net), `services/profil_begriffe.py` (Profil-Vokabular und Abkürzungen für `skill_gap_analyse` und `lebenslauf_bewerten`), `services/uhr.py` (`jetzt()`, `zeitpunkt()`, `nach_zeit()`), `bewerbung_stand.erledigtes_streichen`, Dekorator `_stempelt_profil` mit Spalte `profile.stand_nr` (additiv, kein Schema-Bump).
 - Prüfskript `ui_texte_pruefen.py` liest jetzt auch `export.py`.
 - Wächter: `test_v187_zeitstempel_1386.py` (keine neue Stelle mit Ortszeit ohne Zone), `test_v187_profilstand_1389.py` (jede Profil-Schreibmethode stempelt).
+## [1.8.12] - 2026-11-24 — Jobquellen geprüft und repariert, Statistik-Diagramme mit Bezug
+
+<!-- anwender -->
+Jobquellen, die PBP wegen Fehlern abgeschaltet hatte, bekommen jetzt einmal je Woche einen neuen Versuch; GULP, freelance.de und Workable liefern wieder.
+Antwortet eine Quelle nur noch mit Fehlerseiten, steht das als Fehler in der Diagnose, statt dass sie still als „keine Treffer“ läuft.
+Die Diagramme der Statistik-Seite zeigen den gewählten Zeitraum, sagen, worauf sie sich beziehen, und lassen sich als Tabelle anzeigen.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
+- Beim ersten Suchlauf nach dem Update probiert PBP die automatisch abgeschalteten Quellen erneut. Von dir selbst abgeschaltete Quellen bleiben aus.
+
+### Fixed
+
+- **Fehlerseiten zählen als Fehler (#1435):** Jede Quelle meldet ihre Antworten. Bekommt sie bei jedem Abruf einen Fehlerstatus, wird der Lauf als Fehler gebucht (etwa „HTTP 404 bei 3 Abrufen“). Eine einzige gute Antwort genügt, damit nichts gebucht wird.
+- **Rückweg für abgeschaltete Quellen (#1435):** Eine Quelle, die die Automatik nach einer Fehlerserie ohne Termin abgeschaltet hatte, lief nie wieder. Jetzt bekommt sie nach einer Woche einen Probelauf; der Quellen-Check setzt für eine erreichbare Quelle den Termin auf sofort.
+- **Was nicht laufen darf, läuft nicht (#1435):** SOLCOM (Bot-Schutz) und Kimeta (robots.txt) laufen nur noch über den Browser, Adzuna ohne Zugangsschlüssel heißt „nicht eingerichtet“. Keine davon zählt mehr als „still“.
+- **Keine veralteten Fehler (#1435):** Ein erfolgreicher Lauf löscht die alte Fehlerklasse, ein stiller Lauf den alten Fehlertext.
+- **Einzelne Quellen (#1435):** SOLCOM öffnet die neue Projektliste im Browser, studentjob.de ist als defekt markiert (Feed weg), die Probe für ingenieur.de prüft die richtige Adresse.
+- **Statistik-Diagramme (#1345):** Ranglisten statt Kreisdiagrammen, feste Farben, jede Karte nennt ihren Bezug, jedes Diagramm hat eine Tabellenansicht, der Zeitverlauf folgt dem gewählten Zeitraum. Kacheln, die sich mit den Diagrammen widersprachen, sind entfernt.
+
+### Technik
+
+- `rohtreffer.http_ok`/`http_fehlschlag`, `klasse_fuer_http_status`; ein Test hält jeden `status_code != 200` im Adapter-Ordner fest.
+- `scraper_diagnose` nennt `letzter_browserlauf`.
+- Die Statistik-Grundlage (`fc86e293`, Ranglisten und Farben) kommt aus `main` mit.
+- Befund je Quelle im Issue #1435.
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10735 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.12.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.12.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.12 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.12` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
 
 ## [1.8.11] - 2026-11-22 — Antwortzeit, Gespräche im Nachweis und deutsches Datumsfeld
 

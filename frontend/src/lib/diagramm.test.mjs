@@ -1,6 +1,6 @@
 // #1345 (G117): Farben, Phasen, Zahlen und Rangliste der Statistik-Seite.
 // Framework-frei:  node src/lib/diagramm.test.mjs
-import { FARBEN, PHASEN, farben, phaseVon, phasenImVerlauf, phasenSumme, prozent, rangliste, zahl } from "./diagramm.js";
+import { FARBEN, PHASEN, anteilText, farben, phaseVon, phasenImVerlauf, phasenSumme, prozent, rangliste, zahl } from "./diagramm.js";
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -23,6 +23,13 @@ check("Prozent kaputt ist ein Strich", prozent("abc"), "–");
 check("Tausender mit Punkt", zahl(12345), "12.345");
 check("eine Nachkommastelle", zahl(6.199999999999999), "6,2");
 check("Zahl ohne Wert", zahl(undefined), "–");
+
+// Kleine Fallzahlen: unter 10 Faellen keine Prozent.
+check("9 Faelle bleiben Anzahlen", anteilText(4, 9), "4 von 9");
+check("ab 10 Faellen Prozent", anteilText(4, 10), prozent(40));
+check("gerundet auf eine Stelle", anteilText(8, 24), prozent(33.3));
+check("null von wenigen", anteilText(0, 3), "0 von 3");
+check("ohne Basis ein Strich", anteilText(2, 0), "–");
 
 // Jeder bekannte Status hat eine Phase; Unbekanntes faellt nicht in eine bekannte.
 const BEKANNT = [

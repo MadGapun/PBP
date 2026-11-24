@@ -30,6 +30,7 @@ import time
 from urllib.parse import quote_plus
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
@@ -251,7 +252,7 @@ def search_freelancermap(params: dict) -> list:
                         break
                     continue
                 gesperrt_in_folge = 0
-                if resp.status_code != 200:
+                if not _http_ok("freelancermap", resp):
                     fortschritt["fehler"] += 1
                     continue
 

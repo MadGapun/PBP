@@ -14,6 +14,7 @@ import logging
 import re
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, stelle_hash, make_session
 from .stichwort_abgleich import passt as _passt
@@ -88,7 +89,7 @@ def search_remotive(params: dict) -> list[dict]:
         with make_session(content_type="json", timeout=_TIMEOUT) as client:
             params_q = {"search": primary_kw} if primary_kw else {}
             r = client.get(_BASE, params=params_q)
-            if r.status_code != 200:
+            if not _http_ok("remotive", r):
                 logger.debug("Remotive HTTP %d", r.status_code)
                 return []
             data = r.json()

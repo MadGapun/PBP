@@ -26,6 +26,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
@@ -103,7 +104,7 @@ def _seite(client, begriff: str, seite: int) -> dict | None:
     except httpx.HTTPError as exc:
         logger.warning("GULP: Anfrage fuer '%s' Seite %d fehlgeschlagen: %s", begriff, seite, exc)
         return None
-    if antwort.status_code != 200:
+    if not _http_ok("gulp", antwort):
         logger.warning("GULP: HTTP %s fuer '%s' Seite %d", antwort.status_code, begriff, seite)
         return None
     try:

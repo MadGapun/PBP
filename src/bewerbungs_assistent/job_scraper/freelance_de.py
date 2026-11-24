@@ -30,6 +30,7 @@ import time
 from urllib.parse import quote
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import detect_remote_level, fetch_description_from_detail, make_session, stelle_hash
@@ -200,7 +201,7 @@ def search_freelance_de(params: dict, client=None) -> list:
                 if antwort.status_code == 410:
                     logger.info("freelance.de: keine Stichwort-Seite fuer %s", basis)
                     break
-                if antwort.status_code != 200:
+                if not _http_ok("freelance_de", antwort):
                     logger.warning("freelance.de: HTTP %s fuer %s", antwort.status_code, url)
                     break
                 neu = _parse_listing_page(antwort.text, gesehen)

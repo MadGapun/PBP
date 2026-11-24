@@ -120,6 +120,17 @@ export function prozent(wert) {
   return `${EINE_STELLE.format(n)} %`;
 }
 
+// Kleine Fallzahlen (#798, #1345): unter 10 Faellen "4 von 9" statt Prozent.
+export const MIN_FUER_PROZENT = 10;
+
+export function anteilText(anzahl, basis) {
+  const n = Number(anzahl) || 0;
+  const b = Number(basis) || 0;
+  if (b <= 0) return "–";
+  if (b < MIN_FUER_PROZENT) return `${zahl(n)} von ${zahl(b)}`;
+  return prozent(Math.round((n / b) * 1000) / 10);
+}
+
 // Rangliste fuer Balken: absteigend, hoechstens `max` Zeilen; der Rest wird
 // zu einer Zeile "Sonstige" (immer zuletzt, mit der Zahl der gefalteten
 // Eintraege). `anteil` ist der Anteil an der Summe in Prozent, `breite` die

@@ -226,8 +226,6 @@ export default function StatistikKern({ von, bis }) {
         </Card>
       </Abschnitt>
 
-      <h2 className="mb-1 text-base font-semibold text-ink">Weitere Diagramme</h2>
-      <p className="mb-4 text-xs text-muted">Die Diagramme ab hier zeigen teils den gesamten Verlauf, unabhängig vom Zeitraum oben.</p>
     </div>
   );
 }

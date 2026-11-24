@@ -117,12 +117,7 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "rss",
         None,
     ),
-    "studentjob": (
-        "GET",
-        "https://www.studentjob.de/rss/jobs",
-        "rss",
-        None,
-    ),
+    # #1435: studentjob ist defekt (RSS 404) - eine defekte Quelle hat keine Probe (#927).
     "personio": (
         "GET",
         # B13.4 (#748): hellofresh war 404 (nicht in der Adapter-Liste) —
@@ -138,7 +133,7 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
     # denselben Endpunkt, den auch die echte Suche trifft.
     "ingenieur_de": (
         "GET",
-        "https://jobs.ingenieur.de/suche?q=test&sort=date",
+        "https://jobs.ingenieur.de/jobs?q=test",  # #1435: /suche gibt es nicht mehr
         "html",
         None,
     ),

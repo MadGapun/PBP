@@ -26,7 +26,7 @@ from bewerbungs_assistent.services import browser_handoff as bh  # noqa: E402
 
 # v1.7.122 (#1066): Monster ist entfernt — keine Stellen mehr.
 BROWSER_LOGIN = {"stepstone", "indeed", "linkedin", "xing", "google_jobs"}
-DEFEKT_BROWSER = {"heise_jobs", "meinestadt", "workday_dax"}
+DEFEKT_BROWSER = {"heise_jobs", "meinestadt", "studentjob", "workday_dax"}  # #1435: studentjob RSS 404
 
 
 @pytest.fixture
