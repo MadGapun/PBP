@@ -26,6 +26,7 @@ import re
 from xml.etree import ElementTree as ET
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, stelle_hash
 from .stichwort_abgleich import passt as _passt
@@ -145,7 +146,7 @@ def search_meinestadt(params: dict) -> list[dict]:
                           follow_redirects=True) as client:
             params_q = {"w": primary_kw} if primary_kw else {}
             r = client.get(url, params=params_q)
-            if r.status_code != 200:
+            if not _http_ok("meinestadt", r):
                 logger.warning("Meinestadt HTTP %s fuer %s", r.status_code, stadt)
                 return []
             try:

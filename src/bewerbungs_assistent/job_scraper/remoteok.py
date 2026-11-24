@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import make_session, stelle_hash
 from .stichwort_abgleich import passt as _passt
@@ -77,7 +78,7 @@ def search_remoteok(params: dict) -> list[dict]:
         # v1.7.0-beta.50 (#624): zentraler make_session-Helper
         with make_session(content_type="json", timeout=_TIMEOUT) as client:
             r = client.get(_BASE)
-            if r.status_code != 200:
+            if not _http_ok("remoteok", r):
                 logger.debug("RemoteOK HTTP %d", r.status_code)
                 return []
             try:

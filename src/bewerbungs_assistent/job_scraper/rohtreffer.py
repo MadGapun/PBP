@@ -56,6 +56,7 @@ def lauf_beginnen() -> None:
     with _LOCK:
         _GESEHEN.clear()
         _DURCHLASS.clear()
+        _HTTP.clear()
 
 
 def melde(quelle: str, anzahl: int) -> None:
@@ -123,3 +124,53 @@ def bilanz() -> dict:
     return {q: {"geliefert": gesehen.get(q), "durch_filter": d["durchgelassen"],
                 "mit_pflichttreffer_im_titel": d["im_titel"]}
             for q, d in quellen.items()}
+
+
+# #1435: Was die Quelle auf HTTP-Ebene geantwortet hat. SOLCOM fragte eine
+# Adresse ab, die mit 404 (spaeter 403) antwortete; der Adapter schrieb das
+# nur ins Debug-Log und gab eine leere Liste zurueck. Der Lauf galt als
+# "ok ohne Treffer", nach fuenf Laeufen war die Quelle still abgeschaltet,
+# ohne dass irgendwo ein Fehler stand. Wie bei `melde`: ein Register statt
+# eines Rueckgabewerts, damit kein Adapter seine Signatur aendern muss.
+_HTTP: dict[str, dict[int, int]] = {}
+
+
+def melde_http(quelle: str, status) -> None:
+    """Ein Adapter meldet den Status einer Antwort (auch 200)."""
+    if not quelle:
+        return
+    try:
+        code = int(status)
+    except (TypeError, ValueError):
+        return
+    with _LOCK:
+        d = _HTTP.setdefault(quelle, {})
+        d[code] = d.get(code, 0) + 1
+
+
+def http_ok(quelle: str, antwort) -> bool:
+    """`antwort.status_code == 200` — und der Status wird dabei gemeldet."""
+    code = getattr(antwort, "status_code", None)
+    melde_http(quelle, code)
+    return code == 200
+
+
+def http_befund(quelle: str):
+    """`{status: anzahl}` des laufenden Laufs, oder `None` (= nicht gemeldet)."""
+    with _LOCK:
+        d = _HTTP.get(quelle)
+        return dict(d) if d is not None else None
+
+
+def http_fehlschlag(quelle: str):
+    """Ist JEDE gemeldete Antwort ein Fehler? Dann `(haeufigster_status, anzahl_fehler)`.
+
+    Eine Quelle mit mindestens einer 200 ist nicht kaputt (eine einzelne
+    verschwundene Firma bei Greenhouse darf die Quelle nicht abschalten),
+    und eine Quelle, die nichts meldet, wird nicht beurteilt.
+    """
+    d = http_befund(quelle)
+    if not d or any(200 <= code < 300 for code in d):
+        return None
+    status = max(d, key=lambda code: d[code])
+    return status, sum(d.values())

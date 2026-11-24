@@ -14,6 +14,7 @@ import logging
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import stelle_hash, detect_remote_level, fetch_description_from_detail
 from .jobboerse_karten import karten_aus_html
@@ -83,7 +84,7 @@ def search_ingenieur_de(params: dict) -> list:
                         f"{BASIS_URL}/jobs",
                         params={"q": query, **({"l": ort} if ort else {})},
                     )
-                    if resp.status_code != 200:
+                    if not _http_ok("ingenieur_de", resp):
                         logger.debug("ingenieur.de HTTP %d for '%s'", resp.status_code, query)
                         continue
 
