@@ -50,7 +50,7 @@ def test_median_erst_ab_drei_faellen_mit_anzahl_und_spanne():
     assert zwei["zustand"] == "unbekannt" and zwei["text"] == "noch keine Angabe (erst 2 Fälle)"
     drei = bd.dauer({"anzahl": 3, "median_tage": 5.0, "min_tage": 2.0, "max_tage": 9.5})
     assert drei["wert"] == 5.0 and drei["spanne"] == [2.0, 9.5]
-    assert drei["text"] == "5 Tage (Median aus 3 Fällen, 2,0 bis 9,5 Tage)"
+    assert drei["text"] == "5 Tage (Median aus 3 Fällen, 2 bis 9,5 Tage)"
 
 
 @pytest.mark.parametrize("von,bis,art,n", [
