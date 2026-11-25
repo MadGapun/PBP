@@ -110,7 +110,10 @@ def test_mit_gewaehlter_browser_quelle_steht_die_karte_da(browser, umgebung):
         page.get_by_role("button", name="Browser-Quellen mit Claude").first.wait_for(timeout=20000)
         assert KARTE in page.locator("#page-stellen").inner_text()
         expect(page.get_by_role("button", name="Browser-Quellen mit Claude")).to_have_count(1)
-        assert "LinkedIn" in page.locator("#page-stellen").inner_text()
+        # #1436: eingeklappt steht die Zahl der Quellen, die Namen erst nach dem Aufklappen.
+        assert "LinkedIn" not in page.locator("[data-testid=browser-quellen-karte]").inner_text()
+        page.get_by_test_id("browser-quellen-karte").get_by_role("button", name=KARTE, exact=False).click()
+        expect(page.get_by_test_id("browser-quellen-liste")).to_contain_text("LinkedIn")
     finally:
         ctx.close()
 
