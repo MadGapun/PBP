@@ -122,11 +122,15 @@ def intern_ausgefallen(db, auswahl=None, registry=None) -> dict[str, str]:
     ergebnis: dict[str, str] = {}
     for key in gewaehlt:
         info = registry.get(key) or {}
-        if (key not in HANDOFF_URL_TEMPLATES or info.get("defekt")
+        # #1436: eine abgekuendigte Quelle (kimeta, solcom) laeuft seit #1435 nie intern; sie ist nicht "ausgefallen",
+        # sondern steht als Browser-Quelle in der Liste (browser_quellen).
+        if (key not in HANDOFF_URL_TEMPLATES or info.get("defekt") or info.get("deprecated")
                 or _zugriffsart(key, info) == "browser_login"):
             continue
         h = gesundheit.get(key) or {}
-        if (h.get("consecutive_failures") or 0) >= 1 or (h and not h.get("is_active", 1)):
+        # #1436: nur ein gescheiterter Lauf zaehlt. Eine von Hand abgeschaltete Quelle (is_active=0 ohne Fehlerserie) hat
+        # niemand laufen lassen; sie stand bisher dauerhaft als "ausgefallen" in der Karte.
+        if (h.get("consecutive_failures") or 0) >= 1:
             ergebnis[key] = str(h.get("last_status_detail") or h.get("last_error") or "").strip()
     return ergebnis
 
@@ -164,6 +168,12 @@ def browser_quellen(db, auswahl=None, registry=None,
                 continue
             art = UEBERSPRUNGEN
             weg = ersatzwege.get(key) or info.get("login_hinweis") or ""
+        elif info.get("deprecated") and info.get("handoff_verfuegbar"):
+            # #1436: abgekuendigt (robots.txt, Bot-Schutz), seit #1435 ohne internen Lauf - gewaehlt heisst: nur im Browser.
+            if key not in gewaehlt:
+                continue
+            art = UEBERSPRUNGEN
+            weg = info.get("manueller_fallback") or info.get("deprecated_grund") or ""
         elif key in ausgefallen:
             art = INTERN_AUSGEFALLEN
             grund = ausgefallen[key]
@@ -178,12 +188,12 @@ def browser_quellen(db, auswahl=None, registry=None,
         profil = db.find_portal_search_profile(key)
         begriffe = suchbegriffe(profil)
         herkunft = "suchprofil" if begriffe else ""
-        if not begriffe and art == INTERN_AUSGEFALLEN:
+        if not begriffe and (art == INTERN_AUSGEFALLEN or info.get("deprecated")):
             # #1302: eine interne Quelle sucht ohne eigenes Profil mit den Suchkriterien - der Browser mit denselben.
             begriffe = _suchkriterien_begriffe(db)
             herkunft = "suchkriterien" if begriffe else ""
         werkzeug = WERKZEUG_JE_PORTAL.get(key, "")
-        if not werkzeug and art == INTERN_AUSGEFALLEN:
+        if not werkzeug and (art == INTERN_AUSGEFALLEN or info.get("deprecated")):
             werkzeug = f"quelle_handoff('{key}', <Suchbegriff>)"
         eintraege.append({
             "key": key,
@@ -264,4 +274,160 @@ def prompt(eintraege: list[dict]) -> str:
         "- Melde mir am Ende je Quelle: Rohtreffer, in PBP angelegt, schon "
         "bekannt, aussortiert mit Grund. Der Bericht ersetzt die Einträge nicht.",
     ]
+    return "\n".join(zeilen)
+
+
+# ── #1436: Suchbegriffe je Quelle pflegen ───────────────────────────────────────────────────────────────────────────
+
+#: Eingeklappt oder offen: die Karte "Diese Quellen laufen nur ueber den Browser" auf der Stellenseite. Der Zustand liegt
+#: beim Profil (profile_settings) wie bei den Dashboard-Bereichen (#985), nicht im Browser. Vorgabe: eingeklappt.
+KARTE_OFFEN = "browser_karte_offen"
+
+
+def karte_offen(db) -> bool:
+    try:
+        return bool(db.get_profile_setting(KARTE_OFFEN, False))
+    except Exception:
+        return False
+
+
+#: Welche gewaehlte Quelle das Suchprofil eines Portals im INTERNEN Lauf liest (`job_scraper.build_search_keywords`,
+#: `jobspy_source.search_jobspy_indeed`). Ein Test haelt die Schluessel gegen `PORTALE_MIT_SUCHPROFIL_IM_LAUF`.
+LESER_IM_LAUF = {"indeed": "jobspy_indeed", "freelancermap": "freelancermap"}
+
+
+def _wirkung(key: str, eintrag: dict | None, gewaehlt) -> str:
+    """Wo PBP die Suchbegriffe dieser Quelle liest - ein Setzer ohne Leser waere eine Einstellung ohne Wirkung (L11)."""
+    im_lauf = LESER_IM_LAUF.get(key) in set(gewaehlt or [])
+    if eintrag and eintrag["art"] == INTERN_AUSGEFALLEN and not im_lauf:
+        return "Auftrag „Browser-Quellen mit Claude“, solange der interne Suchlauf ausfällt"
+    if eintrag and im_lauf:
+        return "interner Suchlauf und Auftrag „Browser-Quellen mit Claude“"
+    if eintrag:
+        return "Auftrag „Browser-Quellen mit Claude“"
+    if im_lauf:
+        return "interner Suchlauf"
+    return "zurzeit nicht genutzt (Quelle nicht gewählt)"
+
+
+def _text(eintrag, feld: str) -> str:
+    if feld == "keywords":
+        return _begriff(eintrag)
+    if isinstance(eintrag, str):
+        return eintrag.strip()
+    return str((eintrag or {}).get("wert") or "").strip() if isinstance(eintrag, dict) else ""
+
+
+def _texte(liste, feld: str = "keywords") -> list[str]:
+    ergebnis: list[str] = []
+    for eintrag in liste or []:
+        wort = _text(eintrag, feld)
+        if wort and wort not in ergebnis:
+            ergebnis.append(wort)
+    return ergebnis
+
+
+def pflegbare_quellen(db, auswahl=None, registry=None) -> list[dict]:
+    """Die Quellen, deren Suchbegriffe PBP auch LIEST (#1436), mit Profil als Text und dem Ersatz ohne Profil.
+
+    Gelesen werden die Begriffe vom Auftrag an Claude (die gewaehlten Quellen aus `browser_quellen`) und vom internen
+    Lauf (`LESER_IM_LAUF`). Dazu jede Quelle mit gespeichertem Profil, damit nichts Gespeichertes unsichtbar wird.
+    Die optionalen, als defekt gefuehrten Quellen nennt der Auftrag nur mit Namen; ihre Begriffe liest niemand.
+    """
+    if registry is None:
+        from ..job_scraper import SOURCE_REGISTRY as registry
+    gewaehlt = list(auswahl or [])
+    browser = {e["key"]: e for e in browser_quellen(db, auswahl=gewaehlt, registry=registry)
+               if e["art"] != DEFEKT_NUR_BROWSER}
+    try:
+        gespeichert = [p["portal"] for p in db.list_portal_search_profiles()]
+    except Exception:
+        gespeichert = []
+    schluessel: list[str] = list(browser)
+    for key in [k for k, leser in LESER_IM_LAUF.items() if leser in gewaehlt] + sorted(gespeichert):
+        if key not in schluessel and key in registry:
+            schluessel.append(key)
+    ersatz = _suchkriterien_begriffe(db)
+    ergebnis: list[dict] = []
+    for key in schluessel:
+        e = browser.get(key)
+        profil = db.find_portal_search_profile(key)
+        info = registry.get(key) or {}
+        ersatz_gilt = (LESER_IM_LAUF.get(key) in gewaehlt or bool(info.get("deprecated"))
+                       or (e is not None and e["art"] == INTERN_AUSGEFALLEN))
+        ergebnis.append({
+            "key": key,
+            "name": info.get("name") or key,
+            "wirkung": _wirkung(key, e, gewaehlt),
+            "gespeichert": profil is not None,
+            "primaere_suchen": _texte((profil or {}).get("primaere_suchen")),
+            "sekundaere_suchen": _texte((profil or {}).get("sekundaere_suchen")),
+            "nicht_verwenden": _texte((profil or {}).get("nicht_verwenden"), feld="wert"),
+            # Ohne eigene Begriffe: sucht die Quelle mit den Suchkriterien (Zahl) oder fragt Claude nach (0)?
+            "ersatz_suchkriterien": len(ersatz) if ersatz_gilt else 0,
+        })
+    return ergebnis
+
+
+def _zusammenfuehren(alt, zeilen, feld: str) -> list:
+    """Bearbeitete Zeilen zurueck ins gespeicherte Format: ein bestehender Eintrag behaelt Filter und Notiz (#564)."""
+    bisher: dict = {}
+    for eintrag in alt or []:
+        text = _text(eintrag, feld)
+        if text and text.lower() not in bisher:
+            bisher[text.lower()] = eintrag
+    ergebnis: list = []
+    gesehen: set[str] = set()
+    for zeile in zeilen or []:
+        text = " ".join(str(zeile or "").split())[:200]
+        if not text or text.lower() in gesehen:
+            continue
+        gesehen.add(text.lower())
+        neu = {"keywords": text} if feld == "keywords" else {"wert": text, "grund": ""}
+        ergebnis.append(bisher.get(text.lower()) or neu)
+    return ergebnis
+
+
+def profil_speichern(db, key: str, primaere_suchen, sekundaere_suchen, nicht_verwenden) -> dict:
+    """Speichert die Begriffe einer Quelle aus der Oberflaeche - ueber denselben Weg wie suchprofil_aktualisieren."""
+    alt = db.find_portal_search_profile(key) or {}
+    return db.update_portal_search_profile(
+        key,
+        primaere_suchen=_zusammenfuehren(alt.get("primaere_suchen"), primaere_suchen, "keywords"),
+        sekundaere_suchen=_zusammenfuehren(alt.get("sekundaere_suchen"), sekundaere_suchen, "keywords"),
+        nicht_verwenden=_zusammenfuehren(alt.get("nicht_verwenden"), nicht_verwenden, "wert"),
+    )
+
+
+def pflege_prompt(quellen: list[dict]) -> str:
+    """Der Auftrag "Suche pflegen mit Claude" (#1436) - eine Fassung, auf dem Server (#963)."""
+    if not quellen:
+        return ""
+    ohne = [q for q in quellen if not (q["primaere_suchen"] or q["sekundaere_suchen"])]
+    mit = [q for q in quellen if q not in ohne]
+    zeilen = [
+        "Geh mit mir die Suchbegriffe je Jobbörse in PBP durch. Je Quelle:",
+        "1. Lies das Suchprofil mit suchprofil_lesen(<Quelle>) und meine Suchkriterien mit suchkriterien_anzeigen().",
+        "2. Sieh dir an, welche Stellen aus dieser Quelle zuletzt in PBP kamen und wie ich sie eingeordnet habe "
+        "(stellen_anzeigen).",
+        "3. Schlag mir vor, welche Begriffe du ergänzen, erweitern oder streichen würdest, jeweils mit Grund. Halte die "
+        "Liste kurz: eine Browsersuche arbeitet ein paar treffsichere Begriffe ab, nicht Dutzende.",
+        "4. Speichere erst nach meiner Zustimmung, mit suchprofil_aktualisieren(<Quelle>, primaere_suchen=[...], "
+        "sekundaere_suchen=[...], nicht_verwenden=[...]).",
+        "",
+    ]
+    if ohne:
+        zeilen.append("Zuerst diese Quellen, sie haben noch keine eigenen Begriffe:")
+        for q in ohne:
+            ersatz = (f" (sucht bis dahin mit {q['ersatz_suchkriterien']} Begriffen aus meinen Suchkriterien)"
+                      if q["ersatz_suchkriterien"] else "")
+            zeilen.append(f"- {q['name']} ('{q['key']}'){ersatz}, genutzt von: {q['wirkung']}")
+    if mit:
+        if ohne:
+            zeilen.append("")
+        zeilen.append("Danach diese:")
+        for q in mit:
+            zeilen.append(f"- {q['name']} ('{q['key']}'): " + ", ".join(q["primaere_suchen"] + q["sekundaere_suchen"])
+                          + f", genutzt von: {q['wirkung']}")
+    zeilen += ["", "Ändere nichts ohne meine Zustimmung."]
     return "\n".join(zeilen)

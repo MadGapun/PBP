@@ -19,6 +19,7 @@ import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
+import SuchbegriffeJeQuelle from "@/components/SuchbegriffeJeQuelle";
 import { schluesselHinweis } from "@/lib/quellenBadges";
 import {
   anzeigeText as downloadText,
@@ -3673,6 +3674,8 @@ export default function SettingsPage() {
   const [privacy, setPrivacy] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [settingsTab, setSettingsTab] = useState("quellen");
+  // #1436: Sprung aus der Browser-Quellen-Karte zu den Suchbegriffen einer Quelle.
+  const [suchbegriffeQuelle, setSuchbegriffeQuelle] = useState("");
   const [erweitertOffen, setErweitertOffen] = useState(false);
   const [followupSettings, setFollowupSettings] = useState({ followup_default_days: 7, followup_interview_delay_days: 14 });
   const [followupSaving, setFollowupSaving] = useState(false);
@@ -3704,6 +3707,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (intent?.page === "einstellungen" && intent?.tab) {
       setSettingsTab(intent.tab);
+      if (intent.quelle !== undefined) setSuchbegriffeQuelle(intent.quelle || "");
       clearIntent();
     }
   }, [intent]);
@@ -4296,6 +4300,9 @@ export default function SettingsPage() {
                 filterbar
               />
             </Card>
+
+            {/* #1436: Suchbegriffe je Quelle, ohne Claude pflegbar */}
+            <SuchbegriffeJeQuelle quelle={suchbegriffeQuelle} />
 
             {/* v1.8 (#947): Mail-Ordner als Quelle - Vorgabe AUS, Liste der freigegebenen Ordner */}
             <MailQuelleCard />
