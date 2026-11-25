@@ -412,6 +412,15 @@
   }
 }
 
+/* #1345 (G117): auf schmalen Bildschirmen (390 px) wuchsen die Karten der
+   Statistik mit ihrem breitesten Inhalt (Rasterzellen haben von Haus aus
+   min-width: auto) und liefen rechts aus dem Bild. Die Karte bleibt in
+   ihrer Spalte; breite Inhalte (Kalender, Tabellen) schieben sich in ihrer
+   Karte seitlich. */
+#page-statistiken .grid > * {
+  min-width: 0;
+}
+
 /* #1345 (G117): wer im System "Bewegung reduzieren" eingestellt hat,
    bekommt keine Animationen und keine weichen Uebergaenge. */
 @media (prefers-reduced-motion: reduce) {
