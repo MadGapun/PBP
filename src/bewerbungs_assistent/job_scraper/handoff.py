@@ -23,6 +23,8 @@ from ..services.browser_handoff import REGEL_IM_ZWEIFEL
 HANDOFF_URL_TEMPLATES: dict[str, str] = {
     "gulp": "https://www.gulp.de/gulp2/g/projekte?query={keyword}",
     "kimeta": "https://www.kimeta.de/jobs?q={keyword}&l={ort}",
+    # #1435: neue Projektliste (gemessen 24.11.2026); `aufgaben` filtert, ohne Begriff kommt die ganze Liste.
+    "solcom": "https://www.solcom.de/fuer-freelancer/projektliste?aufgaben={keyword}",
     "heise_jobs": "https://jobs.heise.de/?keywords={keyword}",
     "stepstone": "https://www.stepstone.de/jobs/{keyword_pfad}",
     "linkedin": "https://www.linkedin.com/jobs/search/?keywords={keyword}&location={ort}",

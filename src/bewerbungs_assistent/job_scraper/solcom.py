@@ -9,6 +9,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
@@ -42,7 +43,7 @@ def search_solcom(params: dict) -> list:
                     "https://www.solcom.de/de/projektportal.aspx",
                     params={"search": query},
                 )
-                if resp.status_code != 200:
+                if not _http_ok("solcom", resp):
                     logger.debug("SOLCOM HTTP %d for '%s'", resp.status_code, query)
                     continue
 

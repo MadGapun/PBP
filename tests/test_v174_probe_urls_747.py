@@ -12,8 +12,9 @@ from bewerbungs_assistent.job_scraper.health import _PROBES, get_probable_source
 def test_ingenieur_de_hat_probe():
     method, url, content_type, body = _PROBES["ingenieur_de"]
     assert method == "GET"
-    # Probe trifft denselben Endpunkt wie der Adapter (jobs.ingenieur.de/suche)
-    assert url.startswith("https://jobs.ingenieur.de/suche")
+    # Probe trifft denselben Endpunkt wie der Adapter. #1435: der Adapter fragt
+    # seit #927 /jobs ab; /suche (der alte Wert hier) antwortet mit 404.
+    assert url.startswith("https://jobs.ingenieur.de/jobs")
     assert content_type == "html"
     assert body is None
 

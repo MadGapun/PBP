@@ -30,6 +30,7 @@ import httpx
 
 from ..services.scraper_classifier import (
     classify_scraper_error,
+    klasse_fuer_http_status,
     ERROR_CLASS_SERVER_WEG,
     ERROR_CLASS_KAPUTT,
     lauf_grund,
@@ -258,15 +259,21 @@ SOURCE_REGISTRY = {
     "solcom": {
         "name": "SOLCOM",
         "beschreibung": "IT + Engineering Projektportal. Personaldienstleister für IT-Projekte.",
-        "methode": "Nur von Hand im Browser (Cloudflare-Block, kein automatischer Abruf)",
+        "methode": "Nur von Hand im Browser (Bot-Schutz, kein automatischer Abruf)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
-        # #653 (B12, beta.77): Cloudflare Bot-Block seit 2026-04-25
+        # #653 (B12, beta.77): Bot-Schutz der Seite seit 2026-04-25
         # dauerhaft aktiv (auch mit User-Agent-Spoofing 403). Quelle nur
         # noch via Chrome-Extension nutzbar. Aus Auto-Scraper-Liste raus.
         "deprecated": True,
-        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur über die Claude-Erweiterung im Browser",
-        "manueller_fallback": "https://www.solcom.de/projekte (im Browser oder über die Claude-Erweiterung)",
+        # #1435 (24.11.2026, erneut gemessen): die alte Suchadresse
+        # /de/projektportal.aspx gibt es nicht mehr; die neue Projektliste
+        # antwortet automatischen Abrufen (Python, Headless-Chromium) mit
+        # HTTP 403 und einer Sperrseite ihres Bot-Schutzes, im Browser mit rund
+        # 340 Projekten. Deshalb bleibt es beim Weg ueber den Browser.
+        "deprecated_grund": "Der Bot-Schutz der Seite sperrt automatische Abrufe (HTTP 403, erneut gemessen 24.11.2026) — im Browser lädt die Projektliste normal",
+        "handoff_verfuegbar": True,
+        "manueller_fallback": "quelle_handoff('solcom') — öffnet die SOLCOM-Projektliste im Browser",
     },
     "stellenanzeigen_de": {
         "name": "Stellenanzeigen.de",
@@ -473,6 +480,11 @@ SOURCE_REGISTRY = {
         "methode": "RSS",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        # #1435: der Feed ist weg (HTTP 404, gemessen 24.11.2026), die
+        # Startseite lebt. Bis ein neuer Zugang gefunden ist, im Browser.
+        "defekt": True,
+        "defekt_grund": "Der RSS-Feed antwortet mit HTTP 404 (gemessen 24.11.2026); die Seite selbst ist im Browser erreichbar.",
+        "manueller_fallback": "https://www.studentjob.de/ (im Browser oder über die Claude-Erweiterung)",
     },
     "berufsstart": {
         "name": "Berufsstart.de",
@@ -897,6 +909,23 @@ def _token_overlap(a: str, b: str) -> float:
     return len(intersection) / min(len(tokens_a), len(tokens_b))
 
 
+#: #1435: so lange ruht eine Quelle, die die Automatik ohne Termin abgeschaltet hat.
+PROBE_OHNE_TERMIN_TAGE = 7
+
+
+def _probe_faellig(h: dict, jetzt: str) -> bool:
+    """Lief die Quelle seit PROBE_OHNE_TERMIN_TAGE nicht mehr? Ohne Lauf: ja."""
+    from datetime import datetime as _dt, timedelta as _td
+    letzter = str(h.get("last_run") or "")[:19]
+    if not letzter:
+        return True
+    try:
+        grenze = _dt.fromisoformat(str(jetzt)[:19]) - _td(days=PROBE_OHNE_TERMIN_TAGE)
+        return _dt.fromisoformat(letzter) <= grenze
+    except ValueError:
+        return False
+
+
 def quellen_einteilen(db, jetzt_iso: str = "") -> tuple:
     """Welche Quelle laeuft, welche nicht, welche bekommt einen Probelauf?
 
@@ -931,18 +960,29 @@ def quellen_einteilen(db, jetzt_iso: str = "") -> tuple:
             name = h.get("scraper_name")
             if not name:
                 continue
+            failures = h.get("consecutive_failures") or 0
             if not h.get("is_active"):
                 faellig = h.get("reactivate_at")
                 # Ohne Termin bleibt es beim Nein: wer bewusst
-                # abgeschaltet hat, will keine Wiederbelebung.
+                # abgeschaltet hat, will keine Wiederbelebung. Von Hand
+                # abgeschaltet setzt die Fehlerserie auf 0 (toggle_scraper);
+                # eine Serie ab fuenf heisst: die AUTOMATIK hat abgeschaltet.
                 if faellig and str(faellig) <= jetzt:
+                    probelauf.add(name)
+                elif not faellig and failures >= 5 and _probe_faellig(h, jetzt):
+                    # #1435: gulp, freelance_de und workable standen seit dem
+                    # 02.10. so (21 Fehler, kein Termin) und lieferten in
+                    # Wahrheit 37, 27 und 20 Stellen. Ohne Termin gab es
+                    # keinen Rueckweg; jetzt einmal je Woche ein Probelauf.
                     probelauf.add(name)
                 else:
                     uebersprungen.add(name)
                 continue
-            # #668: dauerhaft defekt obwohl is_active=1
-            failures = h.get("consecutive_failures") or 0
+            # #668: dauerhaft defekt obwohl is_active=1 — #1435: mit Probe je Woche
             if failures >= 5:
+                if _probe_faellig(h, jetzt):
+                    probelauf.add(name)
+                    continue
                 uebersprungen.add(name)
                 defekt[name] = failures
     except Exception:
@@ -1172,7 +1212,22 @@ def run_search(db, job_id: str, params: dict):
         params["keywords"] = build_search_keywords(db)
 
     # Deprecated sources (#159): skip with warning
-    _deprecated_sources = {"linkedin", "xing"}
+    # #1435: auch die in der Registry abgekuendigten (robots.txt, Bot-Schutz).
+    # kimeta und solcom liefen bis hier jeden Probelauf, fanden nichts und
+    # zaehlten das als "still" — mit dem Abruf, den robots.txt untersagt.
+    _deprecated_sources = {"linkedin", "xing"} | {
+        q for q, i in SOURCE_REGISTRY.items() if i.get("deprecated")}
+    # #1435: eine Quelle ohne Zugangsschluessel ist nicht eingerichtet, nicht still.
+    def _nicht_eingerichtet(quelle: str) -> bool:
+        if quelle != "adzuna":
+            return False
+        try:
+            from .adzuna import _get_credentials
+            return not _get_credentials(params)
+        except Exception:
+            return False
+
+    nicht_eingerichtet: set = set()
 
     # Per-source timeout (#500 / Real-Run-Bilanz 2026-04-25): pauschale
     # 90s sind fuer mehrere Quellen zu kurz, wenn der User viele Keywords
@@ -1279,6 +1334,10 @@ def run_search(db, job_id: str, params: dict):
             logger.warning("%s: defekt — %s. Manuell ueber die Claude-Erweiterung im Browser nutzen.", quelle, grund)
             skipped_sources.append(quelle)
             defekt_skipped[quelle] = grund
+        elif _nicht_eingerichtet(quelle):
+            logger.info("%s: nicht eingerichtet (Zugangsschluessel fehlt) — uebersprungen", quelle)
+            skipped_sources.append(quelle)
+            nicht_eingerichtet.add(quelle)
         elif quelle in _deprecated_sources:
             logger.warning(
                 "%s: Automatische Suche deaktiviert. Treffer ueber die Claude-Erweiterung im Browser suchen, stelle_manuell_anlegen().", quelle)
@@ -1327,8 +1386,13 @@ def run_search(db, job_id: str, params: dict):
                     "scraper_diagnose() zum Reaktivieren."
                 ),
             }
+        elif q in nicht_eingerichtet:
+            source_status[q] = {"status": "skipped", "count": 0, "time_s": 0,
+                                "detail": "nicht eingerichtet: Zugangsschlüssel fehlt"}
         elif q in _deprecated_sources:
-            source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "deprecated"}
+            _grund = (SOURCE_REGISTRY.get(q) or {}).get("deprecated_grund")
+            source_status[q] = {"status": "skipped", "count": 0, "time_s": 0,
+                                "detail": f"nur im Browser: {_grund}" if _grund else "deprecated"}
         elif q in _deactivated:
             # v1.7.148 (#1141): hier stand „deprecated“ fuer JEDE uebersprungene
             # Quelle - auch fuer eine, die nur pausiert ist. Wer das las, hielt
@@ -2030,6 +2094,20 @@ def run_search(db, job_id: str, params: dict):
     for j in unique:
         s = j.get("source") or "unbekannt"
         filtered_per_source[s] = filtered_per_source.get(s, 0) + 1
+
+    # #1435: "ok ohne Treffer" nur, wenn die Quelle auch geantwortet hat.
+    # Antwortete JEDER Abruf mit einem Fehlerstatus, ist das ein Fehler mit
+    # Klasse — sichtbar in der Diagnose, statt einer stillen Abschaltung.
+    for quelle, status_info in source_status.items():
+        if status_info.get("status") != "ok" or status_info.get("count", 0) > 0:
+            continue
+        _fehlschlag = _rohtreffer.http_fehlschlag(quelle)
+        if _fehlschlag:
+            _code, _anzahl = _fehlschlag
+            status_info.update(
+                status="error",
+                detail=f"HTTP {_code} bei {_anzahl} Abruf{'en' if _anzahl != 1 else ''}",
+                error_class=klasse_fuer_http_status(_code))
 
     # #432: Persist scraper health after each search
     for quelle, status_info in source_status.items():

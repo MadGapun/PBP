@@ -60,10 +60,13 @@ def _zahl(wert: float) -> str:
     return f"{wert:.1f}".replace(".", ",")
 
 
-def _tage(wert: float) -> str:
+def _kurz(wert: float) -> str:
     text = _zahl(wert)
-    text = text[:-2] if text.endswith(",0") else text
-    return f"{text} {'Tag' if wert == 1 else 'Tage'}"
+    return text[:-2] if text.endswith(",0") else text
+
+
+def _tage(wert: float) -> str:
+    return f"{_kurz(wert)} {'Tag' if wert == 1 else 'Tage'}"
 
 
 def _faelle(n: int) -> str:
@@ -99,7 +102,7 @@ def dauer(werte: Optional[dict], bezug: str = IM_ZEITRAUM) -> dict:
     median, kurz, lang = werte["median_tage"], werte["min_tage"], werte["max_tage"]
     return {
         "zustand": "wert", "wert": median, "anzahl": n, "spanne": [kurz, lang], "bezug": bezug,
-        "text": f"{_tage(median)} (Median aus {n} Fällen, {_zahl(kurz)} bis {_tage(lang)})",
+        "text": f"{_tage(median)} (Median aus {n} Fällen, {_kurz(kurz)} bis {_tage(lang)})",
     }
 
 

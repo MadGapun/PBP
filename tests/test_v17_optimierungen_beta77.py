@@ -63,11 +63,11 @@ def test_b12_monster_ist_keine_arbeitende_quelle():
 
 
 def test_b12_solcom_als_deprecated_markiert():
-    """#653: solcom ist deprecated (Cloudflare-Block dauerhaft)."""
+    """#653: solcom ist deprecated (Bot-Schutz dauerhaft, #1435 erneut gemessen)."""
     from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
     entry = SOURCE_REGISTRY["solcom"]
     assert entry.get("deprecated") is True
-    assert "cloudflare" in entry["deprecated_grund"].lower()
+    assert "bot-schutz" in entry["deprecated_grund"].lower()
 
 
 def test_b12_ingenieur_de_scraper_url_im_code_aktualisiert():

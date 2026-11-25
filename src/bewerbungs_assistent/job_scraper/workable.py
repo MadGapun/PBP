@@ -28,6 +28,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 
 from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
@@ -143,7 +144,7 @@ def search_workable(params: dict, client=None) -> list[dict]:
                 except httpx.HTTPError as exc:
                     logger.warning("Workable: Anfrage fuer '%s' fehlgeschlagen: %s", suche, exc)
                     break
-                if antwort.status_code != 200:
+                if not _http_ok("workable", antwort):
                     logger.warning("Workable: HTTP %s fuer '%s'", antwort.status_code, suche)
                     break
                 try:

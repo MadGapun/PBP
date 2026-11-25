@@ -24,6 +24,7 @@ import re
 import time
 
 import httpx
+from .rohtreffer import http_ok as _http_ok  # #1435
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level, fetch_description_from_detail
@@ -97,7 +98,7 @@ def _search_kimeta_eingestellt(params: dict) -> list:
                         working_url,
                         params={"q": query, "l": "Deutschland"},
                     )
-                    if resp.status_code != 200:
+                    if not _http_ok("kimeta", resp):
                         logger.debug("Kimeta HTTP %d for '%s'", resp.status_code, query)
                         continue
 

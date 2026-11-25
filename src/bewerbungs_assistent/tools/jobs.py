@@ -5810,6 +5810,17 @@ def register(mcp, db, logger):
                     "manueller_fallback": info.get("manueller_fallback"),
                 })
 
+        # #1435: Laeufe ueber den Browser stehen nur im Lauf-Protokoll, nicht in
+        # scraper_health (bewusst, #1187). Ohne dieses Feld sah die Diagnose
+        # bei stepstone/linkedin "letzter Lauf April", die Langzeitauswertung
+        # Laeufe dieser Woche - zwei Antworten auf dieselbe Frage.
+        try:
+            browserlaeufe = {r[0]: r[1] for r in db.connect().execute(
+                "SELECT scraper_name, MAX(run_at) FROM scraper_runs "
+                "WHERE detail LIKE 'Browserlauf:%' GROUP BY scraper_name").fetchall()}
+        except Exception:
+            browserlaeufe = {}
+
         scrapers = []
         stumme = []
         ohne_passung = []
@@ -5822,6 +5833,7 @@ def register(mcp, db, logger):
                 "name": h["scraper_name"],
                 "aktiv": bool(h["is_active"]),
                 "letzter_lauf": h.get("last_run"),
+                "letzter_browserlauf": browserlaeufe.get(h["scraper_name"]),
                 "letzter_erfolg": h.get("last_success"),
                 "fehler_serie": h["consecutive_failures"],
                 "stille_serie": consec_silent,
@@ -6264,14 +6276,23 @@ def register(mcp, db, logger):
                 if (_REG.get(src) or {}).get("deprecated"):
                     continue
                 row = conn.execute(
-                    "SELECT is_active, deaktiviert_grund FROM scraper_health "
-                    "WHERE scraper_name=?", (src,)).fetchone()
+                    "SELECT is_active, deaktiviert_grund, consecutive_failures, reactivate_at "
+                    "FROM scraper_health WHERE scraper_name=?", (src,)).fetchone()
                 if row and not row["is_active"]:
                     conn.execute(
                         "UPDATE scraper_health SET last_status_detail=? "
                         "WHERE scraper_name=?",
                         ("pruefen: API erreichbar, Parser/Abfrage liefert "
                          "nichts (#906)", src))
+                    # #1435: von der AUTOMATIK abgeschaltet und die Seite
+                    # liefert -> der naechste Suchlauf probt sie. Vorher stand
+                    # hier nur der Vermerk, und niemand las ihn.
+                    _auto = (str(row["deaktiviert_grund"] or "").startswith("auto")
+                             or (row["consecutive_failures"] or 0) >= 5)
+                    if _auto and not row["reactivate_at"]:
+                        conn.execute(
+                            "UPDATE scraper_health SET reactivate_at=? WHERE scraper_name=?",
+                            (_jetzt, src))
                     wieder_erreichbar.append({
                         "quelle": src,
                         "deaktiviert_grund": row["deaktiviert_grund"],
