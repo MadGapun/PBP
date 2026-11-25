@@ -9,28 +9,54 @@
 // zweite Fassung des Prompts hier waere das Muster aus #963 im Frontend —
 // und der Prompt setzt die Suchbegriffe je Portal ein, die nur der Server
 // kennt.
+//
+// #1436 (Nutzerwunsch 24.11.2026): die Karte war rund 20 Zeilen hoch, bevor
+// die erste Stelle kam. Sie ist jetzt einklappbar (Vorgabe: zu, Zustand im
+// Profil wie bei den Dashboard-Bereichen), Ersatzbegriffe aus den
+// Suchkriterien stehen als Zahl statt als Liste, und aufgeklappt fuehren
+// "Suchbegriffe pflegen" (Einstellungen) und "Suche pflegen mit Claude"
+// zum naechsten Schritt.
 
 import { useEffect, useState } from "react";
-import { ClipboardCopy, Globe } from "lucide-react";
+import { ChevronDown, ChevronRight, Globe, Pencil } from "lucide-react";
 
-import { optionalApi } from "@/api";
+import { optionalApi, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import MitClaude from "@/components/MitClaude";
 import { Badge, Button, Card } from "@/components/ui";
 
 export default function BrowserHandoffKarte({ anlass = 0 }) {
-  const { copyPrompt } = useApp();
+  const { copyPrompt, navigateTo, pushToast } = useApp();
   const [daten, setDaten] = useState(null);
+  const [offen, setOffen] = useState(false);
 
   // `anlass` zaehlt der Aufrufer hoch, wenn ein Suchlauf gestartet wurde —
   // dann gilt die neue Auswahl.
   useEffect(() => {
     let abgebrochen = false;
     optionalApi("/api/jobsuche/browser-quellen")
-      .then((antwort) => { if (!abgebrochen) setDaten(antwort || null); })
+      .then((antwort) => {
+        if (abgebrochen) return;
+        setDaten(antwort || null);
+        setOffen(Boolean(antwort?.offen));
+      })
       .catch(() => { if (!abgebrochen) setDaten(null); });
     return () => { abgebrochen = true; };
   }, [anlass]);
+
+  async function umschalten() {
+    const neu = !offen;
+    setOffen(neu);
+    try {
+      await putJson("/api/jobsuche/browser-quellen/offen", { offen: neu });
+    } catch {
+      pushToast?.("Ein- oder Ausklappen ließ sich nicht speichern; es gilt nur bis zum Neuladen.", "danger");
+    }
+  }
+
+  function pflegen(quelle) {
+    navigateTo("einstellungen", { tab: "quellen_details", quelle });
+  }
 
   const quellen = Array.isArray(daten?.quellen) ? daten.quellen : [];
   // #1302: eine interne Quelle, deren letzter Lauf ausfiel (freelancermap), steht mit in der Liste, bis sie wieder liefert.
@@ -41,14 +67,26 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
   // stehen weiter in der Quellenliste (Defekte Quellen) und, wenn die Karte aus anderem Grund da ist, hier als Zeile.
   if (!daten?.prompt || !uebersprungen.length) return null;
 
+  const anzahl = uebersprungen.length === 1 ? "1 Quelle" : `${uebersprungen.length} Quellen`;
+
   return (
-    <Card className="glass-card-soft mb-4 rounded-xl">
+    <Card className="glass-card-soft mb-4 rounded-xl" data-testid="browser-quellen-karte">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-medium text-ink">
+          <button
+            type="button"
+            onClick={umschalten}
+            aria-expanded={offen}
+            title={offen ? "Liste der Quellen einklappen" : "Liste der Quellen mit ihren Suchbegriffen zeigen"}
+            className="flex items-center gap-2 text-left text-sm font-medium text-ink hover:text-sky"
+          >
+            {offen
+              ? <ChevronDown size={14} className="shrink-0 text-muted" />
+              : <ChevronRight size={14} className="shrink-0 text-muted" />}
             <Globe size={15} />
             Diese Quellen laufen nur über den Browser
-          </p>
+            <span className="text-xs font-normal text-muted">{anzahl}</span>
+          </button>
           <p className="mt-1 text-xs text-muted">
             Die interne Jobsuche überspringt sie oder ist dort zuletzt ausgefallen. Claude kann sie mit der
             Chrome-Erweiterung abarbeiten — der Prompt enthält deine
@@ -59,27 +97,53 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
           <MitClaude>Browser-Quellen</MitClaude>
         </Button>
       </div>
-      {uebersprungen.length ? (
-        <ul className="mt-3 grid gap-1.5">
-          {uebersprungen.map((q) => (
-            <li key={q.key} className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
-              <span className="font-medium text-ink">{q.name}</span>
-              {q.art === "intern_ausgefallen" ? <Badge>interner Lauf ausgefallen</Badge> : null}
-              {q.suchbegriffe?.length ? (
-                <span className="text-muted">{q.suchbegriffe.join(", ")}</span>
-              ) : (
-                // AK 6: ohne Suchprofil ein Hinweis, keine erfundenen Begriffe.
-                <Badge>keine Suchbegriffe je Jobbörse</Badge>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {optional.length ? (
-        <p className="mt-3 text-xs text-muted">
-          Optional, als defekt geführt, im Browser erreichbar:{" "}
-          {optional.map((q) => q.name).join(", ")}
-        </p>
+      {offen ? (
+        <>
+          <ul className="mt-3 grid gap-1.5" data-testid="browser-quellen-liste">
+            {uebersprungen.map((q) => (
+              <li key={q.key} className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
+                <span className="font-medium text-ink">{q.name}</span>
+                {q.art === "intern_ausgefallen" ? <Badge>interner Lauf ausgefallen</Badge> : null}
+                {q.suchbegriffe?.length && q.suchbegriffe_herkunft === "suchkriterien" ? (
+                  // #1436: die Ersatzbegriffe aus den Suchkriterien (oft Dutzende) als Zahl, nicht als Wand.
+                  <span className="text-muted">
+                    {q.suchbegriffe.length} Begriffe aus deinen Suchkriterien, kein eigenes Suchprofil
+                  </span>
+                ) : q.suchbegriffe?.length ? (
+                  <span className="text-muted">{q.suchbegriffe.join(", ")}</span>
+                ) : (
+                  // AK 6: ohne Suchprofil ein Hinweis, keine erfundenen Begriffe.
+                  <Badge>keine Suchbegriffe je Jobbörse</Badge>
+                )}
+                <button
+                  type="button"
+                  onClick={() => pflegen(q.key)}
+                  className="text-xs text-sky underline-offset-2 hover:underline"
+                  title={`Suchbegriffe für ${q.name} in den Einstellungen bearbeiten`}
+                >
+                  Begriffe pflegen
+                </button>
+              </li>
+            ))}
+          </ul>
+          {optional.length ? (
+            <p className="mt-3 text-xs text-muted">
+              Optional, als defekt geführt, im Browser erreichbar:{" "}
+              {optional.map((q) => q.name).join(", ")}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
+            <Button variant="ghost" size="sm" onClick={() => pflegen("")}>
+              <Pencil size={14} />
+              Suchbegriffe pflegen
+            </Button>
+            {daten.pflege_prompt ? (
+              <Button variant="ghost" size="sm" onClick={() => copyPrompt(daten.pflege_prompt)}>
+                <MitClaude>Suche pflegen</MitClaude>
+              </Button>
+            ) : null}
+          </div>
+        </>
       ) : null}
     </Card>
   );
