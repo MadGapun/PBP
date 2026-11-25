@@ -21,7 +21,8 @@ function Balken({ name, wert, hoechste, text, dunkel }) {
   const breite = hoechste ? (wert / hoechste) * 100 : 0;
   const innen = hoechste && dunkel != null ? (dunkel / hoechste) * 100 : null;
   return (
-    <div className="grid grid-cols-[minmax(7rem,11rem)_1fr_auto] items-center gap-3 py-1 text-sm">
+    // #1345: der Balken behaelt mindestens 4rem, sonst blieb ihm bei 390 px kaum Platz.
+    <div className="grid grid-cols-[minmax(5rem,11rem)_minmax(4rem,1fr)_auto] items-center gap-3 py-1 text-sm">
       <span className="text-ink">{name}</span>
       <span className="relative h-2.5 rounded-sm bg-white/[0.05]" aria-hidden="true">
         <span
