@@ -76,6 +76,10 @@ def umgebung(tmp_path_factory):
     for i in range(7):
         db.add_skill({"name": f"Fertigkeit {i}", "category": "technical", "level": 3})
     db.add_skill({"name": f"{WORT}-Zucht", "category": "technical", "level": 4})
+    # #1445: ein Kontakt, dazu ein unbestaetigter Vorschlag der KI und einer aus einem anderen Profil - beide nicht im Treffer
+    kontakt = db.add_contact({"full_name": f"Erika {WORT}", "company": "Beispiel AG", "position": "Personalreferentin"})
+    db.add_contact({"full_name": f"Vorschlag {WORT}", "company": "Beispiel AG", "is_pending": 1})
+    db.add_contact({"full_name": f"Fremd {WORT}", "company": "Beispiel AG", "profile_id": "anderes-profil"})
     dash._db = db
     port = _free_port()
     srv = uvicorn.Server(uvicorn.Config(dash.app, host="127.0.0.1", port=port, log_level="warning"))
@@ -89,7 +93,7 @@ def umgebung(tmp_path_factory):
         except Exception:
             time.sleep(0.1)
     yield {"url": f"http://127.0.0.1:{port}", "db": db, "app": app, "mit_app": mit_app, "ohne_app": ohne_app,
-           "mail_mit": mail_mit, "mail_ohne": mail_ohne, "dokument": dokument}
+           "mail_mit": mail_mit, "mail_ohne": mail_ohne, "dokument": dokument, "kontakt": kontakt}
     srv.should_exit = True
     t.join(timeout=10)
     dash._db = None
@@ -110,7 +114,7 @@ def _treffer(umgebung) -> dict:
 
 def test_jede_trefferart_ist_da(umgebung):
     t = _treffer(umgebung)
-    assert set(t) == {"application", "job", "skill", "document", "email", "meeting"}, sorted(t)
+    assert set(t) == {"application", "contact", "job", "skill", "document", "email", "meeting"}, sorted(t)
     assert len(t["email"]) == 2 and len(t["meeting"]) == 2 and len(t["job"]) == 2
 
 
@@ -121,7 +125,8 @@ def test_die_adressen_haben_die_form_die_das_dashboard_liest(umgebung):
     for art, eintraege in _treffer(umgebung).items():
         for e in eintraege:
             if not e["url"]:
-                assert art == "email", e   # eine Mail hat ihr Fenster, aber keine Adresse im Hash: sie oeffnet sich ueber Art und Kennung
+                # eine Mail und ein Kontakt haben ihr Fenster, aber keine Adresse im Hash: sie oeffnen sich ueber Art und Kennung
+                assert art in ("email", "contact"), e
                 continue
             m = muster.match(e["url"])
             assert m, f"{art}: {e['url']!r} ist nicht von der Form #seite/kennung"
@@ -146,6 +151,22 @@ def test_die_adressen_zeigen_auf_das_richtige_objekt(umgebung):
     assert ohne["subtitle"].startswith("ohne Bewerbung"), "kein Fragezeichen: die Liste sagt, dass der Termin ohne Bewerbung ist"
     assert {m["id"] for m in t["email"]} == {u["mail_mit"], u["mail_ohne"]}, "beide Mails, mit und ohne Bewerbung"
     assert all(m["url"] == "" for m in t["email"])
+
+
+def test_kontakte_nur_bestaetigte_aus_dem_eigenen_profil(umgebung):
+    """#1445: die Suche findet die Person - nicht den unbestaetigten Vorschlag (#1110) und nicht das andere Profil."""
+    t = _treffer(umgebung)
+    assert [k["id"] for k in t["contact"]] == [umgebung["kontakt"]], t["contact"]
+    assert t["contact"][0]["subtitle"] == "Personalreferentin · Beispiel AG"
+    import json
+    for wort in ("personalreferentin", "beispiel ag"):     # auch Position und Firma finden ihn
+        daten = json.loads(urllib.request.urlopen(
+            f"{umgebung['url']}/api/search?q={wort.replace(' ', '%20')}&limit=20", timeout=10).read())
+        kontakte = next((g["items"] for g in daten["groups"] if g["kind"] == "contact"), [])
+        assert umgebung["kontakt"] in [k["id"] for k in kontakte], (wort, daten)
+    reihenfolge = [g["kind"] for g in json.loads(urllib.request.urlopen(
+        f"{umgebung['url']}/api/search?q={WORT.lower()}&limit=20", timeout=10).read())["groups"]]
+    assert reihenfolge[:2] == ["application", "contact"], "wer einen Namen sucht, meint meist die Person"
 
 
 def test_hash_ziel_ist_die_eine_form_fuer_links_und_treffer():
@@ -387,6 +408,20 @@ def test_skill_fuehrt_zu_den_skills_im_profil(browser, umgebung):
         page.wait_for_function(
             """() => { const r = document.getElementById('profil-skills').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2; }""",
             timeout=15000)
+    finally:
+        page.close()
+
+
+def test_kontakt_oeffnet_die_person(browser, umgebung):
+    """#1445: der Treffer unter "Kontakte" oeffnet genau diesen Kontakt, nicht nur die Liste."""
+    page = _seite(browser, umgebung["url"], "dashboard")
+    try:
+        _klick_auf_treffer(page, f"Erika {WORT}")
+        assert _dialog_titel(page, "Kontakt bearbeiten") == "Kontakt bearbeiten"
+        page.wait_for_function(
+            """n => { const d = [...document.querySelectorAll('[role=dialog]')].pop();
+               return !!d && [...d.querySelectorAll('input')].some(i => i.value === n); }""",
+            arg=f"Erika {WORT}", timeout=15000)
     finally:
         page.close()
 
