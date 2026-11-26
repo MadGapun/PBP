@@ -42,6 +42,80 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.13] - 2026-11-26 — Sicherung einspielen ohne falsche Fehlermeldung
+
+<!-- anwender -->
+Nach dem Einspielen einer Sicherung meldet PBP nicht mehr „Die letzte Sicherung ist fehlgeschlagen“, wenn alles geklappt hat.
+Bei einer frischen Sicherung bleibt auch die Anzeige „Sicherung läuft“ nicht mehr stehen.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
+- Hast du schon vorher eine Sicherung eingespielt und siehst die falsche Meldung noch: Sie verschwindet mit der nächsten Sicherung („Jetzt sichern“ oder die tägliche).
+
+### Fixed
+
+- **Sicherung einspielen (#1447):** Jede Sicherung enthielt ihren eigenen Lauf als „läuft“, oft auch eine gleichzeitige Aufräum-Runde. Kam der Lauf beim Einspielen mit zurück, machte die Bereinigung beim Start daraus einen Fehlschlag (Sicherung älter als eine Stunde), oder die Karte zeigte dauerhaft „Sicherung läuft“ (frische Sicherung). Jetzt werden diese Läufe beim Einspielen als abgeschlossen gekennzeichnet. Ein wirklich gescheiterter Versuch wird weiter gemeldet, und die Bereinigung für echte Hänger arbeitet unverändert.
+
+### Technik
+
+- `sicherung.mitgebrachte_laeufe_abschliessen(datei)` läuft in `vorgemerkt_einspielen` auf der Nebendatei, bevor sie zur Datenbank wird, also vor `_cleanup_stale_jobs`. `running`/`pending`/`laeuft` werden zu `fertig`: Der Sicherungslauf bekommt „Sicherung angelegt“, alle anderen „Lief noch, als die eingespielte Sicherung entstand.“ `fehler` bleibt unberührt. Eine Datei ohne Tabelle oder ohne Datenbank wird trotzdem eingespielt.
+- Test `test_v1813_einspielen_ohne_geisterlauf_1447.py`: Sicherung älter als eine Stunde und frisch. Gegenprobe in beide Richtungen: Ein neuer Fehlschlag wird gemeldet, ein echter Hänger wird bereinigt. Ohne den Aufruf werden beide Einspiel-Fälle rot.
+- `test_v183_freelancermap_1302.py`: Das Musterprojekt ist von gestern statt vom 04.11.2026. Seit dem 26.11. lag es außerhalb der 21 Tage des ersten Suchlaufs, und der Test war ohne Codeänderung rot.
+
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10740 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.13.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.13.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.13 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.13` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.12] - 2026-11-24 — Jobquellen geprüft und repariert, Statistik-Diagramme mit Bezug
 
 <!-- anwender -->
