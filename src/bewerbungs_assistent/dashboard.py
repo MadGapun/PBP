@@ -9940,6 +9940,31 @@ def api_global_search(q: str = "", limit: int = 8):
         groups.append({"label": "Bewerbungen", "kind": "application", "items": items})
         total += len(items)
 
+    # 1b. Kontakte (#1445): wer einen Namen sucht, meint meist die Person - deshalb direkt nach den Bewerbungen.
+    try:
+        kontakte = conn.execute(
+            "SELECT id, full_name, company, position, email FROM contacts "
+            "WHERE (LOWER(full_name) LIKE ? OR LOWER(company) LIKE ? OR LOWER(position) LIKE ? "
+            "OR LOWER(email) LIKE ? OR LOWER(notes) LIKE ?) "
+            # unbestaetigte Vorschlaege der KI (is_pending) stehen auf der Kontakte-Seite in einem eigenen Block, nicht in der
+            # Liste (#1110) - ein Sprung per Kennung faende sie dort nicht.
+            "AND profile_id=? AND COALESCE(is_pending, 0)=0 ORDER BY LOWER(full_name) LIMIT ?",
+            (pattern, pattern, pattern, pattern, pattern, pid, limit)
+        ).fetchall()
+        if kontakte:
+            items = [{
+                "kind": "contact",
+                "id": k["id"],
+                "title": k["full_name"] or "(ohne Namen)",
+                "subtitle": " · ".join(t for t in (k["position"], k["company"]) if t) or (k["email"] or ""),
+                "url": "",  # oeffnet sich ueber `kind` + `id` (lib/wege.js `zuKontakt`), wie eine Mail
+            } for k in kontakte]
+            groups.append({"label": "Kontakte", "kind": "contact", "items": items})
+            total += len(items)
+    except Exception as exc:
+        logger.warning("Suche: Kontakte nicht lesbar: %s", exc)
+        luecken.append("Kontakte")
+
     # 2. Stellen
     jobs = conn.execute(
         "SELECT hash, title, company, source, score, is_active FROM jobs "

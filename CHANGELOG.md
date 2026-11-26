@@ -50,6 +50,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 - **Die Lücken-Analyse meldet keine Fähigkeiten mehr als fehlend, die in deinem Profil stehen** (Stationen, Aufgaben, Projekte, Abkürzungen wie AV) (#1390).
 - **Die Lebenslauf-Bewertung widerspricht sich nicht mehr:** messbare Ergebnisse aus Stationen und Projekten, Führung auch aus den Aufgaben, keine Füllwörter und Firmennamen unter den fehlenden Begriffen (#1385).
 - **Der Verlauf einer Bewerbung steht in der richtigen Reihenfolge,** „Letzte Notiz“ zeigt die neueste (#1386).
+- **Die Suche oben findet auch Kontakte:** nach Name, Firma, Position, Mailadresse oder Notiz, direkt unter den Bewerbungen. Ein Klick öffnet die Person (#1445).
 
 ### Technik
 - `services/unterlagen.py` (eine Funktion für das Registrieren, Altbestand im Safety-Net), `services/profil_begriffe.py` (Profil-Vokabular und Abkürzungen für `skill_gap_analyse` und `lebenslauf_bewerten`), `services/uhr.py` (`jetzt()`, `zeitpunkt()`, `nach_zeit()`), `bewerbung_stand.erledigtes_streichen`, Dekorator `_stempelt_profil` mit Spalte `profile.stand_nr` (additiv, kein Schema-Bump).
