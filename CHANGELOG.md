@@ -42,9 +42,12 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.13] - 2026-11-26 — Sicherung einspielen ohne falsche Fehlermeldung
+## [1.8.13] - 2026-11-26 — Suche findet Kontakte, Suchbegriffe je Quelle selbst pflegen, Sicherung ohne falsche Fehlermeldung
 
 <!-- anwender -->
+Die Suche oben im Dashboard findet jetzt auch Kontakte; ein Klick öffnet die Person.
+Die Suchbegriffe je Jobquelle lassen sich in den Einstellungen selbst pflegen, die Karte der Browser-Quellen auf der Stellenseite ist einklappbar.
+Die Statistik bleibt auf dem Handy im Bild.
 Nach dem Einspielen einer Sicherung meldet PBP nicht mehr „Die letzte Sicherung ist fehlgeschlagen“, wenn alles geklappt hat.
 Bei einer frischen Sicherung bleibt auch die Anzeige „Sicherung läuft“ nicht mehr stehen.
 <!-- /anwender -->
@@ -56,17 +59,30 @@ Bei einer frischen Sicherung bleibt auch die Anzeige „Sicherung läuft“ nich
 - Nichts. Das Update (Auto-Update oder Drüberinstallieren) bringt alles mit; deine Daten bleiben erhalten.
 - Hast du schon vorher eine Sicherung eingespielt und siehst die falsche Meldung noch: Sie verschwindet mit der nächsten Sicherung („Jetzt sichern“ oder die tägliche).
 
+### Added
+
+- **Die Suche oben findet auch Kontakte (#1445):** nach Name, Firma, Position, Mailadresse oder Notiz, direkt unter den Bewerbungen. Ein Klick öffnet die Person. Unbestätigte Vorschläge der KI und Kontakte anderer Profile erscheinen nicht.
+- **Suchbegriffe je Quelle ohne Claude pflegen (#1436):** Einstellungen › Quellen im Detail › „Suchbegriffe je Quelle“: „Zuerst suchen“, „Danach suchen“ und „Nicht verwenden“ je Quelle. Gezeigt werden nur Quellen, die eigene Begriffe auch nutzen, mit dem Hinweis, wer sie nutzt.
+
+### Changed
+
+- **Die Karte „Diese Quellen laufen nur über den Browser“ ist einklappbar (#1436):** Vorgabe eingeklappt, der Zustand bleibt nach einem Neustart erhalten. Aufgeklappt steht bei jeder Quelle „Begriffe pflegen“, darunter „Suchbegriffe pflegen“ und „Suche pflegen mit Claude“. Quellen ohne eigene Begriffe zeigen „N Begriffe aus deinen Suchkriterien“ statt einer langen Liste. SOLCOM und Kimeta stehen als Browser-Quellen in der Karte, und eine von Hand abgeschaltete Quelle zählt nicht mehr als „interner Lauf ausgefallen“.
+
 ### Fixed
 
+- **Statistik auf schmalen Bildschirmen (#1345):** Die Karten „Wie weit kamen …“ und „Bewerbungen im Zeitverlauf“ liefen bei 390 Pixel Breite rechts aus dem Bild. Jetzt bleiben sie in ihrer Spalte, der Zeitverlauf lässt sich in seiner Karte seitlich schieben, und die Balken behalten genug Platz.
 - **Sicherung einspielen (#1447):** Jede Sicherung enthielt ihren eigenen Lauf als „läuft“, oft auch eine gleichzeitige Aufräum-Runde. Kam der Lauf beim Einspielen mit zurück, machte die Bereinigung beim Start daraus einen Fehlschlag (Sicherung älter als eine Stunde), oder die Karte zeigte dauerhaft „Sicherung läuft“ (frische Sicherung). Jetzt werden diese Läufe beim Einspielen als abgeschlossen gekennzeichnet. Ein wirklich gescheiterter Versuch wird weiter gemeldet, und die Bereinigung für echte Hänger arbeitet unverändert.
 
 ### Technik
 
+- #1445: Gruppe `contact` in `/api/search` (nach den Bewerbungen, `is_pending` ausgenommen, Lücke als `nicht_lesbar`); `zuSuchtreffer` öffnet sie über `zuKontakt`.
+- #1436: `browser_handoff.pflegbare_quellen`, `profil_speichern` (bestehende Einträge behalten Filter und Notiz), `pflege_prompt`, `LESER_IM_LAUF`; Endpunkte `GET/PUT /api/suchprofile[/{portal}]` und `PUT /api/jobsuche/browser-quellen/offen` (Einstellung `browser_karte_offen` im Profil). Test `test_browser_karte_1436.py`.
+- #1345: `min-width: 0` für die Gitterzellen der Statistik; der Test prüft jede Karte auf 390 px, nicht nur die Seitenbreite.
 - `sicherung.mitgebrachte_laeufe_abschliessen(datei)` läuft in `vorgemerkt_einspielen` auf der Nebendatei, bevor sie zur Datenbank wird, also vor `_cleanup_stale_jobs`. `running`/`pending`/`laeuft` werden zu `fertig`: Der Sicherungslauf bekommt „Sicherung angelegt“, alle anderen „Lief noch, als die eingespielte Sicherung entstand.“ `fehler` bleibt unberührt. Eine Datei ohne Tabelle oder ohne Datenbank wird trotzdem eingespielt.
 - Test `test_v1813_einspielen_ohne_geisterlauf_1447.py`: Sicherung älter als eine Stunde und frisch. Gegenprobe in beide Richtungen: Ein neuer Fehlschlag wird gemeldet, ein echter Hänger wird bereinigt. Ohne den Aufruf werden beide Einspiel-Fälle rot.
 - `test_v183_freelancermap_1302.py`: Das Musterprojekt ist von gestern statt vom 04.11.2026. Seit dem 26.11. lag es außerhalb der 21 Tage des ersten Suchlaufs, und der Test war ohne Codeänderung rot.
 
-*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10740 Tests.*
+*Schema v52 (unverändert), 284 MCP-Werkzeuge, 10755 Tests.*
 
 ---
 
