@@ -153,5 +153,12 @@ def test_handy_breite_ohne_waagerechtes_scrollen(server, browser):
         expect(page.get_by_role("heading", name="Woher die Stellen kommen")).to_be_visible(timeout=20000)
         ueber = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         assert ueber <= 0, f"{ueber}px waagerecht zu breit"
+        # Die Seite selbst wurde nie breiter (ein Elternteil schneidet ab); die Karten liefen trotzdem
+        # rechts aus dem Bild. Deshalb jede Karte einzeln: ihr rechter Rand liegt im Bildschirm.
+        expect(page.locator("[data-statistik-kern]")).to_contain_text("Meine Suche", timeout=20000)
+        raus = page.evaluate("""() => [...document.querySelectorAll('#page-statistiken section')]
+            .map(s => [s.getAttribute('aria-label') || s.innerText.split('\\n')[0], Math.round(s.getBoundingClientRect().right)])
+            .filter(([, r]) => r > window.innerWidth)""")
+        assert not raus, f"Karten ragen rechts heraus: {raus}"
     finally:
         ctx.close()

@@ -93,6 +93,7 @@ assert.deepEqual(zuSuchtreffer({ kind: "meeting", id: "m1", application_id: "" }
 // eine Mail öffnet IHR Fenster auf der Dokumente-Seite — gleich, ob sie zu einer Bewerbung gehört
 assert.deepEqual(zuSuchtreffer({ kind: "email", id: "e1", application_id: "ab12" }), { seite: "dokumente", intent: { mailId: "e1" } });
 assert.deepEqual(zuSuchtreffer({ kind: "email", id: "e1" }), zuMail("e1"));
+assert.deepEqual(zuSuchtreffer({ kind: "contact", id: "c9" }), zuKontakt("c9"), "#1445: der Kontakt wird geöffnet");
 assert.match(zuSuchtreffer({ kind: "gibts_nicht", id: "x" }).meldung, /keine Ansicht/);
 assert.match(zuSuchtreffer(null).meldung, /keine Ansicht/);
 // ohne Kennung kein Sprung — und nie ein stilles Nichts

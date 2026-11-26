@@ -634,6 +634,13 @@ def vorgemerkt_einspielen(db_path: Path) -> dict | None:
         return _einspielen_melden(basis, "gescheitert", name, False,
                                   f"Die Sicherung ließ sich nicht kopieren ({exc}). "
                                   "Deine Daten sind unverändert.")
+    # #1447: Laeufe, die beim Entstehen der Sicherung noch liefen (die Sicherung
+    # selbst, eine Aufraeum-Runde), kamen als "running" mit zurueck. Die
+    # Startup-Bereinigung machte daraus "fehlgeschlagen" (aelter als eine Stunde)
+    # oder sie hingen als "Sicherung laeuft". Sie gehoeren zu einem frueheren
+    # Prozess und werden in der Nebendatei abgeschlossen, BEVOR sie zur
+    # Datenbank wird - also auch vor `_cleanup_stale_jobs`.
+    mitgebrachte_laeufe_abschliessen(zwischen)
     # Die WAL-Dateien des alten Stands muessen weg, sonst mischt SQLite
     # beide Staende (A27/#768).
     try:
@@ -671,6 +678,51 @@ def vorgemerkt_einspielen(db_path: Path) -> dict | None:
 
 
 EINSPIELEN_ERGEBNIS = "einspielen_ergebnis.json"
+
+#: #1447: Zustaende eines Laufs, der noch nicht zu Ende ist (wie `_cleanup_stale_jobs`).
+OFFENE_LAUF_ZUSTAENDE = ("running", "pending", "laeuft")
+#: Der Satz an einem mitgebrachten Lauf - kein Fehler: er lief nur noch, als die Sicherung entstand.
+MITGEBRACHT_TEXT = "Lief noch, als die eingespielte Sicherung entstand."
+
+
+def mitgebrachte_laeufe_abschliessen(datei: Path) -> int:
+    """Schliesst in einer Sicherungsdatei alle noch offenen Hintergrundlaeufe ab (#1447).
+
+    Die Sicherung, die sich selbst als "running" mitbringt, IST angelegt worden
+    (sonst gaebe es die Datei nicht): sie bekommt "Sicherung angelegt". Alle
+    anderen bekommen `MITGEBRACHT_TEXT`. Status ist "fertig", nie "fehler" -
+    ein wirklich gescheiterter Versuch steht bereits als "fehler" in der Datei
+    und bleibt unberuehrt. Scheitert das (alte Sicherung ohne Tabelle, keine
+    Datenbank), wird nur protokolliert: das Einspielen geht weiter."""
+    datei = Path(datei)
+    zahl = 0
+    conn = None
+    try:
+        conn = sqlite3.connect(str(datei))
+        platz = ",".join("?" * len(OFFENE_LAUF_ZUSTAENDE))
+        zahl = conn.execute(
+            f"UPDATE background_jobs SET status='fertig', progress=100, "
+            f"message=CASE WHEN job_type='sicherung' THEN 'Sicherung angelegt' ELSE ? END "
+            f"WHERE status IN ({platz})",
+            (MITGEBRACHT_TEXT, *OFFENE_LAUF_ZUSTAENDE)).rowcount
+        conn.commit()
+    except sqlite3.Error as exc:
+        logger.warning("Mitgebrachte Hintergrundlaeufe nicht abgeschlossen: %s", exc)
+    finally:
+        if conn is not None:
+            conn.close()
+        # Die Nebendatei wird gleich per os.replace zur Datenbank; eigene
+        # WAL-Reste duerfen nicht neben ihr liegen bleiben.
+        for rest in (datei.with_name(datei.name + "-wal"), datei.with_name(datei.name + "-shm")):
+            try:
+                rest.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:  # pragma: no cover
+                logger.warning("Rest %s nicht entfernt: %s", rest.name, exc)
+    if zahl:
+        logger.info("Einspielen: %d mitgebrachte Hintergrundlaeufe abgeschlossen (#1447).", zahl)
+    return zahl
 
 
 def _loeschen_still(pfad: Path) -> None:
