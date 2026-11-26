@@ -249,9 +249,15 @@ def test_der_suchlauf_gibt_freelancermap_120_s_und_nennt_den_grund(db, monkeypat
 def test_ein_teilweiser_lauf_speichert_freelance_und_nennt_es(db, monkeypatch):
     import bewerbungs_assistent.job_scraper as js
 
+    # Das Projekt ist von gestern: der erste Suchlauf verwirft Treffer, die aelter als 21 Tage sind. Mit dem festen Datum
+    # (04.11.2026) wurde der Test am 26.11.2026 rot, ohne dass sich am Code etwas geaendert hatte (Lehre aus #1237).
+    from datetime import datetime, timedelta
+    projekt = _projekt(1, "Stammdaten Management Projekt", remote=100)
+    projekt["created"] = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%dT10:00:00+01:00")
+
     def _scraper(params):
         params["_fortschritt"].update({"begriffe": 9, "fertig": 4, "grund": "zeitbudget", "abgebrochen": True})
-        return [fm.job_aus_projekt(_projekt(1, "Stammdaten Management Projekt", remote=100))]
+        return [fm.job_aus_projekt(projekt)]
 
     monkeypatch.setattr(fm, "search_freelancermap", _scraper)
     job_id = db.create_background_job("jobsuche", {})
