@@ -7384,8 +7384,57 @@ def api_jobsuche_browser_quellen():
     """
     from .services import browser_handoff
     from .services.search_service import aktive_quellen
-    eintraege = browser_handoff.browser_quellen(_db, auswahl=aktive_quellen(_db) or [])
-    return {"quellen": eintraege, "prompt": browser_handoff.prompt(eintraege)}
+    auswahl = aktive_quellen(_db) or []
+    eintraege = browser_handoff.browser_quellen(_db, auswahl=auswahl)
+    # #1436: Einklapp-Zustand der Karte und der Auftrag "Suche pflegen mit Claude".
+    return {"quellen": eintraege, "prompt": browser_handoff.prompt(eintraege),
+            "offen": browser_handoff.karte_offen(_db),
+            "pflege_prompt": browser_handoff.pflege_prompt(browser_handoff.pflegbare_quellen(_db, auswahl=auswahl))}
+
+
+@app.put("/api/jobsuche/browser-quellen/offen")
+async def api_jobsuche_browser_quellen_offen(request: Request):
+    """Karte "Diese Quellen laufen nur ueber den Browser" ein- oder ausklappen (#1436, Zustand im Profil)."""
+    from .services import browser_handoff
+    body = await request.json()
+    offen = body.get("offen")
+    if not isinstance(offen, bool):
+        return JSONResponse({"error": "offen muss true oder false sein"}, status_code=400)
+    _db.set_profile_setting(browser_handoff.KARTE_OFFEN, offen)
+    return {"status": "ok", "offen": browser_handoff.karte_offen(_db)}
+
+
+@app.get("/api/suchprofile")
+def api_suchprofile():
+    """Suchbegriffe je Quelle zum Pflegen in den Einstellungen (#1436).
+
+    Nur Quellen, deren Begriffe PBP auch liest (Auftrag an Claude, interner Lauf) oder die schon ein Profil haben.
+    """
+    from .services import browser_handoff
+    from .services.search_service import aktive_quellen
+    quellen = browser_handoff.pflegbare_quellen(_db, auswahl=aktive_quellen(_db) or [])
+    return {"quellen": quellen, "pflege_prompt": browser_handoff.pflege_prompt(quellen)}
+
+
+@app.put("/api/suchprofile/{portal}")
+async def api_suchprofil_speichern(portal: str, request: Request):
+    """Suchbegriffe einer Quelle speichern (#1436) - derselbe Weg wie das Werkzeug suchprofil_aktualisieren."""
+    from .services import browser_handoff
+    from .services.search_service import aktive_quellen
+    key = (portal or "").strip().lower()
+    erlaubt = {q["key"] for q in browser_handoff.pflegbare_quellen(_db, auswahl=aktive_quellen(_db) or [])}
+    if key not in erlaubt:
+        return JSONResponse({"error": "Für diese Quelle liest PBP keine eigenen Suchbegriffe."}, status_code=400)
+    body = await request.json()
+    felder = {}
+    for feld in ("primaere_suchen", "sekundaere_suchen", "nicht_verwenden"):
+        wert = body.get(feld, [])
+        if not isinstance(wert, list) or not all(isinstance(w, str) for w in wert):
+            return JSONResponse({"error": f"{feld} muss eine Liste von Texten sein"}, status_code=400)
+        felder[feld] = wert
+    browser_handoff.profil_speichern(_db, key, **felder)
+    quellen = browser_handoff.pflegbare_quellen(_db, auswahl=aktive_quellen(_db) or [])
+    return {"status": "ok", "quelle": next((q for q in quellen if q["key"] == key), None)}
 
 
 @app.get("/api/jobsuche/last")
@@ -9939,6 +9988,31 @@ def api_global_search(q: str = "", limit: int = 8):
         } for a in apps]
         groups.append({"label": "Bewerbungen", "kind": "application", "items": items})
         total += len(items)
+
+    # 1b. Kontakte (#1445): wer einen Namen sucht, meint meist die Person - deshalb direkt nach den Bewerbungen.
+    try:
+        kontakte = conn.execute(
+            "SELECT id, full_name, company, position, email FROM contacts "
+            "WHERE (LOWER(full_name) LIKE ? OR LOWER(company) LIKE ? OR LOWER(position) LIKE ? "
+            "OR LOWER(email) LIKE ? OR LOWER(notes) LIKE ?) "
+            # unbestaetigte Vorschlaege der KI (is_pending) stehen auf der Kontakte-Seite in einem eigenen Block, nicht in der
+            # Liste (#1110) - ein Sprung per Kennung faende sie dort nicht.
+            "AND profile_id=? AND COALESCE(is_pending, 0)=0 ORDER BY LOWER(full_name) LIMIT ?",
+            (pattern, pattern, pattern, pattern, pattern, pid, limit)
+        ).fetchall()
+        if kontakte:
+            items = [{
+                "kind": "contact",
+                "id": k["id"],
+                "title": k["full_name"] or "(ohne Namen)",
+                "subtitle": " · ".join(t for t in (k["position"], k["company"]) if t) or (k["email"] or ""),
+                "url": "",  # oeffnet sich ueber `kind` + `id` (lib/wege.js `zuKontakt`), wie eine Mail
+            } for k in kontakte]
+            groups.append({"label": "Kontakte", "kind": "contact", "items": items})
+            total += len(items)
+    except Exception as exc:
+        logger.warning("Suche: Kontakte nicht lesbar: %s", exc)
+        luecken.append("Kontakte")
 
     # 2. Stellen
     jobs = conn.execute(

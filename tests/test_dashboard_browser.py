@@ -1522,6 +1522,8 @@ def test_jobs_page_zeigt_die_browser_quellen_mit_prompt(live_dashboard, browser)
         karte = page.get_by_text("Diese Quellen laufen nur über den Browser")
         karte.wait_for(state="visible")
         page.get_by_role("button", name="Browser-Quellen mit Claude").wait_for(state="visible")
+        # #1436: die Liste steht hinter dem Schalter der Karte (Vorgabe zu) - aufklappen, wie ein Mensch es taete.
+        page.get_by_role("button", name=re.compile("Diese Quellen laufen nur über den Browser")).click()
         page.get_by_text("LinkedIn", exact=True).first.wait_for(state="visible")
         page.get_by_text("keine Suchbegriffe je Jobbörse").first.wait_for(state="visible")
     finally:
