@@ -108,6 +108,7 @@ export function zuSuchtreffer(treffer) {
     // ein Termin mit Bewerbung öffnet deren Timeline — am Abschnitt „Termine“, nicht oben
     if (ziel?.seite === "bewerbungen") ziel = { ...ziel, intent: { ...ziel.intent, abschnitt: "termine" } };
   } else if (art === "email") ziel = zuMail(treffer.id);
+  else if (art === "contact") ziel = zuKontakt(treffer.id); // #1445
   else if (art === "skill") ziel = zuProfil("skills", treffer.title);
   return ziel || { meldung: "Zu diesem Treffer gibt es keine Ansicht, die sich öffnen ließe." };
 }
